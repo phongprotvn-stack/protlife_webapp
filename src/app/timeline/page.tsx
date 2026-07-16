@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Plus, Sparkles } from 'lucide-react';
 
 // ── Data ──
@@ -26,149 +25,150 @@ const presentMemory = {
   desc:'Tận hưởng khoảnh khắc này — mọi ký ức đều bắt đầu từ đây.',
 };
 
-interface MemoryItem {
-  icon: string;
-  title: string;
-  when: string;
-  desc: string;
-  isPresent?: boolean;
-}
+interface MemoryItem { icon: string; title: string; when: string; desc: string; isPresent?: boolean; }
 
 export default function TimelinePage() {
-  // Build full list: past (oldest→nearest), present, future (nearest→farthest)
   const list = useMemo<MemoryItem[]>(() => [
-    ...pastMemories,
-    { ...presentMemory, isPresent: true },
-    ...futureMemories,
+    ...pastMemories, { ...presentMemory, isPresent: true }, ...futureMemories,
   ], []);
   const presentIndex = useMemo(() => list.findIndex(i => i.isPresent), [list]);
+  const ITEM_COUNT = list.length;
+  const RADIUS = 128;
+  const SNAP_THRESHOLD = 12;
 
-  const RADIUS = 128;      // layout radius in px
-  const SNAP_THRESHOLD = 10;
+  // Use a ref for rotation (avoids stale-closure issues during drag)
+  const rotationRef = useRef(0);
+  const [renderTick, setRenderTick] = useState(0);
+  const rerender = useCallback(() => setRenderTick(t => t + 1), []);
 
-  const [rotation, setRotation] = useState(0);
   const wheelRef = useRef<HTMLDivElement>(null);
-  const centerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state refs (not state to avoid rerenders during drag)
-  const dragState = useRef({
-    active: false,
-    lastAngle: 0,
-    lastRot: 0,
-  });
+  // Drag state (refs, not state)
+  const dragActive = useRef(false);
+  const dragLastAngle = useRef(0);
 
-  // Compute base angle for each item (angle in wheel when rotation=0)
-  const baseAngle = useCallback((i: number) => {
-    return (i - presentIndex) * (360 / list.length);
-  }, [list.length, presentIndex]);
+  // ── Geometry helpers ──
+  const angleOfItem = useCallback((i: number) => {
+    // Returns the absolute angle of item i on the wheel when rotation=0
+    // Angle 0 = top of circle
+    return (i - presentIndex) * (360 / ITEM_COUNT);
+  }, [presentIndex, ITEM_COUNT]);
 
-  // Normalize angle to -180..180 range
   const norm180 = useCallback((deg: number) => {
     let d = ((deg % 360) + 360) % 360;
-    if (d > 180) d -= 360;
-    return d;
+    return d > 180 ? d - 360 : d;
   }, []);
 
-  // Update center position
-  useEffect(() => {
-    const updateCenter = () => {
-      if (wheelRef.current) {
-        const rect = wheelRef.current.getBoundingClientRect();
-        centerRef.current = {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        };
-      }
-    };
-    updateCenter();
-    window.addEventListener('resize', updateCenter);
-    return () => window.removeEventListener('resize', updateCenter);
-  }, []);
-
-  // ── Pointer helpers ──
+  // Mouse angle relative to wheel center
   const angleAt = useCallback((clientX: number, clientY: number) => {
     const { x, y } = centerRef.current;
     return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
   }, []);
 
-  // ── Active (selected) item index ──
+  // Update center on resize
+  useEffect(() => {
+    const update = () => {
+      if (wheelRef.current) {
+        const r = wheelRef.current.getBoundingClientRect();
+        centerRef.current = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  // ── Active index ──
   const activeIdx = useMemo(() => {
+    const rot = rotationRef.current;
     let best = presentIndex;
     let bestDist = Infinity;
     list.forEach((item, i) => {
       if (item.isPresent) return;
-      const d = Math.abs(norm180(baseAngle(i) + rotation));
+      const d = Math.abs(norm180(angleOfItem(i) + rot));
       if (d < bestDist) { bestDist = d; best = i; }
     });
     return bestDist < SNAP_THRESHOLD ? best : presentIndex;
-  }, [list, presentIndex, baseAngle, norm180, rotation]);
+  }, [list, presentIndex, angleOfItem, norm180, renderTick]);
 
   const activeItem = list[activeIdx];
   const activeType = activeItem?.isPresent ? 'present'
     : (activeIdx < presentIndex) ? 'past' : 'future';
 
-  // ── Snap to item i ──
+  // ── Snap animation ──
   const snapTo = useCallback((i: number) => {
-    const target = -baseAngle(i);
-    const start = rotation;
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    const target = -angleOfItem(i);
+    const start = rotationRef.current;
     let diff = norm180(target - start);
     const dur = 380;
     const t0 = performance.now();
-
-    if (animRef.current) cancelAnimationFrame(animRef.current);
     function step(t: number) {
       const p = Math.min(1, (t - t0) / dur);
       const ease = 1 - Math.pow(1 - p, 3);
-      setRotation(start + diff * ease);
+      rotationRef.current = start + diff * ease;
+      rerender();
       if (p < 1) animRef.current = requestAnimationFrame(step);
+      else animRef.current = null;
     }
     animRef.current = requestAnimationFrame(step);
-  }, [baseAngle, norm180, rotation]);
+  }, [angleOfItem, norm180, rerender]);
 
   // ── Drag handlers ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    const p = { x: e.clientX, y: e.clientY };
-    dragState.current = {
-      active: true,
-      lastAngle: angleAt(p.x, p.y),
-      lastRot: rotation,
-    };
+    dragActive.current = true;
+    dragLastAngle.current = angleAt(e.clientX, e.clientY);
     if (wheelRef.current) wheelRef.current.setPointerCapture(e.pointerId);
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-  }, [angleAt, rotation]);
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragState.current.active) return;
-    const p = { x: e.clientX, y: e.clientY };
-    const ang = angleAt(p.x, p.y);
-    let delta = ang - dragState.current.lastAngle;
-    if (delta > 180) delta -= 360;
-    if (delta < -180) delta += 360;
-    setRotation(prev => prev + delta);
-    dragState.current.lastAngle = ang;
   }, [angleAt]);
 
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragActive.current) return;
+    // Store previous rotation BEFORE updating
+    const prevAngle = dragLastAngle.current;
+    const currentAngle = angleAt(e.clientX, e.clientY);
+    let delta = currentAngle - prevAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+
+    // Wheel rotates same direction as drag
+    rotationRef.current += delta;
+    dragLastAngle.current = currentAngle;
+    rerender();
+  }, [angleAt, rerender]);
+
   const onPointerUp = useCallback(() => {
-    if (!dragState.current.active) return;
-    dragState.current.active = false;
-    // Snap to nearest
+    if (!dragActive.current) return;
+    dragActive.current = false;
+    // Snap to nearest node
     snapTo(activeIdx);
   }, [activeIdx, snapTo]);
 
   // ── Hub (today) click ──
   const snapToToday = useCallback(() => {
+    // Snap to presentIndex which is at the MIDDLE (angle=0 = top = no-node zone)
     snapTo(presentIndex);
   }, [presentIndex, snapTo]);
 
-  // ── Labels ──
+  // ── UI labels ──
   const timeLabel = activeType === 'present' ? 'Hiện tại'
     : activeType === 'past' ? `Quá khứ · ${activeItem?.when || ''}`
     : `Tương lai · ${activeItem?.when || ''}`;
-
   const btnLabel = activeType === 'past' ? '📖 Xem lại'
     : activeType === 'future' ? '🗓️ Lên kế hoạch'
     : '💭 Ghi lại';
+
+  // On first render, snap to center (rotation = 0 = presentIndex)
+  const hasSnapped = useRef(false);
+  useEffect(() => {
+    if (!hasSnapped.current && wheelRef.current) {
+      hasSnapped.current = true;
+      rotationRef.current = -angleOfItem(presentIndex);
+      rerender();
+    }
+  }, [angleOfItem, presentIndex, rerender]);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -182,20 +182,20 @@ export default function TimelinePage() {
         </h1>
       </div>
 
-      {/* Wheel of Memories */}
+      {/* Wheel */}
       <div className="card-ios text-center py-8 mb-4">
         <div
           ref={wheelRef}
-          className="relative w-[320px] h-[320px] mx-auto mb-6 select-none touch-none"
+          className="relative w-[340px] h-[340px] mx-auto mb-6 select-none touch-none"
           style={{ cursor: 'grab' }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          {/* Track background — conic gradient */}
+          {/* Track conic gradient — past (right/amber) + divider (red) + future (left/purple) */}
           <div
-            className="absolute inset-[14px] rounded-full"
+            className="absolute inset-[16px] rounded-full"
             style={{
               background: `conic-gradient(from 0deg,
                 rgba(139,92,246,0.08) 0deg, rgba(139,92,246,0.08) 178deg,
@@ -205,28 +205,22 @@ export default function TimelinePage() {
             }}
           />
           {/* Dashed inner ring */}
-          <div
-            className="absolute rounded-full"
-            style={{
-              inset: '34px',
-              border: '1px dashed rgba(0,0,0,0.06)',
-            }}
-          />
+          <div className="absolute rounded-full" style={{ inset: '36px', border: '1px dashed rgba(0,0,0,0.06)' }} />
 
           {/* Pointer arrow at top */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none"
+          <div
+            className="absolute top-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none"
             style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.2))' }}
           >
-            <div className="w-0 h-0 border-l-[7px] border-r-[7px] border-t-[10px] border-l-transparent border-r-transparent border-t-[#111]" />
+            <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-[#111]" />
           </div>
 
-          {/* Hub — center "Hôm nay" button */}
+          {/* Hub — center Today button */}
           <div
             onClick={snapToToday}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full flex flex-col items-center justify-center text-white cursor-pointer z-10 select-none active:scale-95 transition-transform"
             style={{
-              width: 96,
-              height: 96,
+              width: 100, height: 100,
               background: 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
               boxShadow: '0 14px 30px rgba(230,0,45,0.35), 0 4px 12px rgba(230,0,45,0.2)',
             }}
@@ -239,8 +233,9 @@ export default function TimelinePage() {
 
           {/* Memory nodes */}
           {list.map((item, i) => {
-            if (item.isPresent) return null; // present node = hub
-            const ang = baseAngle(i) + rotation;
+            if (item.isPresent) return null;
+            const rot = rotationRef.current;
+            const ang = angleOfItem(i) + rot;
             const rad = ang * Math.PI / 180;
             const x = RADIUS * Math.sin(rad);
             const y = -RADIUS * Math.cos(rad);
@@ -256,21 +251,18 @@ export default function TimelinePage() {
                 onClick={() => snapTo(i)}
                 className="absolute rounded-full flex items-center justify-center cursor-pointer select-none transition-shadow duration-200"
                 style={{
-                  top: '50%',
-                  left: '50%',
-                  width: 46,
-                  height: 46,
-                  marginLeft: -23,
-                  marginTop: -23,
+                  top: '50%', left: '50%',
+                  width: 48, height: 48,
+                  marginLeft: -24, marginTop: -24,
                   background: nodeType === 'past'
                     ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
                     : 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)',
                   border: isActive ? '3px solid #111' : '2px solid rgba(255,255,255,0.8)',
                   boxShadow: isActive
                     ? '0 10px 24px rgba(0,0,0,0.18)'
-                    : `0 2px 8px rgba(0,0,0,0.1)`,
+                    : '0 2px 8px rgba(0,0,0,0.1)',
                   zIndex: isActive ? 5 : Math.round(100 - dist),
-                  fontSize: 19,
+                  fontSize: 20,
                   transform: `translate(${x}px, ${y}px) scale(${scale.toFixed(2)})`,
                   opacity: opacity.toFixed(2),
                 }}
@@ -281,13 +273,12 @@ export default function TimelinePage() {
           })}
         </div>
 
-        {/* Controls hint */}
         <p className="text-[12px] text-[#8E8E93] font-semibold">
           ← Kéo để lùi về quá khứ · &nbsp;kéo phải để tiến tới tương lai →
         </p>
       </div>
 
-      {/* Detail Card — styled exactly like reference */}
+      {/* Detail Card */}
       <div
         className="rounded-[26px] p-5 min-h-[150px] transition-all duration-200"
         style={{
@@ -298,7 +289,6 @@ export default function TimelinePage() {
           boxShadow: '0 12px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)',
         }}
       >
-        {/* Top row: icon + tag + title */}
         <div className="flex items-center gap-3 mb-3">
           <div
             className="w-[44px] h-[44px] rounded-[16px] flex items-center justify-center text-[21px] flex-shrink-0 text-white"
@@ -327,13 +317,9 @@ export default function TimelinePage() {
             </div>
           </div>
         </div>
-
-        {/* Description */}
         <div className="text-[13px] text-[#6B7280] leading-relaxed mb-[16px]">
           {activeItem?.desc}
         </div>
-
-        {/* Action button */}
         <button
           className="w-full py-[13px] border-none rounded-[18px] text-[14px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform"
           style={{
