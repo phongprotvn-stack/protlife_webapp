@@ -1,9 +1,9 @@
 // Event service for CRUD operations
 import { supabase } from '@/lib/supabase/client';
-import type { Event, EventFormData } from '@/types/database';
+import type { EventItem, EventFormData } from '@/types/database';
 
 export const eventService = {
-  async getAll(): Promise<Event[]> {
+  async getAll(): Promise<EventItem[]> {
     const { data, error } = await supabase
       .from('events')
       .select('*')
@@ -13,7 +13,7 @@ export const eventService = {
     return data || [];
   },
 
-  async getById(id: string): Promise<Event | null> {
+  async getById(id: string): Promise<EventItem | null> {
     const { data, error } = await supabase
       .from('events')
       .select('*')
@@ -24,7 +24,7 @@ export const eventService = {
     return data;
   },
 
-  async create(event: EventFormData): Promise<Event> {
+  async create(event: EventFormData): Promise<EventItem> {
     // Get max sequence number for today
     const today = new Date(event.StartDate);
     const y = today.getFullYear();

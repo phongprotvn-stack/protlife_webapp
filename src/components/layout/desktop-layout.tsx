@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/app-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { supabase } from '@/lib/supabase/client';
 
 const sidebarLinks = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
@@ -72,7 +73,8 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     logout();
     router.push('/login');
   };

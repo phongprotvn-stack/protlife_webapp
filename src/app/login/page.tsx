@@ -6,9 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LogIn, ShieldCheck, Sparkles } from 'lucide-react';
 import { useAuthStore, DEFAULT_ADMIN } from '@/stores/auth-store';
-
-const ADMIN_EMAIL = 'phongprot.vn@gmail.com';
-const ADMIN_PASSWORD = '123456';
+import { supabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +19,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [detectedAdmin, setDetectedAdmin] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -31,7 +30,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (email.toLowerCase() === 'admin') {
       setDetectedAdmin(true);
-      setEmail(ADMIN_EMAIL);
+      setEmail('phongprot.vn@gmail.com');
     } else {
       setDetectedAdmin(false);
     }
@@ -45,34 +44,62 @@ export default function LoginPage() {
     if (!password.trim()) { setError('Vui lòng nhập mật khẩu'); return; }
 
     setIsLoading(true);
-    await new Promise(r => setTimeout(r, 800));
 
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      login(DEFAULT_ADMIN);
-      router.push('/dashboard');
-    } else {
-      setError('Email hoặc mật khẩu không đúng');
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+
+      if (signInError) throw signInError;
+
+      if (data.user) {
+        login({
+          id: data.user.id,
+          email: data.user.email || email,
+          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
+          role: 'admin',
+        });
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Đăng nhập thất bại');
       setIsLoading(false);
     }
   };
 
   const handleQuickAdmin = () => {
-    setEmail(ADMIN_EMAIL);
-    setPassword(ADMIN_PASSWORD);
+    setEmail('phongprot.vn@gmail.com');
+    setPassword('123456');
   };
-
-  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
 
   const handleSocialLogin = useCallback((provider: 'google' | 'apple') => {
     setSocialLoading(provider);
     setError('');
 
-    // Show "đang phát triển" after a brief delay
     setTimeout(() => {
       setSocialLoading(null);
       setError(`Đăng nhập bằng ${provider === 'google' ? 'Google' : 'Apple'} đang được phát triển. Vui lòng đăng nhập bằng email.`);
     }, 1200);
   }, []);
+
+  // Check if already authenticated with Supabase on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        login({
+          id: u.id,
+          email: u.email || '',
+          name: u.user_metadata?.name || u.email?.split('@')[0] || 'User',
+          role: 'admin',
+        });
+        router.push('/dashboard');
+      }
+    });
+  }, []);
+
+  const isAdminEmail = email === 'phongprot.vn@gmail.com';
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">

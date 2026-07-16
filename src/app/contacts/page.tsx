@@ -1,34 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, SlidersHorizontal, Users, Filter } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, Users, Filter, RefreshCw } from 'lucide-react';
 import { ContactCard } from '@/components/contacts/contact-card';
 import { cn } from '@/lib/utils';
-
-// Mock contacts
-import type { Contact, Relationship, ContactStatus } from '@/types/database';
-
-const mockContacts: Contact[] = [
-  {
-    ContactID: 'C0001',
-    Name: 'Nguyễn Văn A',
-    Relationship: 'Family' as Relationship,
-    Gender: 'Male',
-    Birthday: '15/03/1985',
-    Phone: '0901234567',
-    Email: 'vana@gmail.com',
-    Organization1: 'Công ty ABC',
-    Organization2: '',
-    RelationshipScore: 95,
-    Status: 'Active' as ContactStatus,
-    IsFavorite: true,
-    CreatedDate: '2025-01-01',
-    UpdatedDate: '2025-06-15',
-    Avatar: null,
-    Notes: '',
-  },
-];
+import { contactService } from '@/lib/services/contact-service';
+import type { Contact } from '@/types/database';
 
 const relationships = [
   { id: '', label: 'Tất cả', color: '#8E8E93' },
@@ -45,7 +23,26 @@ const relationships = [
 export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
-  const contacts = mockContacts;
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadContacts();
+  }, []);
+
+  const loadContacts = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const data = await contactService.getAll();
+      setContacts(data);
+    } catch (e: any) {
+      setError(e.message || 'Không thể tải dữ liệu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredContacts = contacts.filter((c) => {
     if (activeFilter && c.Relationship !== activeFilter) return false;
@@ -61,11 +58,19 @@ export default function ContactsPage() {
           <h1 className="text-[26px] font-bold text-[#111] tracking-tight">Quan hệ</h1>
           <p className="text-[13px] text-[#8E8E93] mt-0.5">{contacts.length} người</p>
         </div>
-        <button className="w-[44px] h-[44px] rounded-[14px] bg-[#E6002D] text-white flex items-center justify-center shadow-lg active:scale-90 transition-all duration-200"
-          style={{ boxShadow: '0 4px 12px rgba(230,0,45,0.3)' }}
-        >
-          <Plus size={22} strokeWidth={2.5} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadContacts}
+            className="w-[44px] h-[44px] rounded-[14px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center hover:bg-[rgba(0,0,0,0.08)] transition-all"
+          >
+            <RefreshCw size={18} className="text-[#8E8E93]" />
+          </button>
+          <button className="w-[44px] h-[44px] rounded-[14px] bg-[#E6002D] text-white flex items-center justify-center shadow-lg active:scale-90 transition-all duration-200"
+            style={{ boxShadow: '0 4px 12px rgba(230,0,45,0.3)' }}
+          >
+            <Plus size={22} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -103,37 +108,53 @@ export default function ContactsPage() {
         ))}
       </div>
 
-      {/* Contacts List */}
-      <div className="space-y-3">
-        {filteredContacts.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="card-ios py-12 text-center"
-          >
-            <div className="w-16 h-16 rounded-full bg-[#E6002D]/5 mx-auto mb-4 flex items-center justify-center">
-              <Users size={28} className="text-[#E6002D]/30" />
-            </div>
-            <p className="text-[15px] font-medium text-[#6B7280]">Chưa có quan hệ nào</p>
-            <p className="text-[13px] text-[#9CA3AF] mt-1">Bắt đầu thêm những người quan trọng</p>
-            <button className="mt-4 btn-ios-primary px-6 py-3 text-[14px]">
-              <Plus size={16} className="mr-2" />
-              Thêm quan hệ
-            </button>
-          </motion.div>
-        ) : (
-          filteredContacts.map((contact, i) => (
+      {/* Content */}
+      {isLoading ? (
+        <div className="flex flex-col items-center py-20">
+          <div className="w-10 h-10 border-3 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin mb-4" />
+          <p className="text-[14px] text-[#8E8E93]">Đang tải dữ liệu...</p>
+        </div>
+      ) : error ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card-ios py-12 text-center"
+        >
+          <p className="text-[15px] font-medium text-[#E6002D]">{error}</p>
+          <button onClick={loadContacts} className="mt-4 btn-ios-primary px-6 py-2 text-[13px]">
+            Thử lại
+          </button>
+        </motion.div>
+      ) : filteredContacts.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card-ios py-12 text-center"
+        >
+          <div className="w-16 h-16 rounded-full bg-[#E6002D]/5 mx-auto mb-4 flex items-center justify-center">
+            <Users size={28} className="text-[#E6002D]/30" />
+          </div>
+          <p className="text-[15px] font-medium text-[#6B7280]">
+            {searchQuery || activeFilter ? 'Không tìm thấy kết quả' : 'Chưa có quan hệ nào'}
+          </p>
+          <p className="text-[13px] text-[#9CA3AF] mt-1">
+            {searchQuery || activeFilter ? 'Thử tìm kiếm khác' : 'Bắt đầu thêm những người quan trọng'}
+          </p>
+        </motion.div>
+      ) : (
+        <div className="space-y-3">
+          {filteredContacts.map((contact, i) => (
             <motion.div
               key={contact.ContactID}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
+              transition={{ delay: i * 0.03 }}
             >
               <ContactCard contact={contact} />
             </motion.div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

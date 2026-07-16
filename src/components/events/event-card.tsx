@@ -2,11 +2,11 @@
 
 import { motion } from 'framer-motion';
 import { cn, formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
-import type { Event } from '@/types/database';
+import type { EventItem } from '@/types/database';
 import { Calendar, MapPin, Users, DollarSign, ChevronRight } from 'lucide-react';
 
 interface EventCardProps {
-  event: Event;
+  event: EventItem;
   variant?: 'default' | 'compact';
 }
 
