@@ -1,0 +1,379 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary colors - iOS Red #E6002D */
+  --color-primary: #E6002D;
+  --color-primary-light: #FF1A3D;
+  --color-primary-dark: #CC0028;
+
+  /* Backgrounds */
+  --color-bg: #FFFFFF;
+  --color-bg-secondary: #F8F9FA;
+  --color-bg-tertiary: #F3F4F6;
+  --color-bg-glass: rgba(255, 255, 255, 0.72);
+
+  /* Dark */
+  --color-dark: #111111;
+  --color-dark-secondary: #1C1C1E;
+  --color-dark-tertiary: #2C2C2E;
+
+  /* Text */
+  --color-text-primary: #111111;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+  --color-text-on-primary: #FFFFFF;
+  --color-text-on-dark: #FFFFFF;
+
+  /* Accent / Gray */
+  --color-accent: #F3F4F6;
+  --color-accent-hover: #E5E7EB;
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-border-light: rgba(0, 0, 0, 0.04);
+
+  /* Status */
+  --color-success: #34C759;
+  --color-warning: #FF9500;
+  --color-error: #FF3B30;
+  --color-info: #007AFF;
+
+  /* Relationship Score */
+  --color-score-high: #34C759;
+  --color-score-medium: #FF9500;
+  --color-score-low: #FF3B30;
+
+  /* Spacing */
+  --spacing-safe: 16px;
+
+  /* Border Radius */
+  --radius-card: 28px;
+  --radius-card-sm: 20px;
+  --radius-button: 14px;
+  --radius-input: 12px;
+
+  /* Shadows */
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.12);
+  --shadow-button: 0 4px 12px rgba(230, 0, 45, 0.3);
+
+  /* Font */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+
+  /* Transitions */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* iOS 26 Liquid Glass Base Styles */
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 100px;
+  }
+}
+
+/* Glassmorphism - using custom classes instead of @utility for complex selectors */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Card iOS style */
+.card-ios {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 20px;
+  transition: all 200ms var(--ease-smooth);
+}
+
+.card-ios:hover {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+}
+
+.gradient-hero {
+  background: linear-gradient(135deg, #E6002D 0%, #FF4D6A 50%, #FF8A9E 100%);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Shadows */
+.shadow-soft {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.02);
+}
+
+.shadow-elevated {
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
+}
+
+/* iOS Tab Bar */
+.tab-bar-ios {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Dynamic Island Toast */
+.dynamic-island {
+  background: #111111;
+  color: white;
+  border-radius: 40px;
+  padding: 12px 20px;
+  box-shadow: var(--shadow-elevated);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* iOS-style Buttons */
+.btn-ios {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-button);
+  font-weight: 600;
+  font-size: 16px;
+  padding: 14px 28px;
+  transition: all 200ms var(--ease-spring);
+  cursor: pointer;
+  border: none;
+}
+
+.btn-ios-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-button);
+  font-weight: 600;
+  font-size: 16px;
+  padding: 14px 28px;
+  transition: all 200ms var(--ease-spring);
+  cursor: pointer;
+  border: none;
+  background: var(--color-primary);
+  color: white;
+  box-shadow: var(--shadow-button);
+}
+
+.btn-ios-primary:hover {
+  transform: scale(1.02);
+  opacity: 0.95;
+}
+
+.btn-ios-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-ios-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-button);
+  font-weight: 600;
+  font-size: 16px;
+  padding: 14px 28px;
+  transition: all 200ms var(--ease-spring);
+  cursor: pointer;
+  border: none;
+  background: rgba(230, 0, 45, 0.08);
+  color: var(--color-primary);
+}
+
+.btn-ios-ghost:hover {
+  background: rgba(230, 0, 45, 0.12);
+}
+
+/* iOS-style Input */
+.input-ios {
+  width: 100%;
+  padding: 16px 18px;
+  background: rgba(243, 244, 246, 0.8);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-input);
+  font-size: 16px;
+  color: var(--color-text-primary);
+  transition: all 200ms var(--ease-smooth);
+  outline: none;
+}
+
+.input-ios:focus {
+  background: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(230, 0, 45, 0.1);
+}
+
+/* iOS Section Header */
+.section-header-ios {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  padding: 0 4px;
+  margin-bottom: 8px;
+}
+
+/* Animations */
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.sheet-slide-up {
+  animation: sheetSlideUp 350ms var(--ease-spring);
+}
+
+.fade-in {
+  animation: fadeIn 200ms var(--ease-smooth);
+}
+
+.scale-in {
+  animation: scaleIn 250ms var(--ease-spring);
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Desktop scrollbar */
+@media (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* iOS safe areas */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Sidebar link styles */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all 150ms ease;
+  text-decoration: none;
+}
+
+.sidebar-link:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text-primary);
+}
+
+.sidebar-link.active {
+  background: rgba(230, 0, 45, 0.08);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.sidebar-link.active svg {
+  color: var(--color-primary);
+}
+
+/* Hide scrollbar for mobile */
+@media (pointer: coarse) {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

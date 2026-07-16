@@ -1,0 +1,33 @@
+{
+  "name": "PROT LIFE",
+  "short_name": "PROT LIFE",
+  "description": "Hệ điều hành cuộc sống cá nhân",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#E6002D",
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": ["lifestyle", "productivity", "social"],
+  "lang": "vi-VN",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "splash_pages": null,
+  "ios": {
+    "capable": true,
+    "status_bar_style": "black-translucent",
+    "title": "PROT LIFE"
+  }
+}
