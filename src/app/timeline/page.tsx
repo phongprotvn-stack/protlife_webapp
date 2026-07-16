@@ -1,140 +1,174 @@
 'use client';
 
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Plus, RotateCcw, Sparkles } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 
-const SNAP_ANGLE = 45;
-const RADIUS = 110;
-const NODE_SIZE = 18;
-
-// Compute today's date string for matching
-const todayStr = new Date().toLocaleDateString('vi-VN', {
-  day: '2-digit', month: '2-digit', year: 'numeric'
-});
-
-// Sample memory data — one marked as today
-const baseMemories = [
-  { angle: 0, emoji: '🎂', label: 'Sinh nhật 2025', date: '15/03/2025', type: 'past' },
-  { angle: 45, emoji: '✈️', label: 'Du lịch Đà Nẵng', date: '20/01/2025', type: 'past' },
-  { angle: 90, emoji: '❤️', label: 'Kỷ niệm 3 năm', date: '14/02/2025', type: 'past' },
-  { angle: 135, emoji: '💼', label: 'Dự án mới', date: '01/06/2025', type: 'past' },
-  { angle: 180, emoji: '🎓', label: 'Tốt nghiệp', date: '10/08/2008', type: 'past' },
-  { angle: 225, emoji: '🏠', label: 'Xây nhà mới', date: '01/03/2026', type: 'future' },
-  { angle: 270, emoji: '👶', label: 'Kế hoạch gia đình', date: '2027', type: 'future' },
-  { angle: 315, emoji: '🎯', label: 'Mục tiêu 10 tỷ', date: '2030', type: 'future' },
+// ── Data ──
+const pastMemories = [
+  { icon:'💼', title:'Ngày đầu đi làm', when:'3 năm trước', desc:'Cột mốc khởi đầu sự nghiệp — hồi hộp và đầy háo hức.' },
+  { icon:'🎂', title:'Sinh nhật tuổi 25', when:'1 năm trước', desc:'Bạn bè cũ tụ họp đông đủ, một trong những đêm vui nhất.' },
+  { icon:'💍', title:'Đám cưới Linh', when:'6 tháng trước', desc:'Ngồi bàn cùng nhóm bạn đại học, ai cũng khóc lúc trao nhẫn.' },
+  { icon:'🏔️', title:'Chuyến đi Đà Lạt', when:'2 tháng trước', desc:'3 ngày trốn phố cùng gia đình, chụp hơn 200 tấm ảnh.' },
+  { icon:'☕', title:'Cà phê với Minh', when:'2 tuần trước', desc:'Hàn huyên chuyện cũ sau nhiều năm mất liên lạc.' },
 ];
 
-// Compute today's memory node
-function computeTodayMemory() {
-  const now = new Date();
-  return {
-    angle: 315,
-    emoji: '📅',
-    label: 'Hôm nay',
-    date: now.toLocaleDateString('vi-VN', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    }),
-    type: 'today' as const,
-  };
-}
+const futureMemories = [
+  { icon:'🎁', title:'Sinh nhật Mẹ', when:'2 tuần tới', desc:'Đã lên lịch nhắc mua quà — đừng để quên như mọi năm.' },
+  { icon:'🚗', title:'Học lái xe', when:'3 tháng tới', desc:'Mục tiêu nhỏ để tự chủ hơn trong công việc và cuộc sống.' },
+  { icon:'🏃', title:'Marathon đầu tiên', when:'6 tháng tới', desc:'Đăng ký giải 21km — bắt đầu tập từ tuần sau.' },
+  { icon:'🗾', title:'Du lịch Nhật Bản', when:'1 năm tới', desc:'Một trong những nơi bạn khao khát đặt chân đến nhất.' },
+  { icon:'🏡', title:'Mua nhà cho bố mẹ', when:'Ước mơ dài hạn', desc:'Mục tiêu lớn, cần kế hoạch tài chính rõ ràng theo từng năm.' },
+];
 
-// Which memory index matches today? Default to index 0 if none
-function findTodayIndex(memories: typeof baseMemories): number {
-  const today = todayStr;
-  for (let i = 0; i < memories.length; i++) {
-    if (memories[i].date === today) return i;
-  }
-  return -1;
-}
+const presentMemory = {
+  icon:'❤️', title:'Hôm nay', when:'Hiện tại',
+  desc:'Tận hưởng khoảnh khắc này — mọi ký ức đều bắt đầu từ đây.',
+};
 
-// Get selected memory index based on rotation
-function getSelectedIndex(rotation: number): number {
-  const normalizedRotation = ((rotation % 360) + 360) % 360;
-  const pointerAngle = 270; // arrow at top of circle
-  return Math.round(((pointerAngle - normalizedRotation) % 360 + 360) % 360 / SNAP_ANGLE) % 8;
-}
-
-// Calculate rotation to bring memory at `targetAngle` under the arrow
-function rotationToSnapTo(targetAngle: number): number {
-  // Arrow is at angle 270 in wheel coordinates
-  // When rotation = R, memory at angle A is under arrow when (270 - R) % 360 = A
-  // So R = (270 - A + 360) % 360
-  return ((270 - targetAngle) % 360 + 360) % 360;
+interface MemoryItem {
+  icon: string;
+  title: string;
+  when: string;
+  desc: string;
+  isPresent?: boolean;
 }
 
 export default function TimelinePage() {
-  const todayMemory = useMemo(() => computeTodayMemory(), []);
-  const memories = useMemo(() => [...baseMemories, todayMemory], [todayMemory]);
+  // Build full list: past (oldest→nearest), present, future (nearest→farthest)
+  const list = useMemo<MemoryItem[]>(() => [
+    ...pastMemories,
+    { ...presentMemory, isPresent: true },
+    ...futureMemories,
+  ], []);
+  const presentIndex = useMemo(() => list.findIndex(i => i.isPresent), [list]);
+
+  const RADIUS = 128;      // layout radius in px
+  const SNAP_THRESHOLD = 10;
 
   const [rotation, setRotation] = useState(0);
   const wheelRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const lastRotation = useRef(0);
-  const animFrame = useRef<number | null>(null);
+  const centerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const animRef = useRef<number | null>(null);
 
-  const selectedIdx = getSelectedIndex(rotation);
-  const selectedMemory = memories[selectedIdx];
+  // Drag state refs (not state to avoid rerenders during drag)
+  const dragState = useRef({
+    active: false,
+    lastAngle: 0,
+    lastRot: 0,
+  });
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    isDragging.current = true;
-    startX.current = e.clientX;
-    lastRotation.current = rotation;
-    if (wheelRef.current) {
-      wheelRef.current.style.cursor = 'grabbing';
-    }
-  }, [rotation]);
+  // Compute base angle for each item (angle in wheel when rotation=0)
+  const baseAngle = useCallback((i: number) => {
+    return (i - presentIndex) * (360 / list.length);
+  }, [list.length, presentIndex]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging.current) return;
-    e.preventDefault();
-    const deltaX = e.clientX - startX.current;
-    // Higher sensitivity for smooth multi-rotation
-    // Drag left = negative = go past, rotate CW
-    // Drag right = positive = go future, rotate CCW
-    const sensitivity = 0.5;
-    const newRotation = lastRotation.current + deltaX * sensitivity;
-    // No clamping — allow unlimited rotation
-    setRotation(newRotation);
+  // Normalize angle to -180..180 range
+  const norm180 = useCallback((deg: number) => {
+    let d = ((deg % 360) + 360) % 360;
+    if (d > 180) d -= 360;
+    return d;
   }, []);
 
-  const handleMouseUp = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    if (wheelRef.current) {
-      wheelRef.current.style.cursor = 'grab';
-    }
-    // Snap to nearest node
-    const normalized = ((rotation % 360) + 360) % 360;
-    const nearestAngle = Math.round(normalized / SNAP_ANGLE) * SNAP_ANGLE;
-    // Find which memory that corresponds to
-    const nearestRot = rotation - (normalized - nearestAngle);
-    setRotation(nearestRot);
-  }, [rotation]);
+  // Update center position
+  useEffect(() => {
+    const updateCenter = () => {
+      if (wheelRef.current) {
+        const rect = wheelRef.current.getBoundingClientRect();
+        centerRef.current = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+      }
+    };
+    updateCenter();
+    window.addEventListener('resize', updateCenter);
+    return () => window.removeEventListener('resize', updateCenter);
+  }, []);
 
-  const handleMouseLeave = useCallback(() => {
-    if (isDragging.current) {
-      handleMouseUp();
-    }
-  }, [handleMouseUp]);
+  // ── Pointer helpers ──
+  const angleAt = useCallback((clientX: number, clientY: number) => {
+    const { x, y } = centerRef.current;
+    return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
+  }, []);
 
-  // Click center "Hôm nay" → snap to today node
+  // ── Active (selected) item index ──
+  const activeIdx = useMemo(() => {
+    let best = presentIndex;
+    let bestDist = Infinity;
+    list.forEach((item, i) => {
+      if (item.isPresent) return;
+      const d = Math.abs(norm180(baseAngle(i) + rotation));
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    return bestDist < SNAP_THRESHOLD ? best : presentIndex;
+  }, [list, presentIndex, baseAngle, norm180, rotation]);
+
+  const activeItem = list[activeIdx];
+  const activeType = activeItem?.isPresent ? 'present'
+    : (activeIdx < presentIndex) ? 'past' : 'future';
+
+  // ── Snap to item i ──
+  const snapTo = useCallback((i: number) => {
+    const target = -baseAngle(i);
+    const start = rotation;
+    let diff = norm180(target - start);
+    const dur = 380;
+    const t0 = performance.now();
+
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    function step(t: number) {
+      const p = Math.min(1, (t - t0) / dur);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setRotation(start + diff * ease);
+      if (p < 1) animRef.current = requestAnimationFrame(step);
+    }
+    animRef.current = requestAnimationFrame(step);
+  }, [baseAngle, norm180, rotation]);
+
+  // ── Drag handlers ──
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    const p = { x: e.clientX, y: e.clientY };
+    dragState.current = {
+      active: true,
+      lastAngle: angleAt(p.x, p.y),
+      lastRot: rotation,
+    };
+    if (wheelRef.current) wheelRef.current.setPointerCapture(e.pointerId);
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+  }, [angleAt, rotation]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragState.current.active) return;
+    const p = { x: e.clientX, y: e.clientY };
+    const ang = angleAt(p.x, p.y);
+    let delta = ang - dragState.current.lastAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    setRotation(prev => prev + delta);
+    dragState.current.lastAngle = ang;
+  }, [angleAt]);
+
+  const onPointerUp = useCallback(() => {
+    if (!dragState.current.active) return;
+    dragState.current.active = false;
+    // Snap to nearest
+    snapTo(activeIdx);
+  }, [activeIdx, snapTo]);
+
+  // ── Hub (today) click ──
   const snapToToday = useCallback(() => {
-    const todayIdx = memories.findIndex(m => m.type === 'today');
-    if (todayIdx >= 0) {
-      const targetAngle = memories[todayIdx].angle;
-      const targetRot = rotationToSnapTo(targetAngle);
-      // Find nearest full snap to that
-      setRotation(targetRot);
-    }
-  }, [memories]);
+    snapTo(presentIndex);
+  }, [presentIndex, snapTo]);
 
-  // Click on a memory node → snap arrow to it
-  const snapToNode = useCallback((idx: number) => {
-    const targetAngle = memories[idx].angle;
-    setRotation(rotationToSnapTo(targetAngle));
-  }, [memories]);
+  // ── Labels ──
+  const timeLabel = activeType === 'present' ? 'Hiện tại'
+    : activeType === 'past' ? `Quá khứ · ${activeItem?.when || ''}`
+    : `Tương lai · ${activeItem?.when || ''}`;
+
+  const btnLabel = activeType === 'past' ? '📖 Xem lại'
+    : activeType === 'future' ? '🗓️ Lên kế hoạch'
+    : '💭 Ghi lại';
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -142,7 +176,7 @@ export default function TimelinePage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[26px] font-bold text-[#111] tracking-tight flex items-center gap-3">
           <div className="w-9 h-9 rounded-[12px] bg-[#5856D6]/10 flex items-center justify-center">
-            <Clock size={20} className="text-[#5856D6]" />
+            <Sparkles size={20} className="text-[#5856D6]" />
           </div>
           Dòng thời gian
         </h1>
@@ -151,150 +185,181 @@ export default function TimelinePage() {
       {/* Wheel of Memories */}
       <div className="card-ios text-center py-8 mb-4">
         <div
-          className="relative w-[300px] h-[300px] mx-auto mb-6 select-none"
           ref={wheelRef}
+          className="relative w-[320px] h-[320px] mx-auto mb-6 select-none touch-none"
           style={{ cursor: 'grab' }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
         >
-          {/* Pointer arrow at top — fixed, points to selected memory */}
-          <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-            <div className="flex flex-col items-center">
-              <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-t-[16px] border-l-transparent border-r-transparent border-t-[#111]" />
-            </div>
+          {/* Track background — conic gradient */}
+          <div
+            className="absolute inset-[14px] rounded-full"
+            style={{
+              background: `conic-gradient(from 0deg,
+                rgba(139,92,246,0.08) 0deg, rgba(139,92,246,0.08) 178deg,
+                rgba(230,0,45,0.08) 178deg, rgba(230,0,45,0.08) 182deg,
+                rgba(245,158,11,0.08) 182deg, rgba(245,158,11,0.08) 360deg)`,
+              border: '1px solid rgba(0,0,0,0.04)',
+            }}
+          />
+          {/* Dashed inner ring */}
+          <div
+            className="absolute rounded-full"
+            style={{
+              inset: '34px',
+              border: '1px dashed rgba(0,0,0,0.06)',
+            }}
+          />
+
+          {/* Pointer arrow at top */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none"
+            style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.2))' }}
+          >
+            <div className="w-0 h-0 border-l-[7px] border-r-[7px] border-t-[10px] border-l-transparent border-r-transparent border-t-[#111]" />
           </div>
 
-          {/* Circular Time Wheel */}
+          {/* Hub — center "Hôm nay" button */}
           <div
-            className="w-full h-full rounded-full border-2 border-[rgba(0,0,0,0.06)] relative"
+            onClick={snapToToday}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full flex flex-col items-center justify-center text-white cursor-pointer z-10 select-none active:scale-95 transition-transform"
             style={{
-              transform: `rotate(${rotation}deg)`,
-              transition: isDragging.current ? 'none' : 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+              width: 96,
+              height: 96,
+              background: 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
+              boxShadow: '0 14px 30px rgba(230,0,45,0.35), 0 4px 12px rgba(230,0,45,0.2)',
             }}
           >
-            {/* Center button — "Hôm nay" */}
-            <div
-              onClick={snapToToday}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full gradient-primary flex flex-col items-center justify-center text-white shadow-lg z-10 select-none cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-              style={{ boxShadow: '0 4px 20px rgba(230,0,45,0.35)' }}
-            >
-              <span className="text-[9px] font-medium opacity-80">HÔM NAY</span>
-              <span className="text-[16px] font-bold leading-none mt-0.5">
-                {new Date().getDate()}
-              </span>
-            </div>
-
-            {/* Tick marks around the circle */}
-            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-              <div
-                key={`tick-${angle}`}
-                className="absolute w-[6px] h-[6px] rounded-full bg-[rgba(0,0,0,0.06)]"
-                style={{
-                  top: `calc(50% - ${Math.sin((angle * Math.PI) / 180) * 140 + 3}px)`,
-                  left: `calc(50% + ${Math.cos((angle * Math.PI) / 180) * 140 - 3}px)`,
-                }}
-              />
-            ))}
-
-            {/* Memory nodes around the circle */}
-            {memories.map((mem, i) => {
-              const isSelected = i === selectedIdx;
-              const isTodayNode = mem.type === 'today';
-              return (
-                <div
-                  key={i}
-                  onClick={() => snapToNode(i)}
-                  className="absolute flex items-center justify-center rounded-full cursor-pointer select-none transition-all duration-300"
-                  style={{
-                    width: isSelected ? '44px' : '36px',
-                    height: isSelected ? '44px' : '36px',
-                    top: `calc(50% - ${Math.sin((mem.angle * Math.PI) / 180) * RADIUS + (isSelected ? 22 : NODE_SIZE)}px)`,
-                    left: `calc(50% + ${Math.cos((mem.angle * Math.PI) / 180) * RADIUS - (isSelected ? 22 : NODE_SIZE)}px)`,
-                    backgroundColor: isTodayNode ? '#E6002D' : '#fff',
-                    boxShadow: isSelected
-                      ? `0 0 0 3px #E6002D, 0 4px 16px rgba(230,0,45,0.3)`
-                      : mem.type === 'future'
-                        ? '0 2px 8px rgba(175,82,222,0.25)'
-                        : '0 2px 8px rgba(0,0,0,0.1)',
-                    border: isSelected
-                      ? '2px solid #E6002D'
-                      : isTodayNode
-                        ? '2px solid rgba(255,255,255,0.5)'
-                        : '1px solid rgba(0,0,0,0.08)',
-                    zIndex: isSelected ? 5 : 1,
-                  }}
-                >
-                  <span className={isSelected ? 'text-[18px]' : 'text-[15px]'}>
-                    {mem.emoji}
-                  </span>
-                </div>
-              );
-            })}
+            <span className="text-[9px] font-bold tracking-[1.5px] uppercase opacity-85">HÔM NAY</span>
+            <span className="text-[15px] font-extrabold mt-0.5 leading-tight">
+              {new Date().toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}
+            </span>
           </div>
+
+          {/* Memory nodes */}
+          {list.map((item, i) => {
+            if (item.isPresent) return null; // present node = hub
+            const ang = baseAngle(i) + rotation;
+            const rad = ang * Math.PI / 180;
+            const x = RADIUS * Math.sin(rad);
+            const y = -RADIUS * Math.cos(rad);
+            const dist = Math.abs(norm180(ang));
+            const isActive = dist < SNAP_THRESHOLD;
+            const scale = 0.72 + 0.34 * (1 - Math.min(dist, 130) / 130);
+            const opacity = 0.55 + 0.45 * (1 - Math.min(dist, 150) / 150);
+            const nodeType = i < presentIndex ? 'past' : 'future';
+
+            return (
+              <div
+                key={i}
+                onClick={() => snapTo(i)}
+                className="absolute rounded-full flex items-center justify-center cursor-pointer select-none transition-shadow duration-200"
+                style={{
+                  top: '50%',
+                  left: '50%',
+                  width: 46,
+                  height: 46,
+                  marginLeft: -23,
+                  marginTop: -23,
+                  background: nodeType === 'past'
+                    ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
+                    : 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)',
+                  border: isActive ? '3px solid #111' : '2px solid rgba(255,255,255,0.8)',
+                  boxShadow: isActive
+                    ? '0 10px 24px rgba(0,0,0,0.18)'
+                    : `0 2px 8px rgba(0,0,0,0.1)`,
+                  zIndex: isActive ? 5 : Math.round(100 - dist),
+                  fontSize: 19,
+                  transform: `translate(${x}px, ${y}px) scale(${scale.toFixed(2)})`,
+                  opacity: opacity.toFixed(2),
+                }}
+              >
+                {item.icon}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4 mb-2">
-          <span className="text-[11px] text-[#8E8E93] font-medium">← Quá khứ</span>
-          <button
-            onClick={snapToToday}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(0,0,0,0.04)] text-[13px] font-medium text-[#6B7280] hover:bg-[rgba(0,0,0,0.08)] transition-all"
-          >
-            <RotateCcw size={14} />
-            Hôm nay
-          </button>
-          <span className="text-[11px] text-[#8E8E93] font-medium">Tương lai →</span>
-        </div>
-        <p className="text-[12px] text-[#8E8E93]">
-          Nhấn giữ và kéo để xoay bánh xe — thả chuột sẽ tự động vào node gần nhất
+        {/* Controls hint */}
+        <p className="text-[12px] text-[#8E8E93] font-semibold">
+          ← Kéo để lùi về quá khứ · &nbsp;kéo phải để tiến tới tương lai →
         </p>
       </div>
 
-      {/* Selected memory card */}
-      <div className="card-ios">
+      {/* Detail Card — styled exactly like reference */}
+      <div
+        className="rounded-[26px] p-5 min-h-[150px] transition-all duration-200"
+        style={{
+          background: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          border: '1px solid rgba(255,255,255,0.5)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)',
+        }}
+      >
+        {/* Top row: icon + tag + title */}
         <div className="flex items-center gap-3 mb-3">
-          <div className={`w-10 h-10 rounded-[12px] flex items-center justify-center text-[20px] ${
-            selectedMemory.type === 'future'
-              ? 'bg-[#AF52DE]/10'
-              : selectedMemory.type === 'today'
-                ? 'bg-[#E6002D]/10'
-                : 'bg-[#FF9500]/10'
-          }`}>
-            <span>{selectedMemory.emoji}</span>
+          <div
+            className="w-[44px] h-[44px] rounded-[16px] flex items-center justify-center text-[21px] flex-shrink-0 text-white"
+            style={{
+              background: activeType === 'past'
+                ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
+                : activeType === 'future'
+                  ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
+                  : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
+            }}
+          >
+            {activeItem?.icon}
           </div>
-          <div>
-            <h3 className="text-[16px] font-semibold text-[#111]">{selectedMemory.label}</h3>
-            <p className="text-[12px] text-[#8E8E93]">{selectedMemory.date}</p>
+          <div className="min-w-0 flex-1">
+            <div
+              className={`text-[10px] font-bold tracking-[1px] uppercase ${
+                activeType === 'past' ? 'text-[#F59E0B]'
+                : activeType === 'future' ? 'text-[#8B5CF6]'
+                : 'text-[#E6002D]'
+              }`}
+            >
+              {timeLabel}
+            </div>
+            <div className="text-[17px] font-extrabold text-[#101010] mt-0.5 tracking-[-0.2px]">
+              {activeItem?.title}
+            </div>
           </div>
-          <span className={`ml-auto text-[11px] px-2.5 py-1 rounded-full font-medium ${
-            selectedMemory.type === 'future'
-              ? 'bg-[#AF52DE]/10 text-[#AF52DE]'
-              : selectedMemory.type === 'today'
-                ? 'bg-[#E6002D]/10 text-[#E6002D]'
-                : 'bg-[#FF9500]/10 text-[#FF9500]'
-          }`}>
-            {selectedMemory.type === 'future' ? '✨ Tương lai' :
-             selectedMemory.type === 'today' ? '📅 Hôm nay' : '🕰️ Quá khứ'}
-          </span>
         </div>
-        <div className="flex gap-2">
-          <button className="flex-1 py-2.5 rounded-[10px] bg-[#E6002D] text-white text-[13px] font-semibold hover:opacity-90 transition-all">
-            {selectedMemory.type === 'future' ? 'Lên kế hoạch' :
-             selectedMemory.type === 'today' ? 'Xem hôm nay' : 'Xem lại'}
-          </button>
-          <button className="px-4 py-2.5 rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[#6B7280] text-[13px] font-medium hover:bg-[rgba(0,0,0,0.08)] transition-all">
-            <Sparkles size={15} />
-          </button>
+
+        {/* Description */}
+        <div className="text-[13px] text-[#6B7280] leading-relaxed mb-[16px]">
+          {activeItem?.desc}
         </div>
+
+        {/* Action button */}
+        <button
+          className="w-full py-[13px] border-none rounded-[18px] text-[14px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform"
+          style={{
+            background: activeType === 'past'
+              ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
+              : activeType === 'future'
+                ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
+                : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
+            boxShadow: activeType === 'past'
+              ? '0 10px 22px rgba(217,119,6,0.28)'
+              : activeType === 'future'
+                ? '0 10px 22px rgba(124,58,237,0.28)'
+                : '0 10px 22px rgba(214,0,50,0.28)',
+          }}
+        >
+          {btnLabel}
+        </button>
       </div>
 
       {/* Add future dream button */}
-      <button className="mt-3 w-full py-3 rounded-[14px] border-2 border-dashed border-[rgba(0,0,0,0.08)] text-[#6B7280] text-[14px] font-medium hover:border-[#AF52DE]/30 hover:text-[#AF52DE] transition-all flex items-center justify-center gap-2">
-        <Plus size={16} />
-        Thêm một ước mơ tương lai
-      </button>
+      <div className="flex justify-center mt-4">
+        <button className="flex items-center gap-2 px-5 py-3 rounded-[20px] bg-[#F1F1F4] text-[#101010] text-[13px] font-bold active:scale-[0.96] transition-transform cursor-pointer border-none">
+          <Plus size={16} />
+          Thêm một ước mơ tương lai
+        </button>
+      </div>
     </div>
   );
 }
