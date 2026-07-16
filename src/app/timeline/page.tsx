@@ -45,9 +45,13 @@ export default function TimelinePage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state (refs, not state)
+  // Drag state refs (not state to avoid rerenders during drag)
   const dragActive = useRef(false);
   const dragLastAngle = useRef(0);
+  const dragStartX = useRef(0);
+  const dragStartY = useRef(0);
+  const dragTotalDist = useRef(0);
+  const CLICK_THRESHOLD = 8; // px — if total movement < this, treat as click
 
   // ── Geometry helpers ──
   const angleOfItem = useCallback((i: number) => {
@@ -119,20 +123,27 @@ export default function TimelinePage() {
   // ── Drag handlers ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     dragActive.current = true;
-    dragLastAngle.current = angleAt(e.clientX, e.clientY);
-    if (wheelRef.current) wheelRef.current.setPointerCapture(e.pointerId);
+    const ang = angleAt(e.clientX, e.clientY);
+    dragLastAngle.current = ang;
+    dragStartX.current = e.clientX;
+    dragStartY.current = e.clientY;
+    dragTotalDist.current = 0;
+    // Don't setPointerCapture — let pointer events bubble naturally
+    // so onClick on child elements (nodes, hub) still fire.
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
   }, [angleAt]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragActive.current) return;
-    // Store previous rotation BEFORE updating
-    const prevAngle = dragLastAngle.current;
+    // Track total distance to distinguish click vs drag
+    const dx = e.clientX - dragStartX.current;
+    const dy = e.clientY - dragStartY.current;
+    dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
+
     const currentAngle = angleAt(e.clientX, e.clientY);
-    let delta = currentAngle - prevAngle;
+    let delta = currentAngle - dragLastAngle.current;
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
-
     // Wheel rotates same direction as drag
     rotationRef.current += delta;
     dragLastAngle.current = currentAngle;
@@ -142,8 +153,13 @@ export default function TimelinePage() {
   const onPointerUp = useCallback(() => {
     if (!dragActive.current) return;
     dragActive.current = false;
-    // Snap to nearest node
-    snapTo(activeIdx);
+
+    if (dragTotalDist.current > CLICK_THRESHOLD) {
+      // It was a drag → snap to nearest node
+      snapTo(activeIdx);
+    }
+    // If it was a click (no significant movement),
+    // don't snap here — let onClick on the node/hub handle it
   }, [activeIdx, snapTo]);
 
   // ── Hub (today) click ──
