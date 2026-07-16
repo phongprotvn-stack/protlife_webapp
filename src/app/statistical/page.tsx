@@ -1,47 +1,42 @@
 'use client';
 
-import { BarChart3, Download, FileText, FileSpreadsheet, File } from 'lucide-react';
+import { BarChart3, Download, FileText, FileSpreadsheet, File, Users, Calendar, LayoutList, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+
+const reports = [
+  {
+    id: 'danh-sach-quan-he',
+    label: 'Danh sách quan hệ',
+    icon: Users,
+    color: '#E6002D',
+    bg: 'bg-[#E6002D]/6',
+    border: 'border-[#E6002D]/10',
+    desc: 'Xuất danh sách tất cả các mối quan hệ kèm thông tin chi tiết',
+    count: '0 quan hệ',
+  },
+  {
+    id: 'danh-sach-su-kien',
+    label: 'Danh sách sự kiện',
+    icon: Calendar,
+    color: '#007AFF',
+    bg: 'bg-[#007AFF]/6',
+    border: 'border-[#007AFF]/10',
+    desc: 'Xuất danh sách tất cả các sự kiện kèm thời gian và mô tả',
+    count: '0 sự kiện',
+  },
+  {
+    id: 'bao-cao-tong-hop',
+    label: 'Danh sách Tổng hợp',
+    icon: LayoutList,
+    color: '#5856D6',
+    bg: 'bg-[#5856D6]/6',
+    border: 'border-[#5856D6]/10',
+    desc: 'Báo cáo tổng hợp toàn bộ dữ liệu quan hệ và sự kiện',
+    count: 'Báo cáo tổng quan',
+  },
+];
 
 export default function StatisticalPage() {
-  const exportFormats = [
-    {
-      format: 'Word',
-      icon: FileText,
-      color: '#007AFF',
-      bg: 'bg-[#007AFF]/8',
-      hoverBg: 'hover:bg-[#007AFF]/12',
-      items: [
-        'Xuất danh sách quan hệ (Word)',
-        'Xuất danh sách sự kiện (Word)',
-        'Xuất báo cáo tổng quan (Word)',
-      ],
-    },
-    {
-      format: 'Excel',
-      icon: FileSpreadsheet,
-      color: '#34C759',
-      bg: 'bg-[#34C759]/8',
-      hoverBg: 'hover:bg-[#34C759]/12',
-      items: [
-        'Xuất danh sách quan hệ (Excel)',
-        'Xuất danh sách sự kiện (Excel)',
-        'Xuất báo cáo tổng quan (Excel)',
-      ],
-    },
-    {
-      format: 'PDF',
-      icon: File,
-      color: '#E6002D',
-      bg: 'bg-[#E6002D]/8',
-      hoverBg: 'hover:bg-[#E6002D]/12',
-      items: [
-        'Xuất danh sách quan hệ (PDF)',
-        'Xuất danh sách sự kiện (PDF)',
-        'Xuất báo cáo tổng quan (PDF)',
-      ],
-    },
-  ];
-
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-5">
@@ -83,37 +78,46 @@ export default function StatisticalPage() {
         <p className="text-[13px] text-[#9CA3AF] mt-1">Thêm quan hệ và sự kiện để xem thống kê</p>
       </div>
 
-      {/* Export options - 3 formats */}
+      {/* Báo cáo section */}
       <div className="card-ios">
         <div className="flex items-center gap-2 mb-4">
           <Download size={17} className="text-[#8E8E93]" />
-          <h3 className="text-[15px] font-semibold text-[#111]">Xuất báo cáo</h3>
+          <h3 className="text-[15px] font-semibold text-[#111]">Báo cáo</h3>
         </div>
-        <p className="text-[13px] text-[#8E8E93] mb-4">Chọn định dạng để xuất báo cáo:</p>
+        <p className="text-[13px] text-[#8E8E93] mb-4">
+          Chọn danh mục báo cáo để xem chi tiết và xuất dữ liệu:
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {exportFormats.map((fmt) => {
-            const Icon = fmt.icon;
+          {reports.map((report) => {
+            const Icon = report.icon;
             return (
-              <div key={fmt.format} className={`rounded-[14px] ${fmt.bg} p-4`}>
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon size={18} style={{ color: fmt.color }} />
-                  <span className="text-[14px] font-semibold" style={{ color: fmt.color }}>
-                    {fmt.format}
-                  </span>
+              <Link
+                key={report.id}
+                href={`/statistical/report/${report.id}`}
+                className={`rounded-[16px] ${report.bg} ${report.border} border p-5 group hover:shadow-md transition-all duration-200`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className="w-[44px] h-[44px] rounded-[12px] flex items-center justify-center bg-white shadow-sm"
+                  >
+                    <Icon size={22} style={{ color: report.color }} />
+                  </div>
+                  <ChevronRight
+                    size={18}
+                    className="text-[#D1D5DB] group-hover:translate-x-0.5 group-hover:text-[#8E8E93] transition-all"
+                  />
                 </div>
-                <div className="space-y-1.5">
-                  {fmt.items.map((item) => (
-                    <button
-                      key={item}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-white ${fmt.hoverBg} transition-all text-left`}
-                    >
-                      <span className="text-[12px] text-[#111] font-medium">{item}</span>
-                      <Download size={13} className="text-[#8E8E93] flex-shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <h4 className="text-[15px] font-semibold text-[#111] mb-1">
+                  {report.label}
+                </h4>
+                <p className="text-[12px] text-[#8E8E93] leading-relaxed mb-2">
+                  {report.desc}
+                </p>
+                <span className="text-[11px] font-medium" style={{ color: report.color }}>
+                  {report.count}
+                </span>
+              </Link>
             );
           })}
         </div>
