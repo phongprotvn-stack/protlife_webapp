@@ -100,7 +100,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* Bottom section */}
-          {sidebarOpen && (
+          {sidebarOpen ? (
             <div className="px-[14px] py-[12px] border-t border-[rgba(0,0,0,0.04)]">
               <div className="flex items-center gap-3">
                 <div className="w-[32px] h-[32px] rounded-full bg-[#E6002D] flex items-center justify-center text-white text-[12px] font-semibold">
@@ -111,6 +111,25 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
                   <p className="text-[11px] text-[#8E8E93] truncate">Admin</p>
                 </div>
               </div>
+              {/* Version footer */}
+              <div className="mt-[10px] pt-[10px] border-t border-[rgba(0,0,0,0.03)]">
+                <p className="text-[10px] text-[#8E8E93]/60 text-center font-medium tracking-[0.3px] select-none">
+                  © 2026 PROT LIFE v1.0.0
+                </p>
+                <p className="text-[9px] text-[#8E8E93]/40 text-center -mt-[2px]">
+                  All right reserved
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="pb-[12px] flex flex-col items-center gap-[6px]">
+              <div className="w-[32px] h-[32px] rounded-full bg-[#E6002D] flex items-center justify-center text-white text-[12px] font-semibold">
+                P
+              </div>
+              <span className="text-[8px] text-[#8E8E93]/50 font-medium tracking-[0.2px]"
+                title="© 2026 PROT LIFE v1.0.0">
+                v1.0.0
+              </span>
             </div>
           )}
         </div>
