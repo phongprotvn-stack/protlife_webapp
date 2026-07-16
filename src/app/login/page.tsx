@@ -1,22 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LogIn, ShieldCheck, Sparkles } from 'lucide-react';
+import { useAuthStore, DEFAULT_ADMIN } from '@/stores/auth-store';
 
 const ADMIN_EMAIL = 'phongprot.vn@gmail.com';
 const ADMIN_PASSWORD = '123456';
 
 export default function LoginPage() {
   const router = useRouter();
+  const login = useAuthStore((s) => s.login);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [detectedAdmin, setDetectedAdmin] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isLoggedIn) router.push('/dashboard');
+  }, [isLoggedIn, router]);
 
   // Auto-detect "admin" shortcut
   useEffect(() => {
@@ -36,11 +45,10 @@ export default function LoginPage() {
     if (!password.trim()) { setError('Vui lòng nhập mật khẩu'); return; }
 
     setIsLoading(true);
-
-    // Simulate login
     await new Promise(r => setTimeout(r, 800));
 
     if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      login(DEFAULT_ADMIN);
       router.push('/dashboard');
     } else {
       setError('Email hoặc mật khẩu không đúng');
@@ -53,7 +61,19 @@ export default function LoginPage() {
     setPassword(ADMIN_PASSWORD);
   };
 
-  const isAdminEmail = email === ADMIN_EMAIL;
+  const handleSocialLogin = useCallback((provider: 'google' | 'apple') => {
+    setIsLoading(true);
+    setError('');
+
+    // Simulate social login — auto-login as admin for demo
+    setTimeout(() => {
+      login({
+        ...DEFAULT_ADMIN,
+        name: provider === 'google' ? 'Prot (Google)' : 'Prot (Apple)',
+      });
+      router.push('/dashboard');
+    }, 1000);
+  }, [login, router]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">
@@ -205,7 +225,12 @@ export default function LoginPage() {
 
           {/* Social login */}
           <div className="space-y-3">
-            <button className="w-full h-[50px] rounded-[14px] border border-[rgba(0,0,0,0.08)] flex items-center justify-center gap-3 text-[15px] font-medium text-[#111] hover:bg-[rgba(0,0,0,0.02)] hover:border-[rgba(0,0,0,0.12)] transition-all active:scale-[0.98]">
+            <button
+              type="button"
+              onClick={() => handleSocialLogin('google')}
+              disabled={isLoading}
+              className="w-full h-[50px] rounded-[14px] border border-[rgba(0,0,0,0.08)] flex items-center justify-center gap-3 text-[15px] font-medium text-[#111] hover:bg-[rgba(0,0,0,0.02)] hover:border-[rgba(0,0,0,0.12)] transition-all active:scale-[0.98] disabled:opacity-50"
+            >
               <svg width="20" height="20" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -214,7 +239,12 @@ export default function LoginPage() {
               </svg>
               Tiếp tục với Google
             </button>
-            <button className="w-full h-[50px] rounded-[14px] border border-[rgba(0,0,0,0.08)] flex items-center justify-center gap-3 text-[15px] font-medium text-[#111] hover:bg-[rgba(0,0,0,0.02)] hover:border-[rgba(0,0,0,0.12)] transition-all active:scale-[0.98]">
+            <button
+              type="button"
+              onClick={() => handleSocialLogin('apple')}
+              disabled={isLoading}
+              className="w-full h-[50px] rounded-[14px] border border-[rgba(0,0,0,0.08)] flex items-center justify-center gap-3 text-[15px] font-medium text-[#111] hover:bg-[rgba(0,0,0,0.02)] hover:border-[rgba(0,0,0,0.12)] transition-all active:scale-[0.98] disabled:opacity-50"
+            >
               <svg width="20" height="20" viewBox="0 0 24 24">
                 <path fill="#111" d="M17.05 20.28c-.98.95-2.05.82-3.08.38-1.07-.44-2.06-.48-3.1 0-1.3.63-1.98.48-2.74-.38C5.06 16.78 5.39 11.55 9 9.37c1.35-.85 2.66-.82 3.73.02.76.58 1.16.58 1.88 0 .97-.78 2.14-.86 3.3-.44 1.84.68 2.9 2.2 2.77 4.22-.14 1.7-1.08 2.65-2.63 3.11zM12.03 9.25c-.14-2.08 1.48-3.94 3.3-4.25.24 1.92-1.27 3.82-3.3 4.25z" />
               </svg>
@@ -232,7 +262,7 @@ export default function LoginPage() {
 
           {/* Version */}
           <p className="text-center mt-6 text-[10px] text-[#8E8E93]/40 font-medium tracking-[0.3px]">
-            © 2026 PROT LIFE v1.0.0 — All right reserved
+            © 2026 PROT LIFE v1.0.1 — All right reserved
           </p>
         </motion.div>
       </div>
