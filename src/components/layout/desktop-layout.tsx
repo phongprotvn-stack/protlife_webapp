@@ -27,9 +27,11 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUIStore } from '@/stores/app-store';
+import { useUIStore, useAppStore } from '@/stores/app-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { supabase } from '@/lib/supabase/client';
+import { AddContactModal } from '@/components/contacts/add-contact-modal';
+import { AddEventModal } from '@/components/events/add-event-modal';
 
 const sidebarLinks = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
@@ -45,10 +47,10 @@ const sidebarLinks = [
 ];
 
 const ADD_MENU_ITEMS = [
-  { label: 'Quan hệ mới', icon: UserPlus, color: '#007AFF' },
-  { label: 'Sự kiện mới', icon: CalendarPlus, color: '#FF9500' },
-  { label: 'Tài liệu mới', icon: CirclePlus, color: '#5856D6' },
-  { label: 'Mục tiêu mới', icon: CirclePlus, color: '#34C759' },
+  { id: 'contact', label: 'Quan hệ mới', icon: UserPlus, color: '#007AFF' },
+  { id: 'event', label: 'Sự kiện mới', icon: CalendarPlus, color: '#FF9500' },
+  { id: 'document', label: 'Tài liệu mới', icon: CirclePlus, color: '#5856D6' },
+  { id: 'goal', label: 'Mục tiêu mới', icon: CirclePlus, color: '#34C759' },
 ];
 
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
@@ -58,9 +60,19 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const [searchFocused, setSearchFocused] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addModal, setAddModal] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
 
   const { isLoggedIn, user, logout } = useAuthStore();
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
 
   // Close add menu on outside click
   useEffect(() => {
@@ -277,7 +289,14 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
                   {ADD_MENU_ITEMS.map((item, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setAddMenuOpen(false)}
+                      onClick={() => {
+                        setAddMenuOpen(false);
+                        if (item.id === 'contact' || item.id === 'event') {
+                          setAddModal(item.id);
+                        } else {
+                          setToast(`Chức năng "${item.label}" đang phát triển`);
+                        }
+                      }}
                       className="w-full flex items-center gap-3 px-[14px] py-[10px] text-[13px] font-medium text-[#111] hover:bg-[rgba(0,0,0,0.04)] transition-colors"
                     >
                       <div className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center"
@@ -309,6 +328,23 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
       {/* Inspector Panel (right sidebar) — optional */}
       {/* <InspectorPanel /> */}
+
+      {/* Add Modals */}
+      <AddContactModal
+        open={addModal === 'contact'}
+        onClose={() => setAddModal(null)}
+      />
+      <AddEventModal
+        open={addModal === 'event'}
+        onClose={() => setAddModal(null)}
+      />
+
+      {/* Coming soon for Documents & Goals */}
+      {toast && (
+        <div className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-[14px] bg-[#111] text-white text-[13px] font-medium shadow-lg animate-[fadeInUp_0.3s_ease]">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
