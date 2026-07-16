@@ -9,6 +9,9 @@ import {
   Clock,
   MapPin,
   Sparkles,
+  Target,
+  PieChart,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +29,31 @@ const upcomingBirthdays = [
 
 const recentEvents = [
   // Will be populated from database
+];
+
+// Mock relationship stats
+const relationshipStats = [
+  { label: 'Gia đình', value: 0, color: '#E6002D', pct: 0 },
+  { label: 'Họ hàng', value: 0, color: '#FF4D6A', pct: 0 },
+  { label: 'Bạn bè', value: 0, color: '#007AFF', pct: 0 },
+  { label: 'Đồng nghiệp', value: 0, color: '#FF9500', pct: 0 },
+  { label: 'Khác', value: 0, color: '#8E8E93', pct: 0 },
+];
+
+// Mock life stages
+const lifeStages = [
+  { label: 'Infancy', emoji: '👶', value: 0, color: '#34C759' },
+  { label: 'Secondary School', emoji: '📚', value: 0, color: '#007AFF' },
+  { label: 'High School', emoji: '🎓', value: 0, color: '#5856D6' },
+  { label: 'University', emoji: '🏛️', value: 0, color: '#AF52DE' },
+  { label: 'Early Career', emoji: '💼', value: 0, color: '#FF9500' },
+  { label: 'Mid Career', emoji: '📈', value: 0, color: '#E6002D' },
+];
+
+const goals = [
+  { icon: '✈️', title: 'Du lịch Nhật Bản', deadline: '2026', progress: 0 },
+  { icon: '🏠', title: 'Mua nhà', deadline: '2028', progress: 0 },
+  { icon: '📚', title: 'Học tiếng Anh', deadline: '2025', progress: 0 },
 ];
 
 export default function DashboardPage() {
@@ -70,8 +98,8 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Two column layout for desktop */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Row 1: Sinh nhật + Hoạt động gần đây */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {/* Upcoming Birthdays */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -129,28 +157,164 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* Life Score Radar (placeholder) */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="card-ios mt-4"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[16px] font-semibold text-[#111] flex items-center gap-2">
-            <TrendingUp size={18} className="text-[#E6002D]" />
-            Life Score
-          </h2>
-        </div>
-        <div className="py-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-[#E6002D]/5 mx-auto mb-3 flex items-center justify-center">
-            <TrendingUp size={28} className="text-[#E6002D]/40" />
+      {/* Row 2: Thống kê mối quan hệ + Phân bổ giai đoạn cuộc sống */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Relationship Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="card-ios"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[16px] font-semibold text-[#111] flex items-center gap-2">
+              <PieChart size={18} className="text-[#E6002D]" />
+              Thống kê mối quan hệ
+            </h2>
           </div>
-          <p className="text-[14px] text-[#8E8E93]">
-            Biểu đồ Life Score sẽ hiển thị sau khi có dữ liệu
-          </p>
-        </div>
-      </motion.div>
+          {relationshipStats.every(r => r.value === 0) ? (
+            <div className="py-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#E6002D]/5 mx-auto mb-3 flex items-center justify-center">
+                <Users size={20} className="text-[#E6002D]/30" />
+              </div>
+              <p className="text-[13px] text-[#8E8E93]">Chưa có dữ liệu</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {relationshipStats.map((r) => (
+                <div key={r.label}>
+                  <div className="flex items-center justify-between text-[13px] mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.color }} />
+                      <span className="text-[#111] font-medium">{r.label}</span>
+                    </div>
+                    <span className="text-[#8E8E93]">{r.value}</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[rgba(0,0,0,0.04)] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${r.pct}%`, backgroundColor: r.color }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Life Stage Distribution */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="card-ios"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[16px] font-semibold text-[#111] flex items-center gap-2">
+              <Layers size={18} className="text-[#5856D6]" />
+              Phân bổ theo giai đoạn cuộc sống
+            </h2>
+          </div>
+          {lifeStages.every(l => l.value === 0) ? (
+            <div className="py-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#5856D6]/5 mx-auto mb-3 flex items-center justify-center">
+                <Layers size={20} className="text-[#5856D6]/30" />
+              </div>
+              <p className="text-[13px] text-[#8E8E93]">Chưa có dữ liệu</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {lifeStages.map((stage) => (
+                <div key={stage.label} className="flex items-center gap-3">
+                  <span className="text-[16px] w-[24px] text-center">{stage.emoji}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between text-[13px] mb-0.5">
+                      <span className="text-[#111] font-medium">{stage.label}</span>
+                      <span className="text-[#8E8E93]">{stage.value} sự kiện</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-[rgba(0,0,0,0.04)] overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: '0%', backgroundColor: stage.color }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Row 3: Mục tiêu + Life Score */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Goals */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="card-ios"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[16px] font-semibold text-[#111] flex items-center gap-2">
+              <Target size={18} className="text-[#AF52DE]" />
+              Mục tiêu
+            </h2>
+            <button className="text-[12px] font-medium text-[#E6002D] hover:underline">Xem tất cả</button>
+          </div>
+          {goals.length === 0 ? (
+            <div className="py-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#AF52DE]/5 mx-auto mb-3 flex items-center justify-center">
+                <Target size={20} className="text-[#AF52DE]/30" />
+              </div>
+              <p className="text-[13px] text-[#8E8E93]">Chưa có mục tiêu</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {goals.map((goal, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-[12px] bg-[rgba(0,0,0,0.02)]">
+                  <span className="text-[20px]">{goal.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-medium text-[#111] truncate">{goal.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 h-1.5 rounded-full bg-[rgba(0,0,0,0.04)] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#AF52DE]"
+                          style={{ width: `${goal.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] text-[#8E8E93] whitespace-nowrap">{goal.deadline}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Life Score Radar (placeholder) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="card-ios"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[16px] font-semibold text-[#111] flex items-center gap-2">
+              <TrendingUp size={18} className="text-[#E6002D]" />
+              Life Score
+            </h2>
+          </div>
+          <div className="py-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-[#E6002D]/5 mx-auto mb-3 flex items-center justify-center">
+              <TrendingUp size={28} className="text-[#E6002D]/40" />
+            </div>
+            <p className="text-[14px] text-[#8E8E93]">
+              Biểu đồ Life Score sẽ hiển thị sau khi có dữ liệu
+            </p>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }

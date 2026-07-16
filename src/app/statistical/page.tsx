@@ -1,8 +1,47 @@
 'use client';
 
-import { BarChart3, Download, FileDown } from 'lucide-react';
+import { BarChart3, Download, FileText, FileSpreadsheet, File } from 'lucide-react';
 
 export default function StatisticalPage() {
+  const exportFormats = [
+    {
+      format: 'Word',
+      icon: FileText,
+      color: '#007AFF',
+      bg: 'bg-[#007AFF]/8',
+      hoverBg: 'hover:bg-[#007AFF]/12',
+      items: [
+        'Xuất danh sách quan hệ (Word)',
+        'Xuất danh sách sự kiện (Word)',
+        'Xuất báo cáo tổng quan (Word)',
+      ],
+    },
+    {
+      format: 'Excel',
+      icon: FileSpreadsheet,
+      color: '#34C759',
+      bg: 'bg-[#34C759]/8',
+      hoverBg: 'hover:bg-[#34C759]/12',
+      items: [
+        'Xuất danh sách quan hệ (Excel)',
+        'Xuất danh sách sự kiện (Excel)',
+        'Xuất báo cáo tổng quan (Excel)',
+      ],
+    },
+    {
+      format: 'PDF',
+      icon: File,
+      color: '#E6002D',
+      bg: 'bg-[#E6002D]/8',
+      hoverBg: 'hover:bg-[#E6002D]/12',
+      items: [
+        'Xuất danh sách quan hệ (PDF)',
+        'Xuất danh sách sự kiện (PDF)',
+        'Xuất báo cáo tổng quan (PDF)',
+      ],
+    },
+  ];
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-5">
@@ -13,10 +52,6 @@ export default function StatisticalPage() {
           </h1>
           <p className="text-[13px] text-[#8E8E93] mt-0.5">Báo cáo và phân tích dữ liệu</p>
         </div>
-        <button className="h-[40px] px-[16px] rounded-[12px] bg-[#007AFF]/10 text-[#007AFF] text-[13px] font-semibold flex items-center gap-2 hover:bg-[#007AFF]/20 transition-all">
-          <Download size={16} />
-          Xuất báo cáo
-        </button>
       </div>
 
       {/* Stats cards */}
@@ -48,19 +83,39 @@ export default function StatisticalPage() {
         <p className="text-[13px] text-[#9CA3AF] mt-1">Thêm quan hệ và sự kiện để xem thống kê</p>
       </div>
 
-      {/* Export options */}
+      {/* Export options - 3 formats */}
       <div className="card-ios">
-        <h3 className="text-[15px] font-semibold text-[#111] mb-3">Xuất báo cáo</h3>
-        <div className="space-y-2">
-          {['Xuất danh sách quan hệ (Excel)', 'Xuất danh sách sự kiện (Excel)', 'Xuất báo cáo tổng quan (PDF)'].map((item) => (
-            <button
-              key={item}
-              className="w-full flex items-center justify-between px-4 py-[12px] rounded-[12px] bg-[rgba(0,0,0,0.02)] hover:bg-[rgba(0,0,0,0.04)] transition-all"
-            >
-              <span className="text-[14px] text-[#111]">{item}</span>
-              <FileDown size={16} className="text-[#8E8E93]" />
-            </button>
-          ))}
+        <div className="flex items-center gap-2 mb-4">
+          <Download size={17} className="text-[#8E8E93]" />
+          <h3 className="text-[15px] font-semibold text-[#111]">Xuất báo cáo</h3>
+        </div>
+        <p className="text-[13px] text-[#8E8E93] mb-4">Chọn định dạng để xuất báo cáo:</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {exportFormats.map((fmt) => {
+            const Icon = fmt.icon;
+            return (
+              <div key={fmt.format} className={`rounded-[14px] ${fmt.bg} p-4`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Icon size={18} style={{ color: fmt.color }} />
+                  <span className="text-[14px] font-semibold" style={{ color: fmt.color }}>
+                    {fmt.format}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {fmt.items.map((item) => (
+                    <button
+                      key={item}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-white ${fmt.hoverBg} transition-all text-left`}
+                    >
+                      <span className="text-[12px] text-[#111] font-medium">{item}</span>
+                      <Download size={13} className="text-[#8E8E93] flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

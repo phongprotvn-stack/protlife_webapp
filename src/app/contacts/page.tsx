@@ -70,13 +70,13 @@ export default function ContactsPage() {
 
       {/* Search */}
       <div className="relative mb-4">
-        <Search size={17} className="absolute left-[16px] top-1/2 -translate-y-1/2 text-[#8E8E93]" />
+        <Search size={17} className="absolute left-[16px] top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none z-10" />
         <input
           type="text"
           placeholder="Tìm kiếm quan hệ..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="input-ios pl-[44px]"
+          className="w-full h-[48px] pl-[44px] pr-[44px] rounded-[14px] bg-[rgba(0,0,0,0.04)] text-[15px] text-[#111] placeholder:text-[#9CA3AF] outline-none border border-transparent focus:border-[rgba(230,0,45,0.25)] focus:bg-white focus:ring-2 focus:ring-[rgba(230,0,45,0.1)] transition-all duration-200"
         />
         <button className="absolute right-[12px] top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.04)]">
           <SlidersHorizontal size={16} className="text-[#8E8E93]" />
