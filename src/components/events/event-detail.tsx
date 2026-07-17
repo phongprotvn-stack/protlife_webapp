@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
 import { participantService } from '@/lib/services/participant-service';
+import { contactService } from '@/lib/services/contact-service';
 import type { EventItem } from '@/types/database';
+import type { Contact } from '@/types/database';
 import type { EventParticipant } from '@/lib/services/participant-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
-import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, Heart as HeartIcon, Globe } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 
 interface Props { eventId: string | null; onClose: () => void; panelMode?: boolean; }
@@ -32,6 +34,15 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     Mood:'', Importance:'', Cost:0, Notes:'',
   });
 
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<{ContactID:string;ContactName:string}[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showContactSearch, setShowContactSearch] = useState(false);
+
+  useEffect(() => {
+    contactService.getAll().then(setAllContacts).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!eventId) return;
     setLoading(true);
@@ -39,7 +50,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
       eventService.getById(eventId),
       participantService.getByEventWithNames(eventId),
     ]).then(([data, pData]) => {
-      setEvent(data); setParticipants(pData);
+      setEvent(data); setParticipants(pData); setSelectedParticipants(pData.map(p => ({ContactID: p.ContactID, ContactName: p.ContactName || ''})));
       if (data) {
         setForm({
           Title:data.Title, EventType:data.EventType, LifeStage:data.LifeStage||'',
@@ -64,12 +75,29 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
         Maplink:form.Maplink||undefined, Mood:form.Mood?form.Mood as any:undefined,
         Importance:form.Importance as any, Cost:form.Cost, Notes:form.Notes||undefined,
       });
+      await participantService.setParticipants(event.EventID, selectedParticipants.map(p => p.ContactID));
       triggerRefresh(); setEditMode(false);
       const d = await eventService.getById(event.EventID);
       setEvent(d);
+      const pData = await participantService.getByEventWithNames(event.EventID);
+      setParticipants(pData); setSelectedParticipants(pData.map(p => ({ContactID: p.ContactID, ContactName: p.ContactName || ''})));
     } catch(e:any) { setError(e.message||'Lỗi khi lưu'); }
     finally { setSaving(false); }
   };
+
+  const toggleParticipant = (contact: Contact) => {
+    const exists = selectedParticipants.find((p) => p.ContactID === contact.ContactID);
+    if (exists) {
+      setSelectedParticipants(selectedParticipants.filter((p) => p.ContactID !== contact.ContactID));
+    } else {
+      setSelectedParticipants([...selectedParticipants, { ContactID: contact.ContactID, ContactName: contact.Name }]);
+    }
+    setSearchTerm(''); setShowContactSearch(false);
+  };
+
+  const filteredContacts = allContacts.filter(
+    (c) => c.Name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedParticipants.find((p) => p.ContactID === c.ContactID)
+  );
 
   const handleDelete = async () => {
     if (!eventId) return;
@@ -221,6 +249,44 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
               <FieldEdit label="Chi phí (VNĐ)">
                 <input type="number" value={form.Cost} onChange={(e)=>setForm((f)=>({...f,Cost:Number(e.target.value)}))} className="input-glass text-[13px]" placeholder="0"/>
               </FieldEdit>
+              <div>
+                <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Người tham gia</p>
+                <div className="p-2 rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)]">
+                  {selectedParticipants.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {selectedParticipants.map((p) => (
+                        <span key={p.ContactID}
+                          className="inline-flex items-center gap-1 px-[8px] py-[3px] rounded-full bg-[rgba(52,199,89,0.1)] text-[11px] font-medium text-[#2C8E4A]">
+                          {p.ContactName}
+                          <button type="button" onClick={() => toggleParticipant({ContactID:p.ContactID,Name:p.ContactName} as Contact)}
+                            className="hover:text-[#E6002D]"><X size={10}/></button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Search size={13} className="text-[#8E8E93] shrink-0"/>
+                    <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                      onFocus={() => setShowContactSearch(true)}
+                      className="flex-1 text-[12px] outline-none bg-transparent"
+                      placeholder="Tìm kiếm người tham gia..."/>
+                  </div>
+                  {showContactSearch && searchTerm.trim() && (
+                    <div className="mt-1 border-t border-[rgba(0,0,0,0.04)] pt-1">
+                      {filteredContacts.length > 0 ? (
+                        filteredContacts.slice(0, 5).map((c) => (
+                          <button key={c.ContactID} type="button" onClick={() => toggleParticipant(c)}
+                            className="w-full text-left px-2 py-1.5 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] rounded-[6px]">
+                            {c.Name}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-[11px] text-[#8E8E93] text-center py-1">Không tìm thấy</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
               <FieldEdit label="Ghi chú">
                 <textarea value={form.Notes} onChange={(e)=>setForm((f)=>({...f,Notes:e.target.value}))}
                   className="input-glass text-[13px] min-h-[60px]" rows={2} placeholder="Ghi chú thêm..."/>

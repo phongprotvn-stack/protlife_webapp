@@ -21,7 +21,7 @@ export default function LandingPage() {
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
 
   useEffect(() => {
-    if (isLoggedIn) router.push('/dashboard');
+    // No auto-redirect - landing page is standalone
   }, [isLoggedIn, router]);
 
   useEffect(() => {
@@ -136,6 +136,16 @@ export default function LandingPage() {
               <p className="text-[12px] text-[#34C759] font-medium flex items-center gap-1">
                 <ShieldCheck size={14}/> Đã phát hiện Admin
               </p>
+            </div>
+          )}
+
+          {isLoggedIn && (
+            <div className="mb-4 p-3 rounded-[10px] bg-[rgba(0,122,255,0.06)] border border-[rgba(0,122,255,0.12)]">
+              <p className="text-[12px] text-[#007AFF] font-medium mb-2">Bạn đã đăng nhập</p>
+              <button onClick={() => router.push('/dashboard')}
+                className="w-full h-[42px] rounded-[10px] bg-[#007AFF] text-white text-[13px] font-semibold hover:bg-[#0066CC] transition-colors">
+                Vào Dashboard →
+              </button>
             </div>
           )}
 

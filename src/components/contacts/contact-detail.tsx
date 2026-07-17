@@ -13,6 +13,7 @@ import {
   ChevronDown, User, BookHeart, MapPin, FileText, Star
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import { organizationService, type Organization } from '@/lib/services/organization-service';
 
 interface Props { contactId: string | null; onClose: () => void; panelMode?: boolean; }
 
@@ -21,11 +22,11 @@ const GENDERS = ['Male','Female','Other'] as const;
 const STATUSES = ['Active','Lost Contact','Deceased','Blocked'] as const;
 
 const SCORE_LABELS = [
-  { min: 90, max: 100, label: 'Ruột thịt' },
-  { min: 70, max: 89, label: 'Thâm tình' },
-  { min: 50, max: 69, label: 'Thân' },
-  { min: 30, max: 49, label: 'Bạn bè' },
   { min: 1,  max: 29, label: 'Quen biết' },
+  { min: 30, max: 49, label: 'Bạn bè' },
+  { min: 50, max: 69, label: 'Thân' },
+  { min: 70, max: 89, label: 'Thâm tình' },
+  { min: 90, max: 100, label: 'Ruột thịt' },
 ];
 
 function getScoreLabel(score: number): string {
@@ -47,6 +48,21 @@ export function ContactDetail({ contactId, onClose, panelMode }: Props) {
     Name:'', Relationship:'Family', Gender:'', Birthday:'', Phone:'', Email:'',
     Organization1:'', Organization2:'', RelationshipScore:50, Status:'Active', IsFavorite:false, Avatar:'', Notes:'',
   });
+
+  const [orgList, setOrgList] = useState<string[]>([]);
+  const [org1Open, setOrg1Open] = useState(false);
+  const [org2Open, setOrg2Open] = useState(false);
+  const [org1Search, setOrg1Search] = useState('');
+  const [org2Search, setOrg2Search] = useState('');
+  const filteredOrg1 = orgList.filter(o => o.toLowerCase().includes(org1Search.toLowerCase()));
+  const filteredOrg2 = orgList.filter(o => o.toLowerCase().includes(org2Search.toLowerCase()));
+
+  useEffect(() => {
+    organizationService.getAll().then(data => {
+      const names = data.map(o => o.Name).filter(Boolean) as string[];
+      setOrgList([...new Set(names)]);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!contactId) return;
@@ -162,8 +178,10 @@ export function ContactDetail({ contactId, onClose, panelMode }: Props) {
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload}/>
               </div>
             ) : (
-              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center text-white font-bold text-[26px] mx-auto mb-2"
-                style={{backgroundColor:getAvatarColor(contact.Name)}}>{getInitials(contact.Name)}</div>
+              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center text-white font-bold text-[26px] mx-auto mb-2 overflow-hidden"
+                style={{backgroundColor: contact.Avatar ? 'transparent' : getAvatarColor(contact.Name)}}>
+                {contact.Avatar ? <img src={contact.Avatar} alt="" className="w-full h-full object-cover"/> : getInitials(contact.Name)}
+              </div>
             )}
 
             {editMode ? (
@@ -190,10 +208,6 @@ export function ContactDetail({ contactId, onClose, panelMode }: Props) {
               <Field icon={<Phone size={14} className="text-[#34C759]"/>} label={contact.Phone||''} link={`tel:${contact.Phone}`}/>
               <Field icon={<Mail size={14} className="text-[#007AFF]"/>} label={contact.Email||''} link={`mailto:${contact.Email}`}/>
               <Field icon={<Building2 size={14} className="text-[#5856D6]"/>} label={[contact.Organization1,contact.Organization2].filter(Boolean).join(' · ')}/>
-              <div className="flex items-center justify-between p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
-                <div className="flex items-center gap-2.5"><Award size={14} style={{color:getRelationshipColor(contact.RelationshipScore)}}/><span className="text-[12px] text-[#5F6368]">Điểm kết nối</span></div>
-                <span className="text-[14px] font-bold" style={{color:getRelationshipColor(contact.RelationshipScore)}}>{contact.RelationshipScore}</span>
-              </div>
               <div className="flex items-center justify-between p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
                 <div className="flex items-center gap-2.5">
                   <div className={`w-[8px] h-[8px] rounded-full ${contact.Status==='Active'?'bg-[#34C759]':contact.Status==='Lost Contact'?'bg-[#FF9500]':'bg-[#8E8E93]'}`}/>
@@ -226,10 +240,26 @@ export function ContactDetail({ contactId, onClose, panelMode }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <FieldEdit label="Tổ chức 1">
-                  <input value={form.Organization1} onChange={(e)=>setForm((f)=>({...f,Organization1:e.target.value}))} className="input-glass text-[13px]" placeholder="Công ty / CLB"/>
+                  <div className="relative">
+                    <input value={form.Organization1} onChange={(e)=>setForm((f)=>({...f,Organization1:e.target.value}))}
+                      onFocus={()=>setOrg1Open(true)} onBlur={()=>setTimeout(()=>setOrg1Open(false),150)}
+                      className="input-glass text-[13px] w-full pr-8" placeholder="Nhập hoặc chọn..." list="org1-list"/>
+                    <datalist id="org1-list">
+                      {orgList.map(o => <option key={o} value={o}/>)}
+                    </datalist>
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93] pointer-events-none"/>
+                  </div>
                 </FieldEdit>
                 <FieldEdit label="Tổ chức 2">
-                  <input value={form.Organization2} onChange={(e)=>setForm((f)=>({...f,Organization2:e.target.value}))} className="input-glass text-[13px]" placeholder="Công ty / CLB"/>
+                  <div className="relative">
+                    <input value={form.Organization2} onChange={(e)=>setForm((f)=>({...f,Organization2:e.target.value}))}
+                      onFocus={()=>setOrg2Open(true)} onBlur={()=>setTimeout(()=>setOrg2Open(false),150)}
+                      className="input-glass text-[13px] w-full pr-8" placeholder="Nhập hoặc chọn..." list="org2-list"/>
+                    <datalist id="org2-list">
+                      {orgList.map(o => <option key={o} value={o}/>)}
+                    </datalist>
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93] pointer-events-none"/>
+                  </div>
                 </FieldEdit>
               </div>
               <div className="grid grid-cols-2 gap-2">

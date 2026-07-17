@@ -9,7 +9,7 @@ import { MobileLayout } from '@/components/layout/mobile-layout';
 import { DesktopLayout } from '@/components/layout/desktop-layout';
 
 // Pages that don't need the app layout (login, register, etc.)
-const AUTH_PAGES = ['/login', '/register', '/_not-found'];
+const AUTH_PAGES = ['/login', '/register', '/', '/_not-found'];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
