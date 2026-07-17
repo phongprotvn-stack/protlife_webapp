@@ -4,21 +4,30 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, Calendar, Heart, TrendingUp, Clock, MapPin,
-  Sparkles, Target, PieChart, Layers, RefreshCw, Gift,
-  BookHeart, FileText, Building2, Star
+  Target, PieChart, RefreshCw, Gift, Coffee,
+  BookHeart, FileText, Building2, AlertTriangle, Bell
 } from 'lucide-react';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
+import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRouter } from 'next/navigation';
 import type { Contact, EventItem } from '@/types/database';
-import { formatDate, getAvatarColor, getInitials, formatCurrency } from '@/lib/utils';
+import { formatDate, getAvatarColor, getInitials } from '@/lib/utils';
+
+interface ReconnectSuggestion {
+  contact: Contact;
+  daysSinceLastEvent: number;
+  lastEventDate: string;
+  type: 'yellow' | 'red';
+}
 
 export default function DashboardPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [reconnectSuggestions, setReconnectSuggestions] = useState<ReconnectSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -29,8 +38,71 @@ export default function DashboardPage() {
     try {
       const [c, e] = await Promise.all([contactService.getAll(), eventService.getAll()]);
       setContacts(c); setEvents(e);
+      await computeReconnectSuggestions(c, e);
     } catch (err: any) { setError(err.message || 'Không thể tải dữ liệu'); }
     finally { setIsLoading(false); }
+  };
+
+  const computeReconnectSuggestions = async (contacts: Contact[], events: EventItem[]) => {
+    try {
+      // Get all participants to find last event date per contact
+      const { data: participants } = await supabase
+        .from('participants')
+        .select('ContactID, EventID')
+        .in('ContactID', contacts.map(c => c.ContactID));
+
+      if (!participants || participants.length === 0) {
+        setReconnectSuggestions([]);
+        return;
+      }
+
+      // Build map of ContactID → list of EventIDs
+      const contactEventMap: Record<string, string[]> = {};
+      participants.forEach(p => {
+        if (!contactEventMap[p.ContactID]) contactEventMap[p.ContactID] = [];
+        contactEventMap[p.ContactID].push(p.EventID);
+      });
+
+      // Build map of EventID → StartDate
+      const eventsMap: Record<string, string> = {};
+      events.forEach(e => { eventsMap[e.EventID] = e.StartDate; });
+
+      // For each contact with events, find the most recent event date
+      const now = new Date();
+      const suggestions: ReconnectSuggestion[] = [];
+
+      contacts.forEach(c => {
+        const eventIds = contactEventMap[c.ContactID];
+        if (!eventIds || eventIds.length === 0) return;
+
+        let lastDate = '';
+        eventIds.forEach(eid => {
+          const d = eventsMap[eid];
+          if (d && (!lastDate || d > lastDate)) lastDate = d;
+        });
+
+        if (!lastDate) return;
+
+        const lastEventDate = new Date(lastDate);
+        const daysSince = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Favorite contacts: yellow alert after 21 days
+        if (c.IsFavorite && daysSince >= 21) {
+          suggestions.push({ contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'yellow' });
+        }
+        // High score (>=80): red alert after 180 days (6 months)
+        if ((c.RelationshipScore || 0) >= 80 && daysSince >= 180) {
+          suggestions.push({ contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'red' });
+        }
+      });
+
+      // Sort: most urgent first (longest time since last event)
+      suggestions.sort((a, b) => b.daysSinceLastEvent - a.daysSinceLastEvent);
+      setReconnectSuggestions(suggestions.slice(0, 10));
+    } catch (err) {
+      console.error('Failed to compute reconnect suggestions:', err);
+      setReconnectSuggestions([]);
+    }
   };
 
   const statsCards = [
@@ -70,22 +142,11 @@ export default function DashboardPage() {
   const totalRel = contacts.length || 1;
   const relationshipStats = Object.values(relationshipMap).map(r => ({ ...r, pct: Math.round((r.count / totalRel) * 100) }));
 
-  const recentContactBirthdays = [...contacts]
-    .filter(c => c.Birthday)
-    .sort((a, b) => {
-      const ma = (a.Birthday || '').slice(5);
-      const mb = (b.Birthday || '').slice(5);
-      return ma.localeCompare(mb);
-    })
-    .slice(0, 6);
-
-  const totalBirthdays = contacts.filter(c => c.Birthday).length;
   const monthNames = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
-  const birthdayByMonth = new Array(12).fill(0);
-  contacts.filter(c => c.Birthday).forEach(c => {
-    const m = new Date(c.Birthday!).getMonth();
-    birthdayByMonth[m]++;
-  });
+  const totalBirthdays = contacts.filter(c => c.Birthday).length;
+
+  const yellowAlerts = reconnectSuggestions.filter(s => s.type === 'yellow');
+  const redAlerts = reconnectSuggestions.filter(s => s.type === 'red');
 
   return (
     <>
@@ -130,25 +191,37 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Quick access */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3">
-          <QuickChip icon={Heart} label="Yêu thích" color="#E6002D" count={favoriteContacts.length} />
-          <QuickChip icon={Gift} label="Sinh nhật" color="#FF9500" count={totalBirthdays} />
-          <QuickChip icon={Building2} label="Tổ chức" color="#5856D6" count={0} />
-          <QuickChip icon={FileText} label="Tài liệu" color="#007AFF" count={0} />
-        </div>
-
-        {/* Favorites */}
-        {favoriteContacts.length > 0 && (
+        {/* Reconnection Suggestions */}
+        {reconnectSuggestions.length > 0 && (
           <div className="bg-white rounded-[16px] p-4 shadow-sm border border-[rgba(0,0,0,0.04)]">
             <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5 mb-3">
-              <Heart size={14} className="text-[#E6002D] fill-[#E6002D]"/> Yêu thích
+              <Coffee size={14} className="text-[#FF9500]"/> Gợi ý gặp gỡ
             </h2>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {favoriteContacts.map(c => (
-                <div key={c.ContactID} className="flex flex-col items-center gap-1 min-w-[56px]" onClick={() => router.push('/contacts')}>
-                  <AvatarCircle contact={c} size={44} />
-                  <p className="text-[9px] text-[#5F6368] font-medium text-center truncate w-[56px]">{c.Name.split(' ').pop()}</p>
+            <div className="space-y-2.5">
+              {redAlerts.map(s => (
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.08)]">
+                  <AvatarCircle contact={s.contact} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
+                    <p className="text-[10px] text-[#E6002D]">{s.daysSinceLastEvent} ngày chưa gặp</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Cafe">☕</button>
+                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Ăn">🍽️</button>
+                  </div>
+                </div>
+              ))}
+              {yellowAlerts.map(s => (
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)]">
+                  <AvatarCircle contact={s.contact} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
+                    <p className="text-[10px] text-[#B8860B]">{s.daysSinceLastEvent} ngày chưa gặp</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Cafe">☕</button>
+                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Ăn">🍽️</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -274,6 +347,46 @@ export default function DashboardPage() {
           })}
         </div>
 
+        {/* Reconnection Suggestions */}
+        {reconnectSuggestions.length > 0 && (
+          <div className="bg-white rounded-[14px] p-4 border border-[rgba(0,0,0,0.04)] shadow-sm mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5">
+                <Coffee size={15} className="text-[#FF9500]"/> Gợi ý gặp gỡ
+              </h2>
+              <span className="text-[11px] text-[#8E8E93] font-medium">{reconnectSuggestions.length} gợi ý</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {redAlerts.map(s => (
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.1)]">
+                  <AvatarCircle contact={s.contact} size={34} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
+                    <p className="text-[9px] text-[#E6002D] font-medium">⚠️ {s.daysSinceLastEvent} ngày chưa gặp</p>
+                    <div className="flex gap-1 mt-1">
+                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">☕ Cafe</button>
+                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">🍽️ Ăn</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {yellowAlerts.map(s => (
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)]">
+                  <AvatarCircle contact={s.contact} size={34} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
+                    <p className="text-[9px] text-[#B8860B] font-medium">⚠️ {s.daysSinceLastEvent} ngày chưa gặp</p>
+                    <div className="flex gap-1 mt-1">
+                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">☕ Cafe</button>
+                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">🍽️ Ăn</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Row 1: Favorites + Birthdays */}
         <div className="grid grid-cols-3 gap-4 mb-5">
           {/* Favorite Contacts */}
@@ -315,22 +428,13 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Birthday Distribution */}
-          <div className="bg-white rounded-[14px] p-4 border border-[rgba(0,0,0,0.04)] shadow-sm">
-            <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5 mb-3">
-              <PieChart size={14} className="text-[#E6002D]"/> Sinh nhật theo tháng
+          {/* Life Score */}
+          <div className="bg-white rounded-[14px] p-4 border border-[rgba(0,0,0,0.04)] shadow-sm text-center">
+            <h2 className="text-[14px] font-semibold text-[#111] flex items-center justify-center gap-1.5 mb-2">
+              <TrendingUp size={14} className="text-[#E6002D]"/> Life Score
             </h2>
-            <div className="flex items-end gap-1 h-[84px]">
-              {birthdayByMonth.map((count, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                  <div
-                    className="w-full rounded-[3px] transition-all duration-300"
-                    style={{ height: `${Math.max(count * 12, count > 0 ? 4 : 0)}px`, backgroundColor: count > 0 ? '#E6002D' : 'rgba(0,0,0,0.04)' }}
-                  />
-                  <span className="text-[7px] text-[#8E8E93] font-medium">{i + 1}</span>
-                </div>
-              ))}
-            </div>
+            <div className="text-[42px] font-bold text-[#111]">{contacts.length + events.length}</div>
+            <p className="text-[11px] text-[#8E8E93]">{contacts.length} quan hệ · {events.length} sự kiện</p>
           </div>
         </div>
 
@@ -392,23 +496,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Row 3: Life Score + Quick Actions */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white rounded-[14px] p-4 border border-[rgba(0,0,0,0.04)] shadow-sm col-span-1 text-center">
-            <h2 className="text-[14px] font-semibold text-[#111] flex items-center justify-center gap-1.5 mb-2">
-              <TrendingUp size={14} className="text-[#E6002D]"/> Life Score
-            </h2>
-            <div className="text-[42px] font-bold text-[#111]">{contacts.length + events.length}</div>
-            <p className="text-[11px] text-[#8E8E93]">{contacts.length} quan hệ · {events.length} sự kiện</p>
-          </div>
-          <div className="col-span-2 grid grid-cols-3 gap-3">
-            <QuickAction icon={Heart} label="Thêm quan hệ" color="#E6002D" onClick={() => router.push('/contacts/add')} />
-            <QuickAction icon={Calendar} label="Thêm sự kiện" color="#007AFF" onClick={() => router.push('/events/add')} />
-            <QuickAction icon={BookHeart} label="Thêm ký ức" color="#FF4D6A" onClick={() => router.push('/memories/add')} />
-            <QuickAction icon={Building2} label="Thêm tổ chức" color="#5856D6" onClick={() => router.push('/organizations/add')} />
-            <QuickAction icon={FileText} label="Thêm tài liệu" color="#FF9500" onClick={() => router.push('/documents/add')} />
-            <QuickAction icon={Target} label="Thêm mục tiêu" color="#AF52DE" onClick={() => router.push('/goals/add')} />
-          </div>
+        {/* Row 3: Quick Actions */}
+        <div className="grid grid-cols-6 gap-3">
+          <QuickAction icon={Heart} label="Thêm quan hệ" color="#E6002D" onClick={() => router.push('/contacts/add')} />
+          <QuickAction icon={Calendar} label="Thêm sự kiện" color="#007AFF" onClick={() => router.push('/events/add')} />
+          <QuickAction icon={BookHeart} label="Thêm ký ức" color="#FF4D6A" onClick={() => router.push('/memories/add')} />
+          <QuickAction icon={Building2} label="Thêm tổ chức" color="#5856D6" onClick={() => router.push('/organizations/add')} />
+          <QuickAction icon={FileText} label="Thêm tài liệu" color="#FF9500" onClick={() => router.push('/documents/add')} />
+          <QuickAction icon={Target} label="Thêm mục tiêu" color="#AF52DE" onClick={() => router.push('/goals/add')} />
         </div>
       </div>
     </>
@@ -427,16 +522,6 @@ function AvatarCircle({ contact, size }: { contact: { Avatar?: string | null; Na
     <div className="rounded-full flex items-center justify-center text-white font-bold shrink-0"
       style={{ width: size, height: size, fontSize: size * 0.4, backgroundColor: getAvatarColor(contact.Name) }}>
       {getInitials(contact.Name)}
-    </div>
-  );
-}
-
-function QuickChip({ icon: Icon, label, color, count }: { icon: any; label: string; color: string; count: number }) {
-  return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[rgba(0,0,0,0.06)] whitespace-nowrap shadow-sm">
-      <Icon size={12} style={{ color }} />
-      <span className="text-[11px] font-medium text-[#5F6368]">{label}</span>
-      {count > 0 && <span className="text-[10px] font-semibold" style={{ color }}>{count}</span>}
     </div>
   );
 }
