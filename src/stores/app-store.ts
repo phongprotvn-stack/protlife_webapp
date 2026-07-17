@@ -1,86 +1,36 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-interface UIState {
-  isMobile: boolean;
-  isSidebarOpen: boolean;
-  isInspectorOpen: boolean;
-  activeTab: 'home' | 'contacts' | 'events' | 'memories' | 'settings';
-  setMobile: (val: boolean) => void;
-  toggleSidebar: () => void;
-  setSidebarOpen: (val: boolean) => void;
-  toggleInspector: () => void;
-  setActiveTab: (tab: UIState['activeTab']) => void;
-}
-
-export const useUIStore = create<UIState>()(
-  persist(
-    (set) => ({
-      isMobile: false,
-      isSidebarOpen: true,
-      isInspectorOpen: false,
-      activeTab: 'home',
-      setMobile: (val) => set({ isMobile: val }),
-      toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
-      setSidebarOpen: (val) => set({ isSidebarOpen: val }),
-      toggleInspector: () => set((s) => ({ isInspectorOpen: !s.isInspectorOpen })),
-      setActiveTab: (tab) => set({ activeTab: tab }),
-    }),
-    {
-      name: 'protlife-ui',
-      partialize: (state) => ({ activeTab: state.activeTab }),
-    }
-  )
-);
 
 interface AppState {
-  // Global search
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  
   // Refresh trigger
   refreshKey: number;
   triggerRefresh: () => void;
-  
+
   // Global add modal
   addModalType: string | null;
   setAddModal: (type: string | null) => void;
-  
-  // Filters
-  contactFilter: {
-    relationship: string;
-    status: string;
-    isFavorite: boolean | null;
-  };
-  setContactFilter: (filter: Partial<AppState['contactFilter']>) => void;
-  
-  eventFilter: {
-    eventType: string;
-    importance: string;
-    mood: string;
-  };
-  setEventFilter: (filter: Partial<AppState['eventFilter']>) => void;
+
+  // Right panel selection (Desktop)
+  selectedContactId: string | null;
+  selectedEventId: string | null;
+  rightPanelView: 'detail' | 'add' | 'edit' | null;
+  selectContact: (id: string | null) => void;
+  selectEvent: (id: string | null) => void;
+  clearSelection: () => void;
+  setRightPanelView: (view: 'detail' | 'add' | 'edit' | null) => void;
 }
 
 export const useAppStore = create<AppState>()((set) => ({
-  searchQuery: '',
-  setSearchQuery: (q) => set({ searchQuery: q }),
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),
+
   addModalType: null,
   setAddModal: (type) => set({ addModalType: type }),
-  contactFilter: {
-    relationship: '',
-    status: '',
-    isFavorite: null,
-  },
-  setContactFilter: (filter) =>
-    set((s) => ({ contactFilter: { ...s.contactFilter, ...filter } })),
-  eventFilter: {
-    eventType: '',
-    importance: '',
-    mood: '',
-  },
-  setEventFilter: (filter) =>
-    set((s) => ({ eventFilter: { ...s.eventFilter, ...filter } })),
+
+  selectedContactId: null,
+  selectedEventId: null,
+  rightPanelView: null,
+  selectContact: (id) => set({ selectedContactId: id, selectedEventId: null, rightPanelView: id ? 'detail' : null }),
+  selectEvent: (id) => set({ selectedEventId: id, selectedContactId: null, rightPanelView: id ? 'detail' : null }),
+  clearSelection: () => set({ selectedContactId: null, selectedEventId: null, rightPanelView: null }),
+  setRightPanelView: (view) => set({ rightPanelView: view }),
 }));

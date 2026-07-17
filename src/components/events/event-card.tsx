@@ -6,22 +6,32 @@ import type { EventItem } from '@/types/database';
 import { Calendar, MapPin, Users, DollarSign, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { EventDetail } from '@/components/events/event-detail';
+import { useAppStore } from '@/stores/app-store';
 
 interface EventCardProps {
   event: EventItem;
   variant?: 'default' | 'compact';
+  onSelect?: (id: string) => void;
 }
 
-export function EventCard({ event, variant = 'default' }: EventCardProps) {
+export function EventCard({ event, variant = 'default', onSelect }: EventCardProps) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const eventDate = new Date(event.StartDate);
   const day = eventDate.getDate();
   const month = eventDate.toLocaleDateString('vi-VN', { month: 'short' });
 
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(event.EventID);
+    } else {
+      setDetailId(event.EventID);
+    }
+  };
+
   return (
     <>
       <div
-        onClick={() => setDetailId(event.EventID)}
+        onClick={handleClick}
         className="card-ios flex items-start gap-4 cursor-pointer active:scale-[0.98] transition-all duration-200"
       >
         {/* Date Badge */}

@@ -6,20 +6,30 @@ import type { Contact } from '@/types/database';
 import { Heart, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { ContactDetail } from '@/components/contacts/contact-detail';
+import { useAppStore } from '@/stores/app-store';
 
 interface ContactCardProps {
   contact: Contact;
   variant?: 'default' | 'compact';
+  onSelect?: (id: string) => void;
 }
 
-export function ContactCard({ contact, variant = 'default' }: ContactCardProps) {
+export function ContactCard({ contact, variant = 'default', onSelect }: ContactCardProps) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const avatarColor = getAvatarColor(contact.Name);
+
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(contact.ContactID);
+    } else {
+      setDetailId(contact.ContactID);
+    }
+  };
 
   return (
     <>
       <div
-        onClick={() => setDetailId(contact.ContactID)}
+        onClick={handleClick}
         className="card-ios flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-all duration-200"
       >
         {/* Avatar */}

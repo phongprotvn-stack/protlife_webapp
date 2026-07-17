@@ -5,22 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  Sparkles,
-  Settings,
-  BrainCircuit,
+  LayoutDashboard, Users, Calendar,
+  BrainCircuit, Settings,
 } from 'lucide-react';
 
-interface TabItem {
-  id: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  href: string;
-}
-
-const TABS: TabItem[] = [
+const TABS = [
   { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, href: '/dashboard' },
   { id: 'contacts', label: 'Quan hệ', icon: Users, href: '/contacts' },
   { id: 'events', label: 'Sự kiện', icon: Calendar, href: '/events' },
@@ -37,8 +26,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen min-h-dvh flex flex-col pb-[72px]">
-      {/* Main content */}
+    <div className="min-h-screen min-h-dvh flex flex-col pb-[68px]">
       <main className="flex-1 overflow-y-auto">
         <motion.div
           key={pathname}
@@ -50,7 +38,6 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         </motion.div>
       </main>
 
-      {/* iOS 26 Liquid Glass Tab Bar */}
       <nav className="tab-bar-glass">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -68,7 +55,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
                   className={isActive ? 'text-[#E6002D]' : 'text-[#8E8E93]'}
                 />
               </div>
-              <span className="text-[10px] font-medium leading-tight">{tab.label}</span>
+              <span className="text-[10px] font-medium leading-tight mt-0.5">{tab.label}</span>
             </Link>
           );
         })}
