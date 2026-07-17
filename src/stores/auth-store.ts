@@ -28,7 +28,13 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       isLoggedIn: false,
       user: null,
-      login: (user) => set({ isLoggedIn: true, user }),
+      login: (user) => {
+        // Force admin name
+        if (user.email?.toLowerCase() === 'phongprot.vn@gmail.com' && user.name !== 'Prot') {
+          user.name = 'Prot';
+        }
+        set({ isLoggedIn: true, user });
+      },
       logout: () => set({ isLoggedIn: false, user: null }),
     }),
     {
