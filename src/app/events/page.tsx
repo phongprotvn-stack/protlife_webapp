@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
 import { eventService } from '@/lib/services/event-service';
+import { supabase } from '@/lib/supabase/client';
 import { useAppStore } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
 import type { EventItem } from '@/types/database';
-import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
+import { formatDate, getMoodEmoji, getImportanceColor, formatVND } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 
@@ -24,7 +25,7 @@ const EVENT_TYPES = [
   { id: 'Other', label: 'Khác', icon: '📌' },
 ];
 
-type SortField = 'Title' | 'EventType' | 'StartDate' | 'Place' | 'Cost';
+type SortField = 'Title' | 'EventType' | 'StartDate' | 'Place' | 'Cost' | 'Participants';
 type SortDir = 'asc' | 'desc';
 
 export default function EventsPage() {
@@ -39,7 +40,9 @@ export default function EventsPage() {
   const [sortField, setSortField] = useState<SortField>('StartDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
-  const setAddModal = useAppStore((s) => s.setAddModal);
+  // Participant count per event
+  const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
+
   const selectEvent = useAppStore((s) => s.selectEvent);
   const refreshKey = useAppStore((s) => s.refreshKey);
 
@@ -47,8 +50,24 @@ export default function EventsPage() {
 
   const loadEvents = async () => {
     setIsLoading(true); setError('');
-    try { setEvents(await eventService.getAll()); }
-    catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
+    try {
+      const data = await eventService.getAll();
+      setEvents(data);
+
+      // Fetch participant counts for ALL events
+      const { data: participants } = await supabase
+        .from('participants')
+        .select('EventID')
+        .in('EventID', data.map((e: EventItem) => e.EventID));
+
+      const counts: Record<string, number> = {};
+      if (participants) {
+        participants.forEach((p: any) => {
+          counts[p.EventID] = (counts[p.EventID] || 0) + 1;
+        });
+      }
+      setParticipantCounts(counts);
+    } catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
     finally { setIsLoading(false); }
   };
 
@@ -65,10 +84,13 @@ export default function EventsPage() {
       else if (sortField === 'StartDate') cmp = (a.StartDate || '').localeCompare(b.StartDate || '');
       else if (sortField === 'Place') cmp = (a.Place || '').localeCompare(b.Place || '');
       else if (sortField === 'Cost') cmp = (a.Cost || 0) - (b.Cost || 0);
+      else if (sortField === 'Participants') {
+        cmp = (participantCounts[a.EventID] || 0) - (participantCounts[b.EventID] || 0);
+      }
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return f;
-  }, [events, activeFilter, searchQuery, sortField, sortDir]);
+  }, [events, activeFilter, searchQuery, sortField, sortDir, participantCounts]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
@@ -130,7 +152,7 @@ export default function EventsPage() {
   return (
     <div className="page-content">
       {isLoading && <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" /></div>}
-      {!isLoading && error && <div className="glass-card p-8 text-center"><p className="text-[14px] font-medium text-[#E6002D]">{error}</p><button onClick={loadEvents} className="btn-glass-primary mt-4 px-5 py-2 text-[12px]">Thử lại</button></div>}
+      {!isLoading && error && (<div className="glass-card p-8 text-center"><p className="text-[14px] font-medium text-[#E6002D]">{error}</p><button onClick={loadEvents} className="btn-glass-primary mt-4 px-5 py-2 text-[12px]">Thử lại</button></div>)}
       {!isLoading && !error && (
         <>
           {/* TOP ROW */}
@@ -161,18 +183,20 @@ export default function EventsPage() {
               <thead>
                 <tr className="bg-[rgba(0,0,0,0.02)]">
                   <TH label="Tiêu đề" field="Title" current={sortField} dir={sortDir} onSort={handleSort} />
-                  <TH label="Loại" field="EventType" current={sortField} dir={sortDir} onSort={handleSort} width="100px" />
+                  <TH label="Loại" field="EventType" current={sortField} dir={sortDir} onSort={handleSort} width="90px" />
                   <TH label="Ngày" field="StartDate" current={sortField} dir={sortDir} onSort={handleSort} width="110px" center />
-                  <TH label="Địa điểm" field="Place" current={sortField} dir={sortDir} onSort={handleSort} width="130px" />
+                  <TH label="Địa điểm" field="Place" current={sortField} dir={sortDir} onSort={handleSort} width="120px" />
+                  <TH label="Người tham gia" field="Participants" current={sortField} dir={sortDir} onSort={handleSort} width="80px" center />
                   <TH label="Chi phí" field="Cost" current={sortField} dir={sortDir} onSort={handleSort} width="100px" center />
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center py-10 text-[13px] text-[#8E8E93]">Không tìm thấy kết quả</td></tr>
+                  <tr><td colSpan={6} className="text-center py-10 text-[13px] text-[#8E8E93]">Không tìm thấy kết quả</td></tr>
                 ) : (
                   paginated.map((event) => {
                     const d = new Date(event.StartDate);
+                    const pCount = participantCounts[event.EventID] || 0;
                     return (
                       <tr key={event.EventID} onClick={() => selectEvent(event.EventID)}
                         className="border-b border-[rgba(0,0,0,0.03)] cursor-pointer hover:bg-[rgba(230,0,45,0.02)] transition-colors last:border-b-0">
@@ -191,7 +215,13 @@ export default function EventsPage() {
                         <td className="py-2.5 px-3"><span className="text-[12px] text-[#5F6368]">{event.EventType}</span></td>
                         <td className="py-2.5 px-3 text-center"><span className="text-[12px] text-[#5F6368]">{formatDate(event.StartDate, 'ddmmyyyy')}</span></td>
                         <td className="py-2.5 px-3"><div className="flex items-center gap-1"><MapPin size={11} className="text-[#FF9500] flex-shrink-0" /><span className="text-[12px] text-[#5F6368] truncate">{event.Place || '—'}</span></div></td>
-                        <td className="py-2.5 px-3 text-center"><span className="text-[12px] font-medium text-[#FF4D6A]">{event.Cost > 0 ? `${event.Cost.toLocaleString('vi-VN')}₫` : '—'}</span></td>
+                        <td className="py-2.5 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Users size={12} className="text-[#34C759]" />
+                            <span className="text-[12px] font-medium" style={{ color: pCount > 0 ? '#34C759' : '#8E8E93' }}>{pCount || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-center"><span className="text-[12px] font-medium text-[#FF4D6A]">{event.Cost > 0 ? `${formatVND(event.Cost)} VND` : '—'}</span></td>
                       </tr>
                     );
                   })
