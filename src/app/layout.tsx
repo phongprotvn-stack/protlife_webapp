@@ -1,73 +1,64 @@
-import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
 import './globals.css';
-import { Providers } from '@/components/providers';
+import { AuthGuard } from '@/components/layout/auth-guard';
 import { MobileLayout } from '@/components/layout/mobile-layout';
 import { DesktopLayout } from '@/components/layout/desktop-layout';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
+// Pages that don't need the app layout (login, register, etc.)
+const AUTH_PAGES = ['/login', '/register', '/_not-found'];
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [isMobile, setIsMobile] = useState(false);
 
-export const metadata: Metadata = {
-  title: 'PROT LIFE — Hệ điều hành cuộc sống cá nhân',
-  description:
-    'PROT LIFE là ứng dụng quản lý cuộc sống cá nhân, lưu trữ ký ức, theo dõi các mối quan hệ và sự kiện trong cuộc đời.',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'PROT LIFE',
-  },
-  icons: {
-    apple: '/icon-192.png',
-  },
-  openGraph: {
-    title: 'PROT LIFE',
-    description: 'Hệ điều hành cuộc sống cá nhân',
-    type: 'website',
-  },
-};
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  viewportFit: 'cover',
-  themeColor: '#E6002D',
-};
+  const isAuthPage = AUTH_PAGES.includes(pathname);
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+  // For auth pages, render standalone
+  if (isAuthPage) {
+    return (
+      <html lang="vi">
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <link rel="icon" href="/favicon.ico" />
+          <title>PROT LIFE</title>
+        </head>
+        <body>
+          {children}
+        </body>
+      </html>
+    );
+  }
+
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi">
       <head>
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="icon" href="/favicon.ico" />
+        <title>PROT LIFE</title>
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white`}
-      >
-        <Providers>
-          {/* Mobile View (iOS 26 style) */}
-          <div className="block md:hidden">
+      <body>
+        <AuthGuard>
+          {isMobile ? (
             <MobileLayout>{children}</MobileLayout>
-          </div>
-          {/* Desktop View (Windows 11 style) */}
-          <div className="hidden md:block">
+          ) : (
             <DesktopLayout>{children}</DesktopLayout>
-          </div>
-        </Providers>
+          )}
+        </AuthGuard>
       </body>
     </html>
   );
