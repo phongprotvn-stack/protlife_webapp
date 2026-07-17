@@ -69,7 +69,7 @@ export default function DashboardPage() {
 
       // For each contact with events, find the most recent event date
       const now = new Date();
-      const suggestions: ReconnectSuggestion[] = [];
+      const suggestionMap = new Map<string, ReconnectSuggestion>();
 
       contacts.forEach(c => {
         const eventIds = contactEventMap[c.ContactID];
@@ -86,19 +86,21 @@ export default function DashboardPage() {
         const lastEventDate = new Date(lastDate);
         const daysSince = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24));
 
-        // Favorite contacts: yellow alert after 21 days
-        if (c.IsFavorite && daysSince >= 21) {
-          suggestions.push({ contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'yellow' });
-        }
-        // High score (>=80): red alert after 180 days (6 months)
-        if ((c.RelationshipScore || 0) >= 80 && daysSince >= 180) {
-          suggestions.push({ contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'red' });
+        const isFavorite = c.IsFavorite && daysSince >= 21;
+        const isHighScore = (c.RelationshipScore || 0) >= 80 && daysSince >= 180;
+
+        // Red alert takes priority over yellow
+        if (isHighScore) {
+          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'red' });
+        } else if (isFavorite && !suggestionMap.has(c.ContactID)) {
+          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'yellow' });
         }
       });
 
-      // Sort: most urgent first (longest time since last event)
-      suggestions.sort((a, b) => b.daysSinceLastEvent - a.daysSinceLastEvent);
-      setReconnectSuggestions(suggestions.slice(0, 10));
+      // Sort: least days first (ngày chưa gặp ít nhất → nhiều nhất)
+      const sorted = Array.from(suggestionMap.values())
+        .sort((a, b) => a.daysSinceLastEvent - b.daysSinceLastEvent);
+      setReconnectSuggestions(sorted.slice(0, 10));
     } catch (err) {
       console.error('Failed to compute reconnect suggestions:', err);
       setReconnectSuggestions([]);

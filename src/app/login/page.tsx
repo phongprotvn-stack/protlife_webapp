@@ -54,10 +54,11 @@ export default function LoginPage() {
       if (signInError) throw signInError;
 
       if (data.user) {
+        const isAdmin = data.user.email?.toLowerCase() === 'phongprot.vn@gmail.com';
         login({
           id: data.user.id,
           email: data.user.email || email,
-          name: data.user.user_metadata?.name || (data.user.email === 'phongprot.vn@gmail.com' ? 'Prot' : data.user.email?.split('@')[0] || 'User'),
+          name: isAdmin ? 'Prot' : (data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'),
           role: 'admin',
         });
         router.push('/dashboard');
@@ -91,7 +92,7 @@ export default function LoginPage() {
         login({
           id: u.id,
           email: u.email || '',
-          name: u.user_metadata?.name || (u.email === 'phongprot.vn@gmail.com' ? 'Prot' : u.email?.split('@')[0] || 'User'),
+          name: (u.email?.toLowerCase() === 'phongprot.vn@gmail.com') ? 'Prot' : (u.user_metadata?.name || u.email?.split('@')[0] || 'User'),
           role: 'admin',
         });
         router.push('/dashboard');
