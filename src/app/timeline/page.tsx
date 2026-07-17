@@ -2,35 +2,141 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Plus, Sparkles } from 'lucide-react';
+import { eventService } from '@/lib/services/event-service';
+import type { EventItem } from '@/types/database';
 
-// ── Data ──
-const pastMemories = [
-  { icon:'💼', title:'Ngày đầu đi làm', when:'3 năm trước', desc:'Cột mốc khởi đầu sự nghiệp — hồi hộp và đầy háo hức.' },
-  { icon:'🎂', title:'Sinh nhật tuổi 25', when:'1 năm trước', desc:'Bạn bè cũ tụ họp đông đủ, một trong những đêm vui nhất.' },
-  { icon:'💍', title:'Đám cưới Linh', when:'6 tháng trước', desc:'Ngồi bàn cùng nhóm bạn đại học, ai cũng khóc lúc trao nhẫn.' },
-  { icon:'🏔️', title:'Chuyến đi Đà Lạt', when:'2 tháng trước', desc:'3 ngày trốn phố cùng gia đình, chụp hơn 200 tấm ảnh.' },
-  { icon:'☕', title:'Cà phê với Minh', when:'2 tuần trước', desc:'Hàn huyên chuyện cũ sau nhiều năm mất liên lạc.' },
-];
+interface MemoryItem {
+  icon: string;
+  title: string;
+  when: string;
+  desc: string;
+  isPresent?: boolean;
+}
 
-const futureMemories = [
-  { icon:'🎁', title:'Sinh nhật Mẹ', when:'2 tuần tới', desc:'Đã lên lịch nhắc mua quà — đừng để quên như mọi năm.' },
-  { icon:'🚗', title:'Học lái xe', when:'3 tháng tới', desc:'Mục tiêu nhỏ để tự chủ hơn trong công việc và cuộc sống.' },
-  { icon:'🏃', title:'Marathon đầu tiên', when:'6 tháng tới', desc:'Đăng ký giải 21km — bắt đầu tập từ tuần sau.' },
-  { icon:'🗾', title:'Du lịch Nhật Bản', when:'1 năm tới', desc:'Một trong những nơi bạn khao khát đặt chân đến nhất.' },
-  { icon:'🏡', title:'Mua nhà cho bố mẹ', when:'Ước mơ dài hạn', desc:'Mục tiêu lớn, cần kế hoạch tài chính rõ ràng theo từng năm.' },
-];
+function getEventIcon(type?: string): string {
+  const map: Record<string, string> = {
+    Meeting: '🤝',
+    Birthday: '🎂',
+    Travel: '✈️',
+    Work: '💼',
+    Sport: '⚽',
+    Meal: '🍽️',
+    Entertainment: '🎮',
+    Other: '📌',
+  };
+  return map[type || ''] || '📌';
+}
 
-const presentMemory = {
-  icon:'❤️', title:'Hôm nay', when:'Hiện tại',
-  desc:'Tận hưởng khoảnh khắc này — mọi ký ức đều bắt đầu từ đây.',
-};
+function daysBetween(d1: Date, d2: Date): number {
+  return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+}
 
-interface MemoryItem { icon: string; title: string; when: string; desc: string; isPresent?: boolean; }
+function relativeTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  const days = daysBetween(d, now);
+
+  if (days === 0) return 'Hôm nay';
+  if (days > 0) {
+    // Past
+    if (days === 1) return 'Hôm qua';
+    if (days < 30) return `${days} ngày trước`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} tháng trước`;
+    const years = Math.floor(days / 365);
+    return `${years} năm trước`;
+  } else {
+    // Future
+    const abs = Math.abs(days);
+    if (abs === 1) return 'Ngày mai';
+    if (abs < 30) return `${abs} ngày tới`;
+    const months = Math.floor(abs / 30);
+    if (months < 12) return `${months} tháng tới`;
+    const years = Math.floor(abs / 365);
+    return `${years} năm tới`;
+  }
+}
+
+function buildDesc(event: EventItem): string {
+  const parts: string[] = [];
+  if (event.Place) parts.push(`📍 ${event.Place}`);
+  if (event.Notes) parts.push(event.Notes);
+  if (event.ParticipantCount && event.ParticipantCount > 0) parts.push(`👥 ${event.ParticipantCount} người tham gia`);
+  if (event.Mood) {
+    const moodEmoji: Record<string, string> = { Happy: '😊', Sad: '😢', Excited: '🤩', Calm: '😌', Angry: '😤', Tired: '😴' };
+    if (moodEmoji[event.Mood]) parts.unshift(moodEmoji[event.Mood]);
+  }
+  return parts.join(' · ') || 'Không có mô tả';
+}
 
 export default function TimelinePage() {
-  const list = useMemo<MemoryItem[]>(() => [
-    ...pastMemories, { ...presentMemory, isPresent: true }, ...futureMemories,
-  ], []);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [dbLoaded, setDbLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    eventService.getAll()
+      .then(data => { setEvents(data); setDbLoaded(true); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const list = useMemo<MemoryItem[]>(() => {
+    if (!dbLoaded) return [];
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const pastEvents: EventItem[] = [];
+    const futureEvents: EventItem[] = [];
+    let todayEvent: MemoryItem | null = null;
+
+    events.forEach(e => {
+      const d = new Date(e.StartDate);
+      d.setHours(0, 0, 0, 0);
+      if (d < now) pastEvents.push(e);
+      else if (d > now) futureEvents.push(e);
+      else {
+        todayEvent = {
+          icon: getEventIcon(e.EventType),
+          title: e.Title,
+          when: 'Hôm nay',
+          desc: buildDesc(e),
+        };
+      }
+    });
+
+    // Past: newest first (closest to present)
+    pastEvents.sort((a, b) => new Date(b.StartDate).getTime() - new Date(a.StartDate).getTime());
+    // Future: soonest first (closest to present)
+    futureEvents.sort((a, b) => new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime());
+
+    const past: MemoryItem[] = pastEvents.map(e => ({
+      icon: getEventIcon(e.EventType),
+      title: e.Title,
+      when: relativeTime(e.StartDate),
+      desc: buildDesc(e),
+    }));
+
+    const future: MemoryItem[] = futureEvents.map(e => ({
+      icon: getEventIcon(e.EventType),
+      title: e.Title,
+      when: relativeTime(e.StartDate),
+      desc: buildDesc(e),
+    }));
+
+    const present: MemoryItem = todayEvent || {
+      icon: '❤️',
+      title: 'Hôm nay',
+      when: 'Hiện tại',
+      desc: 'Tận hưởng khoảnh khắc này — mọi ký ức đều bắt đầu từ đây.',
+      isPresent: true,
+    };
+
+    return [...past, { ...present, isPresent: true }, ...future];
+  }, [events, dbLoaded]);
+
   const presentIndex = useMemo(() => list.findIndex(i => i.isPresent), [list]);
   const ITEM_COUNT = list.length;
   const RADIUS = 128;
@@ -45,19 +151,17 @@ export default function TimelinePage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state refs (not state to avoid rerenders during drag)
+  // Drag state refs
   const dragActive = useRef(false);
   const dragLastAngle = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
-  const CLICK_THRESHOLD = 8; // px — if total movement < this, treat as click
+  const CLICK_THRESHOLD = 8;
 
   // ── Geometry helpers ──
   const angleOfItem = useCallback((i: number) => {
-    // Returns the absolute angle of item i on the wheel when rotation=0
-    // Angle 0 = top of circle
-    return (i - presentIndex) * (360 / ITEM_COUNT);
+    return ITEM_COUNT > 0 ? (i - presentIndex) * (360 / ITEM_COUNT) : 0;
   }, [presentIndex, ITEM_COUNT]);
 
   const norm180 = useCallback((deg: number) => {
@@ -65,7 +169,6 @@ export default function TimelinePage() {
     return d > 180 ? d - 360 : d;
   }, []);
 
-  // Mouse angle relative to wheel center
   const angleAt = useCallback((clientX: number, clientY: number) => {
     const { x, y } = centerRef.current;
     return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
@@ -86,6 +189,7 @@ export default function TimelinePage() {
 
   // ── Active index ──
   const activeIdx = useMemo(() => {
+    if (ITEM_COUNT === 0) return -1;
     const rot = rotationRef.current;
     let best = presentIndex;
     let bestDist = Infinity;
@@ -95,14 +199,13 @@ export default function TimelinePage() {
       if (d < bestDist) { bestDist = d; best = i; }
     });
     return bestDist < SNAP_THRESHOLD ? best : presentIndex;
-  }, [list, presentIndex, angleOfItem, norm180, renderTick]);
+  }, [list, presentIndex, angleOfItem, norm180, renderTick, ITEM_COUNT]);
 
   const activeItem = list[activeIdx];
-  const activeType = activeItem?.isPresent ? 'present'
-    : (activeIdx < presentIndex) ? 'past' : 'future';
 
   // ── Snap animation ──
   const snapTo = useCallback((i: number) => {
+    if (ITEM_COUNT === 0) return;
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const target = -angleOfItem(i);
     const start = rotationRef.current;
@@ -118,7 +221,7 @@ export default function TimelinePage() {
       else animRef.current = null;
     }
     animRef.current = requestAnimationFrame(step);
-  }, [angleOfItem, norm180, rerender]);
+  }, [angleOfItem, norm180, rerender, ITEM_COUNT]);
 
   // ── Drag handlers ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
@@ -128,14 +231,11 @@ export default function TimelinePage() {
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
-    // Don't setPointerCapture — let pointer events bubble naturally
-    // so onClick on child elements (nodes, hub) still fire.
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
   }, [angleAt]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragActive.current) return;
-    // Track total distance to distinguish click vs drag
     const dx = e.clientX - dragStartX.current;
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
@@ -144,7 +244,6 @@ export default function TimelinePage() {
     let delta = currentAngle - dragLastAngle.current;
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
-    // Wheel rotates same direction as drag
     rotationRef.current += delta;
     dragLastAngle.current = currentAngle;
     rerender();
@@ -153,25 +252,26 @@ export default function TimelinePage() {
   const onPointerUp = useCallback(() => {
     if (!dragActive.current) return;
     dragActive.current = false;
-
     if (dragTotalDist.current > CLICK_THRESHOLD) {
-      // It was a drag → snap to nearest node
       snapTo(activeIdx);
     }
-    // If it was a click (no significant movement),
-    // don't snap here — let onClick on the node/hub handle it
   }, [activeIdx, snapTo]);
 
   // ── Hub (today) click ──
   const snapToToday = useCallback(() => {
-    // Snap to presentIndex which is at the MIDDLE (angle=0 = top = no-node zone)
     snapTo(presentIndex);
   }, [presentIndex, snapTo]);
 
   // ── UI labels ──
-  const timeLabel = activeType === 'present' ? 'Hiện tại'
-    : activeType === 'past' ? `Quá khứ · ${activeItem?.when || ''}`
-    : `Tương lai · ${activeItem?.when || ''}`;
+  const activeType = activeItem?.isPresent ? 'present'
+    : (activeIdx < presentIndex) ? 'past' : 'future';
+
+  const timeLabel = activeItem
+    ? (activeType === 'present' ? 'Hiện tại'
+      : activeType === 'past' ? `Quá khứ · ${activeItem.when}`
+      : `Tương lai · ${activeItem.when}`)
+    : '';
+
   const btnLabel = activeType === 'past' ? '📖 Xem lại'
     : activeType === 'future' ? '🗓️ Lên kế hoạch'
     : '💭 Ghi lại';
@@ -179,12 +279,53 @@ export default function TimelinePage() {
   // On first render, snap to center (rotation = 0 = presentIndex)
   const hasSnapped = useRef(false);
   useEffect(() => {
-    if (!hasSnapped.current && wheelRef.current) {
+    if (!hasSnapped.current && wheelRef.current && ITEM_COUNT > 0) {
       hasSnapped.current = true;
       rotationRef.current = -angleOfItem(presentIndex);
       rerender();
     }
-  }, [angleOfItem, presentIndex, rerender]);
+  }, [angleOfItem, presentIndex, rerender, ITEM_COUNT]);
+
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-[26px] font-bold text-[#111] tracking-tight flex items-center gap-3">
+            <div className="w-9 h-9 rounded-[12px] bg-[#5856D6]/10 flex items-center justify-center">
+              <Sparkles size={20} className="text-[#5856D6]" />
+            </div>
+            Dòng thời gian
+          </h1>
+        </div>
+        <div className="card-ios text-center py-16">
+          <div className="w-8 h-8 border-2 border-[#5856D6]/20 border-t-[#5856D6] rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-[13px] text-[#8E8E93]">Đang tải sự kiện...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (ITEM_COUNT === 0) {
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-[26px] font-bold text-[#111] tracking-tight flex items-center gap-3">
+            <div className="w-9 h-9 rounded-[12px] bg-[#5856D6]/10 flex items-center justify-center">
+              <Sparkles size={20} className="text-[#5856D6]" />
+            </div>
+            Dòng thời gian
+          </h1>
+        </div>
+        <div className="card-ios text-center py-16">
+          <div className="w-16 h-16 rounded-full bg-[#5856D6]/5 mx-auto mb-4 flex items-center justify-center">
+            <Sparkles size={28} className="text-[#5856D6]/30" />
+          </div>
+          <p className="text-[15px] font-semibold text-[#6B7280] mb-1">Chưa có sự kiện nào</p>
+          <p className="text-[12px] text-[#8E8E93]">Thêm sự kiện để xem trên dòng thời gian</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -209,7 +350,7 @@ export default function TimelinePage() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          {/* Track conic gradient — past (right/amber) + divider (red) + future (left/purple) */}
+          {/* Track conic gradient */}
           <div
             className="absolute inset-[16px] rounded-full"
             style={{
@@ -220,7 +361,6 @@ export default function TimelinePage() {
               border: '1px solid rgba(0,0,0,0.04)',
             }}
           />
-          {/* Dashed inner ring */}
           <div className="absolute rounded-full" style={{ inset: '36px', border: '1px dashed rgba(0,0,0,0.06)' }} />
 
           {/* Pointer arrow at top */}
@@ -295,65 +435,67 @@ export default function TimelinePage() {
       </div>
 
       {/* Detail Card */}
-      <div
-        className="rounded-[26px] p-5 min-h-[150px] transition-all duration-200"
-        style={{
-          background: 'rgba(255,255,255,0.9)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          border: '1px solid rgba(255,255,255,0.5)',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)',
-        }}
-      >
-        <div className="flex items-center gap-3 mb-3">
-          <div
-            className="w-[44px] h-[44px] rounded-[16px] flex items-center justify-center text-[21px] flex-shrink-0 text-white"
+      {activeItem && (
+        <div
+          className="rounded-[26px] p-5 min-h-[150px] transition-all duration-200"
+          style={{
+            background: 'rgba(255,255,255,0.9)',
+            backdropFilter: 'blur(20px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+            border: '1px solid rgba(255,255,255,0.5)',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div
+              className="w-[44px] h-[44px] rounded-[16px] flex items-center justify-center text-[21px] flex-shrink-0 text-white"
+              style={{
+                background: activeType === 'past'
+                  ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
+                  : activeType === 'future'
+                    ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
+                    : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
+              }}
+            >
+              {activeItem.icon}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div
+                className={`text-[10px] font-bold tracking-[1px] uppercase ${
+                  activeType === 'past' ? 'text-[#F59E0B]'
+                  : activeType === 'future' ? 'text-[#8B5CF6]'
+                  : 'text-[#E6002D]'
+                }`}
+              >
+                {timeLabel}
+              </div>
+              <div className="text-[17px] font-extrabold text-[#101010] mt-0.5 tracking-[-0.2px]">
+                {activeItem.title}
+              </div>
+            </div>
+          </div>
+          <div className="text-[13px] text-[#6B7280] leading-relaxed mb-[16px]">
+            {activeItem.desc}
+          </div>
+          <button
+            className="w-full py-[13px] border-none rounded-[18px] text-[14px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform"
             style={{
               background: activeType === 'past'
                 ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
                 : activeType === 'future'
                   ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
                   : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
+              boxShadow: activeType === 'past'
+                ? '0 10px 22px rgba(217,119,6,0.28)'
+                : activeType === 'future'
+                  ? '0 10px 22px rgba(124,58,237,0.28)'
+                  : '0 10px 22px rgba(214,0,50,0.28)',
             }}
           >
-            {activeItem?.icon}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div
-              className={`text-[10px] font-bold tracking-[1px] uppercase ${
-                activeType === 'past' ? 'text-[#F59E0B]'
-                : activeType === 'future' ? 'text-[#8B5CF6]'
-                : 'text-[#E6002D]'
-              }`}
-            >
-              {timeLabel}
-            </div>
-            <div className="text-[17px] font-extrabold text-[#101010] mt-0.5 tracking-[-0.2px]">
-              {activeItem?.title}
-            </div>
-          </div>
+            {btnLabel}
+          </button>
         </div>
-        <div className="text-[13px] text-[#6B7280] leading-relaxed mb-[16px]">
-          {activeItem?.desc}
-        </div>
-        <button
-          className="w-full py-[13px] border-none rounded-[18px] text-[14px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform"
-          style={{
-            background: activeType === 'past'
-              ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
-              : activeType === 'future'
-                ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
-                : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
-            boxShadow: activeType === 'past'
-              ? '0 10px 22px rgba(217,119,6,0.28)'
-              : activeType === 'future'
-                ? '0 10px 22px rgba(124,58,237,0.28)'
-                : '0 10px 22px rgba(214,0,50,0.28)',
-          }}
-        >
-          {btnLabel}
-        </button>
-      </div>
+      )}
 
       {/* Add future dream button */}
       <div className="flex justify-center mt-4">
