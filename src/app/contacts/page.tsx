@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Users, RefreshCw, ChevronLeft, ChevronRight, Heart, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Users, RefreshCw, ChevronLeft, ChevronRight, Heart, ArrowUpDown, ArrowRight } from 'lucide-react';
 import { ContactCard } from '@/components/contacts/contact-card';
 import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useRouter } from 'next/navigation';
 import type { Contact } from '@/types/database';
 import { formatDate, calculateAge } from '@/lib/utils';
 
@@ -28,6 +29,7 @@ type SortField = 'Name' | 'Relationship' | 'RelationshipScore' | 'Birthday' | 'S
 type SortDir = 'asc' | 'desc';
 
 export default function ContactsPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -124,7 +126,7 @@ export default function ContactsPage() {
             <button onClick={loadContacts} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
-            <button onClick={() => setAddModal('contact')}
+            <button onClick={() => router.push('/contacts/add')}
               className="w-[38px] h-[38px] rounded-[10px] bg-[#E6002D] text-white flex items-center justify-center shadow-md active:scale-90 transition-all">
               <Plus size={18} strokeWidth={2.5} />
             </button>
@@ -236,7 +238,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Add button - red */}
-            <button onClick={() => setAddModal('contact')}
+            <button onClick={() => router.push('/contacts/add')}
               className="h-[38px] px-4 rounded-[8px] bg-[#E6002D] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm"
             >
               <Plus size={16} strokeWidth={2.5} />

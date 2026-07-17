@@ -6,6 +6,7 @@ import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, A
 import { EventCard } from '@/components/events/event-card';
 import { eventService } from '@/lib/services/event-service';
 import { useAppStore } from '@/stores/app-store';
+import { useRouter } from 'next/navigation';
 import type { EventItem } from '@/types/database';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 
@@ -29,6 +30,7 @@ type SortDir = 'asc' | 'desc';
 export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
+  const router = useRouter();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -89,7 +91,7 @@ export default function EventsPage() {
             <button onClick={loadEvents} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
-            <button onClick={() => setAddModal('event')}
+            <button onClick={() => router.push('/events/add')}
               className="w-[38px] h-[38px] rounded-[10px] bg-[#E6002D] text-white flex items-center justify-center shadow-md active:scale-90">
               <Plus size={18} strokeWidth={2.5} />
             </button>
@@ -147,7 +149,7 @@ export default function EventsPage() {
                   }`}>{t.icon} {t.label}</button>
               ))}
             </div>
-            <button onClick={() => setAddModal('event')}
+            <button onClick={() => router.push('/events/add')}
               className="h-[38px] px-4 rounded-[8px] bg-[#E6002D] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm">
               <Plus size={16} strokeWidth={2.5} /> Thêm sự kiện
             </button>
