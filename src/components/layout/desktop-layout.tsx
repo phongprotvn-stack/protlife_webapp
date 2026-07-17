@@ -60,7 +60,8 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const [searchFocused, setSearchFocused] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [addModal, setAddModal] = useState<string | null>(null);
+  const addModalType = useAppStore((s) => s.addModalType);
+  const setAddModal = useAppStore((s) => s.setAddModal);
   const [toast, setToast] = useState<string | null>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
 
@@ -331,11 +332,11 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
       {/* Add Modals */}
       <AddContactModal
-        open={addModal === 'contact'}
+        open={addModalType === 'contact'}
         onClose={() => setAddModal(null)}
       />
       <AddEventModal
-        open={addModal === 'event'}
+        open={addModalType === 'event'}
         onClose={() => setAddModal(null)}
       />
 

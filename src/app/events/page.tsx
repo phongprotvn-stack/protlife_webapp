@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Calendar, Filter, RefreshCw } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, Calendar, Filter, RefreshCw } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
 import { cn } from '@/lib/utils';
 import { eventService } from '@/lib/services/event-service';
+import { useAppStore } from '@/stores/app-store';
 import type { EventItem } from '@/types/database';
 
 const eventTypes = [
@@ -29,13 +30,16 @@ const eventTypes = [
 export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const setAddModal = useAppStore((s) => s.setAddModal);
+  const refreshKey = useAppStore((s) => s.refreshKey);
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [refreshKey]);
 
   const loadEvents = async () => {
     setIsLoading(true);
@@ -71,7 +75,7 @@ export default function EventsPage() {
           >
             <RefreshCw size={18} className="text-[#8E8E93]" />
           </button>
-          <button className="w-[44px] h-[44px] rounded-[14px] bg-[#E6002D] text-white flex items-center justify-center shadow-lg active:scale-90 transition-all duration-200"
+          <button onClick={() => setAddModal('event')} className="w-[44px] h-[44px] rounded-[14px] bg-[#E6002D] text-white flex items-center justify-center shadow-lg active:scale-90 transition-all duration-200"
             style={{ boxShadow: '0 4px 12px rgba(230,0,45,0.3)' }}
           >
             <Plus size={22} strokeWidth={2.5} />
@@ -87,8 +91,11 @@ export default function EventsPage() {
           placeholder="Tìm kiếm sự kiện..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-[48px] pl-[44px] pr-[16px] rounded-[14px] bg-[rgba(0,0,0,0.04)] text-[15px] text-[#111] placeholder:text-[#9CA3AF] outline-none border border-transparent focus:border-[rgba(230,0,45,0.25)] focus:bg-white focus:ring-2 focus:ring-[rgba(230,0,45,0.1)] transition-all duration-200"
+          className="w-full h-[48px] pl-[44px] pr-[44px] rounded-[14px] bg-[rgba(0,0,0,0.04)] text-[15px] text-[#111] placeholder:text-[#9CA3AF] outline-none border border-transparent focus:border-[rgba(230,0,45,0.25)] focus:bg-white focus:ring-2 focus:ring-[rgba(230,0,45,0.1)] transition-all duration-200"
         />
+        <button onClick={() => setShowFilterMenu(!showFilterMenu)} className="absolute right-[12px] top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.04)]">
+          <SlidersHorizontal size={16} className="text-[#8E8E93]" />
+        </button>
       </div>
 
       {/* Event Type Filter */}

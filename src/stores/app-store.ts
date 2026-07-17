@@ -42,6 +42,10 @@ interface AppState {
   refreshKey: number;
   triggerRefresh: () => void;
   
+  // Global add modal
+  addModalType: string | null;
+  setAddModal: (type: string | null) => void;
+  
   // Filters
   contactFilter: {
     relationship: string;
@@ -63,6 +67,8 @@ export const useAppStore = create<AppState>()((set) => ({
   setSearchQuery: (q) => set({ searchQuery: q }),
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),
+  addModalType: null,
+  setAddModal: (type) => set({ addModalType: type }),
   contactFilter: {
     relationship: '',
     status: '',

@@ -19,6 +19,7 @@ import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
 import { useAuthStore } from '@/stores/auth-store';
 import type { Contact, EventItem } from '@/types/database';
+import { formatDate } from '@/lib/utils';
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -204,7 +205,6 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {upcomingBirthdays.map((b) => {
-                const months = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
                 return (
                   <div key={b.contact.ContactID} className="flex items-center gap-3 p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
                     <div className="w-[40px] h-[40px] rounded-full bg-gradient-to-br from-[#FF9500] to-[#FFCC00] flex items-center justify-center text-white font-bold text-[14px] flex-shrink-0">
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <span className="text-[12px] font-semibold text-[#FF9500] flex-shrink-0">
-                      {months[b.nextDate.getMonth()]}/{b.nextDate.getDate()}
+                      {String(b.nextDate.getDate()).padStart(2, '0')}/{String(b.nextDate.getMonth() + 1).padStart(2, '0')}
                     </span>
                   </div>
                 );
@@ -259,7 +259,7 @@ export default function DashboardPage() {
                     <p className="text-[11px] text-[#8E8E93]">{e.EventType}{e.Place ? ` · ${e.Place}` : ''}</p>
                   </div>
                   <span className="text-[11px] text-[#8E8E93] flex-shrink-0">
-                    {e.StartDate?.slice(5)}
+                    {formatDate(e.StartDate, 'ddmm')}
                   </span>
                 </div>
               ))}

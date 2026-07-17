@@ -6,6 +6,7 @@ import { Plus, Search, SlidersHorizontal, Users, Filter, RefreshCw } from 'lucid
 import { ContactCard } from '@/components/contacts/contact-card';
 import { cn } from '@/lib/utils';
 import { contactService } from '@/lib/services/contact-service';
+import { useAppStore } from '@/stores/app-store';
 import type { Contact } from '@/types/database';
 
 const relationships = [
@@ -26,10 +27,12 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const setAddModal = useAppStore((s) => s.setAddModal);
+  const refreshKey = useAppStore((s) => s.refreshKey);
 
   useEffect(() => {
     loadContacts();
-  }, []);
+  }, [refreshKey]);
 
   const loadContacts = async () => {
     setIsLoading(true);
@@ -65,7 +68,7 @@ export default function ContactsPage() {
           >
             <RefreshCw size={18} className="text-[#8E8E93]" />
           </button>
-          <button className="w-[44px] h-[44px] rounded-[14px] bg-[#E6002D] text-white flex items-center justify-center shadow-lg active:scale-90 transition-all duration-200"
+          <button onClick={() => setAddModal('contact')} className="w-[44px] h-[44px] rounded-[14px] bg-[#E6002D] text-white flex items-center justify-center shadow-lg active:scale-90 transition-all duration-200"
             style={{ boxShadow: '0 4px 12px rgba(230,0,45,0.3)' }}
           >
             <Plus size={22} strokeWidth={2.5} />
