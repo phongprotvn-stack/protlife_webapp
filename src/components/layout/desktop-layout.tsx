@@ -37,14 +37,18 @@ import { AddEventModal } from '@/components/events/add-event-modal';
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // Clear right panel when navigating between sections
+  useEffect(() => { clearSelection(); }, [pathname]);
+
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const addModalType = useAppStore((s) => s.addModalType);
   const setAddModal = useAppStore((s) => s.setAddModal);
+  const clearSelection = useAppStore((s) => s.clearSelection);
   const selectedContactId = useAppStore((s) => s.selectedContactId);
   const selectedEventId = useAppStore((s) => s.selectedEventId);
   const rightPanelView = useAppStore((s) => s.rightPanelView);
-  const clearSelection = useAppStore((s) => s.clearSelection);
   const selectContact = useAppStore((s) => s.selectContact);
   const selectEvent = useAppStore((s) => s.selectEvent);
   const setRightPanelView = useAppStore((s) => s.setRightPanelView);

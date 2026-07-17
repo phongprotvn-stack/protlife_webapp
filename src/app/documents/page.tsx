@@ -1,29 +1,55 @@
 'use client';
 
-import { FileText, Plus, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, FileText, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 
 export default function DocumentsPage() {
-  return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-[26px] font-bold text-[#111] tracking-tight flex items-center gap-3">
-            <FileText size={24} className="text-[#34C759]" />
-            Tài liệu
-          </h1>
-          <p className="text-[13px] text-[#8E8E93] mt-0.5">0 tài liệu</p>
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => { setIsDesktop(window.innerWidth >= 768); }, []);
+
+  if (!isDesktop) {
+    return (
+      <div className="page-content">
+        <div className="flex items-center justify-between mb-4">
+          <div><h1 className="text-[22px] font-bold text-[#111] tracking-tight">Tài liệu</h1><p className="text-[12px] text-[#8E8E93] mt-0.5">0 tài liệu</p></div>
         </div>
-        <button className="w-[44px] h-[44px] rounded-[14px] bg-[#E6002D] text-white flex items-center justify-center shadow-lg">
-          <Plus size={22} strokeWidth={2.5} />
+        <div className="glass-card p-10 text-center">
+          <div className="w-14 h-14 rounded-full bg-[#FF9500]/5 mx-auto mb-3 flex items-center justify-center">
+            <FileText size={24} className="text-[#FF9500]/30" />
+          </div>
+          <p className="text-[14px] font-medium text-[#6B7280]">Chưa có tài liệu nào</p>
+          <p className="text-[12px] text-[#9CA3AF] mt-1">Lưu trữ giấy tờ, hồ sơ quan trọng</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-content">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="flex-1 relative">
+          <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          <input type="text" placeholder="Tìm kiếm tài liệu..."
+            className="w-full h-[38px] pl-[34px] pr-[12px] rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] text-[13px] outline-none focus:border-[#E6002D]" />
+        </div>
+        <button className="h-[38px] px-4 rounded-[8px] bg-[#E6002D] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm">
+          <Plus size={16} strokeWidth={2.5} /> Thêm tài liệu
         </button>
       </div>
 
-      <div className="card-ios py-16 text-center">
-        <div className="w-16 h-16 rounded-full bg-[#34C759]/5 mx-auto mb-4 flex items-center justify-center">
-          <FileText size={28} className="text-[#34C759]/30" />
-        </div>
-        <p className="text-[15px] font-medium text-[#6B7280]">Chưa có tài liệu nào</p>
-        <p className="text-[13px] text-[#9CA3AF] mt-1">Lưu trữ giấy tờ, hoá đơn, PDF gắn với người và sự kiện</p>
+      <div className="glass-card-compact overflow-hidden" style={{ borderRadius: '12px', border: '1px solid rgba(0,0,0,0.04)' }}>
+        <table className="w-full border-collapse">
+          <thead><tr className="bg-[rgba(0,0,0,0.02)]">
+            <th className="py-2.5 px-3 text-[11px] font-semibold text-[#8E8E93] uppercase tracking-[0.3px] text-left">Tên tài liệu</th>
+            <th className="py-2.5 px-3 text-[11px] font-semibold text-[#8E8E93] uppercase tracking-[0.3px] text-center" style={{width:'100px'}}>Loại</th>
+            <th className="py-2.5 px-3 text-[11px] font-semibold text-[#8E8E93] uppercase tracking-[0.3px] text-center" style={{width:'100px'}}>Ngày</th>
+            <th className="py-2.5 px-3 text-[11px] font-semibold text-[#8E8E93] uppercase tracking-[0.3px] text-center" style={{width:'80px'}}>Kích cỡ</th>
+          </tr></thead>
+          <tbody>
+            <tr><td colSpan={4} className="text-center py-12 text-[13px] text-[#8E8E93]">Chưa có dữ liệu</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
