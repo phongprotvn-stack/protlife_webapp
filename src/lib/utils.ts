@@ -152,3 +152,23 @@ export function getTimeUntil(birthday: string): string {
   if (days <= 7) return `${days} ngày nữa 🎈`;
   return `${days} ngày nữa`;
 }
+
+/**
+ * Format number as Vietnamese currency (VND) with . for thousands, , for decimals
+ * Input: 1500000.5 → "1.500.000,50"
+ */
+export function formatVND(value: number): string {
+  if (isNaN(value)) return '0';
+  const parts = value.toFixed(0).split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${intPart}`;
+}
+
+/**
+ * Parse a Vietnamese-formatted number string back to a number
+ * Input: "1.500.000,50" → 1500000.5
+ */
+export function parseVND(str: string): number {
+  const cleaned = str.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+  return parseFloat(cleaned) || 0;
+}

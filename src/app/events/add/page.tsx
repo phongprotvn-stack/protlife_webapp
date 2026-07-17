@@ -8,6 +8,7 @@ import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import type { Contact } from '@/types/database';
 import { ArrowLeft, MapPin, X, Search, Plus, Globe } from 'lucide-react';
+import { formatVND, parseVND } from '@/lib/utils';
 
 const EVENT_TYPES = ['Meeting','Birthday','Travel','Work','Sport','Hospital','Meal','Call','Shopping','Study','Party','Date','Entertainment','Other'] as const;
 const MOODS = ['Happy','Normal','Sad','Excited','Tired','Angry','Thoughtful','Loved'] as const;
@@ -264,8 +265,16 @@ export default function AddEventPage() {
               </select>
             </FormField>
             <FormField label="Chi phí (VNĐ)">
-              <input type="number" value={form.Cost} onChange={(e)=>setForm((f)=>({...f,Cost:Number(e.target.value)}))}
-                className="input-glass text-[13px]" placeholder="0"/>
+              <div className="relative">
+                <input type="text" value={form.Cost ? formatVND(form.Cost) : ''}
+                  onChange={(e)=>{
+                    // Only allow digits and known separators
+                    const raw = e.target.value.replace(/[^0-9.,]/g, '');
+                    setForm((f)=>({...f,Cost: parseVND(raw)}));
+                  }}
+                  className="input-glass text-[13px] w-full" placeholder="0"/>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#8E8E93] font-medium">VND</span>
+              </div>
             </FormField>
           </div>
         </FormSection>

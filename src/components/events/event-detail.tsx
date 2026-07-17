@@ -9,6 +9,7 @@ import type { EventItem } from '@/types/database';
 import type { Contact } from '@/types/database';
 import type { EventParticipant } from '@/lib/services/participant-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
+import { formatVND, parseVND } from '@/lib/utils';
 import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 
@@ -192,7 +193,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                 </div>
               )}
               {event.LifeStage && <Field icon={<Tag size={14} className="text-[#5856D6]"/>} label={event.LifeStage}/>}
-              {event.Cost>0 && <Field icon={<DollarSign size={14} className="text-[#FF4D6A]"/>} label={`${event.Cost.toLocaleString('vi-VN')}₫`}/>}
+              {event.Cost>0 && <Field icon={<DollarSign size={14} className="text-[#FF4D6A]"/>} label={`${formatVND(event.Cost)} VND`}/>}
               {participants.length>0 && (
                 <div className="p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
                   <p className="text-[10px] font-semibold text-[#8E8E93] uppercase tracking-[0.3px] mb-1.5 flex items-center gap-1"><Users size={12} className="text-[#34C759]"/> Người tham gia</p>
@@ -247,7 +248,15 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                 </FieldEdit>
               </div>
               <FieldEdit label="Chi phí (VNĐ)">
-                <input type="number" value={form.Cost} onChange={(e)=>setForm((f)=>({...f,Cost:Number(e.target.value)}))} className="input-glass text-[13px]" placeholder="0"/>
+                <div className="relative">
+                  <input type="text" value={form.Cost ? formatVND(form.Cost) : ''}
+                    onChange={(e)=>{
+                      const raw = e.target.value.replace(/[^0-9.,]/g, '');
+                      setForm((f)=>({...f,Cost: parseVND(raw)}));
+                    }}
+                    className="input-glass text-[13px] w-full" placeholder="0"/>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] text-[#8E8E93] font-medium">VND</span>
+                </div>
               </FieldEdit>
               <div>
                 <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Người tham gia</p>

@@ -275,10 +275,16 @@ export default function ContactsPage() {
                       {/* Name */}
                       <td className="py-2.5 px-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-white font-semibold text-[11px] flex-shrink-0"
-                            style={{ backgroundColor: getColor(contact.Name) }}>
-                            {contact.Name?.charAt(0)?.toUpperCase() || '?'}
-                          </div>
+                          {contact.Avatar ? (
+                            <div className="w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0">
+                              <img src={contact.Avatar} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-white font-semibold text-[11px] flex-shrink-0"
+                              style={{ backgroundColor: getColor(contact.Name) }}>
+                              {contact.Name?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                          )}
                           <div className="min-w-0">
                             <div className="flex items-center gap-1">
                               <span className="text-[13px] font-medium text-[#111] truncate">{contact.Name}</span>

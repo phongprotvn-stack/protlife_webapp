@@ -242,23 +242,49 @@ export function ContactDetail({ contactId, onClose, panelMode }: Props) {
                 <FieldEdit label="Tổ chức 1">
                   <div className="relative">
                     <input value={form.Organization1} onChange={(e)=>setForm((f)=>({...f,Organization1:e.target.value}))}
-                      onFocus={()=>setOrg1Open(true)} onBlur={()=>setTimeout(()=>setOrg1Open(false),150)}
-                      className="input-glass text-[13px] w-full pr-8" placeholder="Nhập hoặc chọn..." list="org1-list"/>
-                    <datalist id="org1-list">
-                      {orgList.map(o => <option key={o} value={o}/>)}
-                    </datalist>
-                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93] pointer-events-none"/>
+                      onFocus={()=>setOrg1Open(true)}
+                      className="input-glass text-[13px] w-full pr-8" placeholder="Nhập hoặc chọn..."/>
+                    <button type="button" onClick={(e)=>{e.preventDefault(); setOrg1Open(!org1Open); setOrg2Open(false);}}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93] p-0.5">
+                      <ChevronDown size={14}/>
+                    </button>
+                    {org1Open && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-[8px] shadow-lg border border-[rgba(0,0,0,0.06)] z-50 max-h-[160px] overflow-y-auto">
+                        <div className="p-1.5 border-b border-[rgba(0,0,0,0.04)]">
+                          <input value={org1Search} onChange={(e)=>setOrg1Search(e.target.value)}
+                            className="w-full text-[11px] px-2 py-1 rounded-[4px] bg-[rgba(0,0,0,0.04)] outline-none" placeholder="Tìm..."/>
+                        </div>
+                        {filteredOrg1.map(o => (
+                          <button key={o} type="button" onMouseDown={()=>{setForm((f)=>({...f,Organization1:o})); setOrg1Open(false); setOrg1Search('');}}
+                            className="w-full text-left px-2.5 py-1.5 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)]">{o}</button>
+                        ))}
+                        {filteredOrg1.length === 0 && <p className="text-[11px] text-[#8E8E93] text-center py-2">Không có</p>}
+                      </div>
+                    )}
                   </div>
                 </FieldEdit>
                 <FieldEdit label="Tổ chức 2">
                   <div className="relative">
                     <input value={form.Organization2} onChange={(e)=>setForm((f)=>({...f,Organization2:e.target.value}))}
-                      onFocus={()=>setOrg2Open(true)} onBlur={()=>setTimeout(()=>setOrg2Open(false),150)}
-                      className="input-glass text-[13px] w-full pr-8" placeholder="Nhập hoặc chọn..." list="org2-list"/>
-                    <datalist id="org2-list">
-                      {orgList.map(o => <option key={o} value={o}/>)}
-                    </datalist>
-                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93] pointer-events-none"/>
+                      onFocus={()=>setOrg2Open(true)}
+                      className="input-glass text-[13px] w-full pr-8" placeholder="Nhập hoặc chọn..."/>
+                    <button type="button" onClick={(e)=>{e.preventDefault(); setOrg2Open(!org2Open); setOrg1Open(false);}}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93] p-0.5">
+                      <ChevronDown size={14}/>
+                    </button>
+                    {org2Open && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-[8px] shadow-lg border border-[rgba(0,0,0,0.06)] z-50 max-h-[160px] overflow-y-auto">
+                        <div className="p-1.5 border-b border-[rgba(0,0,0,0.04)]">
+                          <input value={org2Search} onChange={(e)=>setOrg2Search(e.target.value)}
+                            className="w-full text-[11px] px-2 py-1 rounded-[4px] bg-[rgba(0,0,0,0.04)] outline-none" placeholder="Tìm..."/>
+                        </div>
+                        {filteredOrg2.map(o => (
+                          <button key={o} type="button" onMouseDown={()=>{setForm((f)=>({...f,Organization2:o})); setOrg2Open(false); setOrg2Search('');}}
+                            className="w-full text-left px-2.5 py-1.5 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)]">{o}</button>
+                        ))}
+                        {filteredOrg2.length === 0 && <p className="text-[11px] text-[#8E8E93] text-center py-2">Không có</p>}
+                      </div>
+                    )}
                   </div>
                 </FieldEdit>
               </div>
