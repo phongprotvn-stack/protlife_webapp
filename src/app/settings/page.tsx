@@ -54,7 +54,7 @@ const settingsSections = [
     title: 'Thông tin ứng dụng',
     icon: Info,
     items: [
-      { label: 'Phiên bản', description: 'v1.0.0' },
+      { label: 'Phiên bản', description: 'v1.0.2' },
       { label: 'Giới thiệu', description: 'PROT LIFE - Hệ điều hành cuộc sống cá nhân' },
     ],
   },

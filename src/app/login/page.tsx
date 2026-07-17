@@ -296,7 +296,7 @@ export default function LoginPage() {
 
           {/* Version */}
           <p className="text-center mt-6 text-[10px] text-[#8E8E93]/40 font-medium tracking-[0.3px]">
-            © 2026 PROT LIFE v1.0.1 — All right reserved
+            © 2026 PROT LIFE v1.0.2 — All right reserved
           </p>
         </motion.div>
       </div>
