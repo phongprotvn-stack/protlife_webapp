@@ -1,14 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { eventService } from '@/lib/services/event-service';
+import { participantService } from '@/lib/services/participant-service';
+import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
-import { ArrowLeft } from 'lucide-react';
+import type { Contact } from '@/types/database';
+import { ArrowLeft, MapPin, X, Search, Plus, Globe } from 'lucide-react';
 
 const EVENT_TYPES = ['Meeting','Birthday','Travel','Work','Sport','Hospital','Meal','Call','Shopping','Study','Party','Date','Entertainment','Other'] as const;
 const MOODS = ['Happy','Normal','Sad','Excited','Tired','Angry','Thoughtful','Loved'] as const;
 const IMPORTANCE = ['Lowest','Low','Medium','High','Highest'] as const;
+
+interface LocationItem {
+  id: string;
+  place: string;
+  maplink: string;
+}
 
 export default function AddEventPage() {
   const router = useRouter();
@@ -16,21 +25,110 @@ export default function AddEventPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showContactSearch, setShowContactSearch] = useState(false);
+  const contactSearchRef = useRef<HTMLDivElement>(null);
+
+  const [locations, setLocations] = useState<LocationItem[]>([
+    { id: '1', place: '', maplink: '' },
+  ]);
+
   const [form, setForm] = useState({
     Title:'', EventType:'Meeting', StartDate:new Date().toISOString().split('T')[0], EndDate:'',
-    Place:'', Mood:'', Importance:'Medium', Cost:0, Notes:'',
+    Mood:'', Importance:'Medium', Cost:0, Notes:'',
   });
+
+  const [placeText, setPlaceText] = useState('');
+
+  // Load contacts for participant selection
+  useEffect(() => {
+    contactService.getAll().then(setContacts).catch(() => {});
+  }, []);
+
+  // Auto-generate maplink when place changes
+  useEffect(() => {
+    if (placeText.trim()) {
+      const encoded = encodeURIComponent(placeText.trim());
+      const link = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+      setLocations((prev) => {
+        const updated = [...prev];
+        if (updated.length > 0) {
+          updated[updated.length - 1] = { ...updated[updated.length - 1], place: placeText, maplink: link };
+        }
+        return updated;
+      });
+    }
+  }, [placeText]);
+
+  // Close contact search on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (contactSearchRef.current && !contactSearchRef.current.contains(e.target as Node)) {
+        setShowContactSearch(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const filteredContacts = contacts.filter(
+    (c) => c.Name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedContacts.find((sc) => sc.ContactID === c.ContactID)
+  );
+
+  const toggleContact = (contact: Contact) => {
+    const exists = selectedContacts.find((c) => c.ContactID === contact.ContactID);
+    if (exists) {
+      setSelectedContacts(selectedContacts.filter((c) => c.ContactID !== contact.ContactID));
+    } else {
+      setSelectedContacts([...selectedContacts, contact]);
+    }
+    setSearchTerm('');
+  };
+
+  const addLocation = () => {
+    setLocations([...locations, { id: String(Date.now()), place: '', maplink: '' }]);
+  };
+
+  const removeLocation = (id: string) => {
+    if (locations.length <= 1) return;
+    setLocations(locations.filter((l) => l.id !== id));
+  };
+
+  const updateLocation = (id: string, field: 'place' | 'maplink', value: string) => {
+    setLocations(locations.map((l) => {
+      if (l.id !== id) return l;
+      const updated = { ...l, [field]: value };
+      // Auto-generate maplink when place changes
+      if (field === 'place' && value.trim()) {
+        updated.maplink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value.trim())}`;
+      }
+      return updated;
+    }));
+  };
 
   const handleSave = async () => {
     if (!form.Title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
     setSaving(true); setError('');
     try {
-      await eventService.create({
+      const newEvent = await eventService.create({
         Title:form.Title.trim(), EventType:form.EventType as any,
         StartDate:form.StartDate, EndDate:form.EndDate||undefined,
-        Place:form.Place||undefined, Mood:form.Mood as any||undefined,
-        Importance:form.Importance as any, Cost:form.Cost, Notes:form.Notes||undefined,
+        Place: locations.filter(l => l.place.trim()).map(l => l.place.trim()).join('; '),
+        Maplink: locations.filter(l => l.maplink.trim()).map(l => l.maplink.trim()).join('; '),
+        Mood:form.Mood as any||undefined, Importance:form.Importance as any,
+        Cost:form.Cost, Notes:form.Notes||undefined,
       });
+
+      // Add participants
+      if (selectedContacts.length > 0 && newEvent?.EventID) {
+        await participantService.addParticipants(
+          newEvent.EventID,
+          selectedContacts.map((c) => c.ContactID)
+        );
+      }
+
       triggerRefresh();
       router.push('/events');
     } catch(e:any) { setError(e.message||'Lỗi khi lưu'); }
@@ -69,7 +167,7 @@ export default function AddEventPage() {
           </div>
         </FormSection>
 
-        <FormSection title="Thời gian & Địa điểm">
+        <FormSection title="Thời gian">
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Ngày bắt đầu">
               <input type="date" value={form.StartDate} onChange={(e)=>setForm((f)=>({...f,StartDate:e.target.value}))} className="input-glass text-[13px]"/>
@@ -78,10 +176,83 @@ export default function AddEventPage() {
               <input type="date" value={form.EndDate} onChange={(e)=>setForm((f)=>({...f,EndDate:e.target.value}))} className="input-glass text-[13px]"/>
             </FormField>
           </div>
-          <FormField label="Địa điểm">
-            <input value={form.Place} onChange={(e)=>setForm((f)=>({...f,Place:e.target.value}))}
-              className="input-glass text-[13px]" placeholder="VD: Hà Nội, quán cafe..."/>
-          </FormField>
+        </FormSection>
+
+        <FormSection title="Địa điểm & Google Maps">
+          {locations.map((loc, idx) => (
+            <div key={loc.id} className="space-y-2 p-2.5 rounded-[8px] bg-white border border-[rgba(0,0,0,0.04)]">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-semibold text-[#6B7280] uppercase">Địa điểm {idx + 1}</span>
+                {locations.length > 1 && (
+                  <button type="button" onClick={() => removeLocation(loc.id)}
+                    className="text-[#E6002D]/50 hover:text-[#E6002D]"><X size={12}/></button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin size={14} className="text-[#FF9500] shrink-0"/>
+                <input value={loc.place} onChange={(e) => updateLocation(loc.id, 'place', e.target.value)}
+                  className="flex-1 input-glass text-[13px]" placeholder="VD: Hà Nội, quán cafe..."/>
+              </div>
+              <div className="flex items-center gap-2">
+                <Globe size={14} className="text-[#007AFF] shrink-0"/>
+                <input value={loc.maplink} onChange={(e) => updateLocation(loc.id, 'maplink', e.target.value)}
+                  className="flex-1 input-glass text-[13px] text-[#007AFF]" placeholder="https://maps.google.com/..."/>
+                {loc.maplink && (
+                  <a href={loc.maplink} target="_blank" rel="noopener noreferrer"
+                    className="text-[10px] font-medium text-[#007AFF] hover:underline shrink-0">Map</a>
+                )}
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={addLocation}
+            className="w-full h-[36px] rounded-[8px] border border-dashed border-[rgba(0,0,0,0.12)] text-[11px] font-medium text-[#8E8E93] flex items-center justify-center gap-1 hover:bg-[rgba(0,0,0,0.02)]">
+            <Plus size={12}/> Thêm địa điểm
+          </button>
+        </FormSection>
+
+        <FormSection title="Người tham gia">
+          <div className="relative" ref={contactSearchRef}>
+            <div className="flex items-center gap-2 p-2 rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] cursor-text"
+              onClick={() => setShowContactSearch(true)}>
+              <Search size={14} className="text-[#8E8E93] shrink-0"/>
+              <div className="flex-1 flex flex-wrap gap-1">
+                {selectedContacts.map((c) => (
+                  <span key={c.ContactID}
+                    className="inline-flex items-center gap-1 px-[8px] py-[3px] rounded-full bg-[rgba(52,199,89,0.1)] text-[11px] font-medium text-[#2C8E4A]">
+                    {c.Name}
+                    <button type="button" onClick={() => toggleContact(c)} className="hover:text-[#E6002D]"><X size={10}/></button>
+                  </span>
+                ))}
+                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => setShowContactSearch(true)}
+                  className="flex-1 min-w-[80px] text-[12px] outline-none bg-transparent"
+                  placeholder={selectedContacts.length > 0 ? '' : 'Tìm kiếm người tham gia...'}/>
+              </div>
+            </div>
+
+            {showContactSearch && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] z-50 max-h-[200px] overflow-y-auto">
+                {searchTerm.trim() ? (
+                  filteredContacts.length > 0 ? (
+                    filteredContacts.map((c) => (
+                      <button key={c.ContactID} type="button" onClick={() => toggleContact(c)}
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
+                        <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
+                        {c.Name}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-[12px] text-[#8E8E93] text-center py-3">Không tìm thấy</p>
+                  )
+                ) : (
+                  <p className="text-[11px] text-[#8E8E93] text-center py-3">Gõ tên để tìm kiếm người tham gia</p>
+                )}
+              </div>
+            )}
+          </div>
+          {selectedContacts.length > 0 && (
+            <p className="text-[10px] text-[#8E8E93]">{selectedContacts.length} người tham gia</p>
+          )}
         </FormSection>
 
         <FormSection title="Cảm xúc & Chi phí">

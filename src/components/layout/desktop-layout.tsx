@@ -7,6 +7,10 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useAppStore } from '@/stores/app-store';
 import { ContactDetail } from '@/components/contacts/contact-detail';
 import { EventDetail } from '@/components/events/event-detail';
+import { MemoryDetail } from '@/components/memories/memory-detail';
+import { OrganizationDetail } from '@/components/organizations/organization-detail';
+import { DocumentDetail } from '@/components/documents/document-detail';
+import { GoalDetail } from '@/components/goals/goal-detail';
 import {
   LayoutDashboard, Users, CalendarDays, Timeline, Map, Building2,
   FileText, Target, BarChart3, Cpu, Settings, Plus, LogOut,
@@ -42,7 +46,8 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const {
-    selectedContactId, selectedEventId,
+    selectedContactId, selectedEventId, selectedMemoryId,
+    selectedOrgId, selectedDocumentId, selectedGoalId,
     rightPanelView, clearSelection,
   } = useAppStore();
 
@@ -60,7 +65,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
     router.push(href);
   };
 
-  const hasSelection = selectedContactId || selectedEventId;
+  const hasSelection = selectedContactId || selectedEventId || selectedMemoryId || selectedOrgId || selectedDocumentId || selectedGoalId;
 
   return (
     <div className="desktop-layout">
@@ -168,6 +173,18 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
           ) : selectedEventId ? (
             <EventDetail eventId={selectedEventId === 'new' ? null : selectedEventId}
               onClose={() => useAppStore.getState().clearSelection()} panelMode />
+          ) : selectedMemoryId ? (
+            <MemoryDetail memoryId={selectedMemoryId === 'new' ? null : selectedMemoryId}
+              onClose={() => useAppStore.getState().clearSelection()} panelMode />
+          ) : selectedOrgId ? (
+            <OrganizationDetail orgId={selectedOrgId === 'new' ? null : selectedOrgId}
+              onClose={() => useAppStore.getState().clearSelection()} panelMode />
+          ) : selectedDocumentId ? (
+            <DocumentDetail documentId={selectedDocumentId === 'new' ? null : selectedDocumentId}
+              onClose={() => useAppStore.getState().clearSelection()} panelMode />
+          ) : selectedGoalId ? (
+            <GoalDetail goalId={selectedGoalId === 'new' ? null : selectedGoalId}
+              onClose={() => useAppStore.getState().clearSelection()} panelMode />
           ) : (
             <div className="flex flex-col items-center justify-center h-full px-6 text-center">
               <div className="w-16 h-16 rounded-full bg-[rgba(230,0,45,0.06)] flex items-center justify-center mb-4">
@@ -175,7 +192,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
               </div>
               <p className="text-[14px] font-medium text-[#6B7280]">Chọn mục để xem chi tiết</p>
               <p className="text-[12px] text-[#9CA3AF] mt-1 max-w-[200px]">
-                Click vào một thẻ Quan hệ hoặc Sự kiện để xem thông tin chi tiết tại đây
+                Click vào một thẻ để xem thông tin chi tiết tại đây
               </p>
             </div>
           )}
