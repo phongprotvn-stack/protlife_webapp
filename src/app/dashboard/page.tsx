@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   Users, Calendar, Heart, TrendingUp, Clock, MapPin,
   Target, PieChart, RefreshCw, Gift, Coffee,
-  BookHeart, FileText, Building2, AlertTriangle, Bell
+  BookHeart, FileText, Building2, AlertTriangle, Bell, ArrowUpDown
 } from 'lucide-react';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [reconnectSuggestions, setReconnectSuggestions] = useState<ReconnectSuggestion[]>([]);
+  const [sortAsc, setSortAsc] = useState(true); // true: ít→nhiều, false: nhiều→ít
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -97,10 +98,8 @@ export default function DashboardPage() {
         }
       });
 
-      // Sort: least days first (ngày chưa gặp ít nhất → nhiều nhất)
-      const sorted = Array.from(suggestionMap.values())
-        .sort((a, b) => a.daysSinceLastEvent - b.daysSinceLastEvent);
-      setReconnectSuggestions(sorted.slice(0, 10));
+      const sorted = Array.from(suggestionMap.values());
+      setReconnectSuggestions(sorted);
     } catch (err) {
       console.error('Failed to compute reconnect suggestions:', err);
       setReconnectSuggestions([]);
@@ -147,8 +146,15 @@ export default function DashboardPage() {
   const monthNames = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
   const totalBirthdays = contacts.filter(c => c.Birthday).length;
 
-  const yellowAlerts = reconnectSuggestions.filter(s => s.type === 'yellow');
-  const redAlerts = reconnectSuggestions.filter(s => s.type === 'red');
+  // Sorted suggestions based on sortAsc toggle
+  const sortedSuggestions = [...reconnectSuggestions]
+    .sort((a, b) => sortAsc
+      ? a.daysSinceLastEvent - b.daysSinceLastEvent  // ít→nhiều
+      : b.daysSinceLastEvent - a.daysSinceLastEvent   // nhiều→ít
+    )
+    .slice(0, 10);
+  const yellowAlerts = sortedSuggestions.filter(s => s.type === 'yellow');
+  const redAlerts = sortedSuggestions.filter(s => s.type === 'red');
 
   return (
     <>
@@ -194,11 +200,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Reconnection Suggestions */}
-        {reconnectSuggestions.length > 0 && (
+        {sortedSuggestions.length > 0 && (
           <div className="bg-white rounded-[16px] p-4 shadow-sm border border-[rgba(0,0,0,0.04)]">
-            <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5 mb-3">
-              <Coffee size={14} className="text-[#FF9500]"/> Gợi ý gặp gỡ
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5">
+                <Coffee size={14} className="text-[#FF9500]"/> Gợi ý gặp gỡ
+              </h2>
+              <button onClick={() => setSortAsc(!sortAsc)}
+                className="flex items-center gap-1 px-2 py-1 rounded-[6px] text-[9px] font-medium bg-[rgba(0,0,0,0.04)] text-[#8E8E93] hover:bg-[rgba(0,0,0,0.08)]">
+                {sortAsc ? <>↑ Ít nhất</> : <>↓ Nhiều nhất</>}
+              </button>
+            </div>
             <div className="space-y-2.5">
               {redAlerts.map(s => (
                 <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.08)]">
@@ -350,13 +362,19 @@ export default function DashboardPage() {
         </div>
 
         {/* Reconnection Suggestions */}
-        {reconnectSuggestions.length > 0 && (
+        {sortedSuggestions.length > 0 && (
           <div className="bg-white rounded-[14px] p-4 border border-[rgba(0,0,0,0.04)] shadow-sm mb-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5">
                 <Coffee size={15} className="text-[#FF9500]"/> Gợi ý gặp gỡ
               </h2>
-              <span className="text-[11px] text-[#8E8E93] font-medium">{reconnectSuggestions.length} gợi ý</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[#8E8E93] font-medium">{sortedSuggestions.length} gợi ý</span>
+                <button onClick={() => setSortAsc(!sortAsc)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-[6px] text-[10px] font-medium bg-[rgba(0,0,0,0.04)] text-[#8E8E93] hover:bg-[rgba(0,0,0,0.08)]">
+                  {sortAsc ? '↑ Ít nhất' : '↓ Nhiều nhất'}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {redAlerts.map(s => (
