@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
+import { participantService } from '@/lib/services/participant-service';
 import type { EventItem } from '@/types/database';
+import type { EventParticipant } from '@/lib/services/participant-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { Calendar, MapPin, DollarSign, Users, FileText, Clock, Tag, Heart, Edit3, Trash2, X } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
@@ -24,6 +26,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [participants, setParticipants] = useState<EventParticipant[]>([]);
 
   const [form, setForm] = useState({
     Title: '', EventType: '', LifeStage: '', StartDate: '', EndDate: '', Place: '',
@@ -33,18 +36,31 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
   useEffect(() => {
     if (!eventId) return;
     setLoading(true);
-    eventService.getById(eventId).then((data) => {
-      setEvent(data);
-      if (data) {
-        setForm({
-          Title: data.Title, EventType: data.EventType, LifeStage: data.LifeStage || '',
-          StartDate: data.StartDate, EndDate: data.EndDate || '', Place: data.Place || '',
-          Mood: data.Mood || '', Importance: data.Importance || 'Medium', Cost: data.Cost || 0, Notes: data.Notes || '',
-        });
+
+    const load = async () => {
+      try {
+        const [eventData, participantData] = await Promise.all([
+          eventService.getById(eventId),
+          participantService.getByEventWithNames(eventId),
+        ]);
+        setEvent(eventData);
+        setParticipants(participantData);
+        if (eventData) {
+          setForm({
+            Title: eventData.Title, EventType: eventData.EventType, LifeStage: eventData.LifeStage || '',
+            StartDate: eventData.StartDate, EndDate: eventData.EndDate || '', Place: eventData.Place || '',
+            Mood: eventData.Mood || '', Importance: eventData.Importance || 'Medium', Cost: eventData.Cost || 0, Notes: eventData.Notes || '',
+          });
+        }
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }).catch(() => setLoading(false));
-    setEditMode(false); setConfirmDelete(false); setError('');
+    };
+    load();
+
+    setEditMode(false); setConfirmDelete(false); setError(''); setParticipants([]);
   }, [eventId]);
 
   const handleSave = async () => {
@@ -204,10 +220,19 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                   <span className="text-[13px] text-[#111]">{event.Cost.toLocaleString('vi-VN')}₫</span>
                 </div>
               )}
-              {event.ParticipantCount > 0 && (
-                <div className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
-                  <Users size={14} className="text-[#34C759]" />
-                  <span className="text-[13px] text-[#111]">{event.ParticipantCount} người</span>
+              {participants.length > 0 && (
+                <div className="p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
+                  <p className="text-[11px] font-medium text-[#8E8E93] mb-1.5 flex items-center gap-1">
+                    <Users size={12} className="text-[#34C759]" /> Người tham gia
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {participants.map((p) => (
+                      <span key={p.ContactID}
+                        className="inline-flex items-center gap-1 px-[8px] py-[3px] rounded-full bg-[rgba(52,199,89,0.1)] text-[11px] font-medium text-[#2C8E4A]">
+                        {p.ContactName}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
               {event.Notes && (

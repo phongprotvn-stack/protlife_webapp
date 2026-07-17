@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase/client';
 export interface EventParticipant {
   EventID: string;
   ContactID: string;
+  ContactName?: string;
 }
 
 export const participantService = {
@@ -14,6 +15,24 @@ export const participantService = {
       .eq('EventID', eventId);
     if (error) throw error;
     return data || [];
+  },
+
+  /** Get participants with contact names via join */
+  async getByEventWithNames(eventId: string): Promise<EventParticipant[]> {
+    const { data, error } = await supabase
+      .from('participants')
+      .select(`
+        EventID,
+        ContactID,
+        contacts!inner(Name)
+      `)
+      .eq('EventID', eventId);
+    if (error) throw error;
+    return (data || []).map((p: any) => ({
+      EventID: p.EventID,
+      ContactID: p.ContactID,
+      ContactName: p.contacts?.Name || 'Unknown',
+    }));
   },
 
   async addParticipants(eventId: string, contactIds: string[]): Promise<void> {
