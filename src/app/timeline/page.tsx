@@ -296,7 +296,7 @@ export default function TimelinePage() {
         snapToRef.current(activeIdxRef.current);
       }
     };
-    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', onUp);
     return () => {
       window.removeEventListener('pointermove', onMove);
