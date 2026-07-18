@@ -179,17 +179,18 @@ export default function TimelinePage() {
   const ITEM_COUNT = list.length;
   const RADIUS = 128;
   const SNAP_THRESHOLD = 12;
+  const WHEEL_PX = 340; // wheel container width in px
+  const DEG_PER_PX = 360 / WHEEL_PX; // 1:1 — full sweep = 360°
 
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
   const rerender = useCallback(() => setRenderTick(t => t + 1), []);
 
   const wheelRef = useRef<HTMLDivElement>(null);
-  const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
   const dragActive = useRef(false);
-  const dragLastAngle = useRef(0);
+  const dragLastX = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
@@ -204,21 +205,8 @@ export default function TimelinePage() {
     return d > 180 ? d - 360 : d;
   }, []);
 
-  const angleAt = useCallback((clientX: number, clientY: number) => {
-    const { x, y } = centerRef.current;
-    return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
-  }, []);
-
   useEffect(() => {
-    const update = () => {
-      if (wheelRef.current) {
-        const r = wheelRef.current.getBoundingClientRect();
-        centerRef.current = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-      }
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
+    // No center tracking needed — drag uses horizontal pixel tracking
   }, []);
 
   const activeIdx = useMemo(() => {
@@ -255,14 +243,14 @@ export default function TimelinePage() {
   }, [angleOfItem, norm180, rerender, ITEM_COUNT]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
-    const ang = angleAt(e.clientX, e.clientY);
-    dragLastAngle.current = ang;
+    dragLastX.current = e.clientX;
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-  }, [angleAt]);
+  }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragActive.current) return;
@@ -270,14 +258,13 @@ export default function TimelinePage() {
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
 
-    const currentAngle = angleAt(e.clientX, e.clientY);
-    let delta = currentAngle - dragLastAngle.current;
-    if (delta > 180) delta -= 360;
-    if (delta < -180) delta += 360;
-    rotationRef.current += delta;
-    dragLastAngle.current = currentAngle;
+    // Horizontal pixel delta → degrees (1:1, full wheel width = 360°)
+    const pixelDelta = e.clientX - dragLastX.current;
+    dragLastX.current = e.clientX;
+    const degDelta = pixelDelta * DEG_PER_PX;
+    rotationRef.current += degDelta;
     rerender();
-  }, [angleAt, rerender]);
+  }, [rerender]);
 
   const onPointerUp = useCallback(() => {
     if (!dragActive.current) return;

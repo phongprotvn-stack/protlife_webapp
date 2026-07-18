@@ -78,7 +78,8 @@ export default function MemoryWheelPage() {
   const SNAP_THRESHOLD = 12;
   const NODE_SIZE = 52;
   const HALF_NODE = NODE_SIZE / 2;
-  const DRAG_SENSITIVITY = 2.0; // ×2 sensitivity so a full hand sweep = full wheel rotation
+  const WHEEL_PX = 360; // wheel container width in px
+  const DEG_PER_PX = 360 / WHEEL_PX; // 1px horizontal = 1° rotation
 
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
@@ -88,9 +89,9 @@ export default function MemoryWheelPage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state
+  // Drag state — uses horizontal pixel tracking for natural 1:1 feel
   const dragActive = useRef(false);
-  const dragLastAngle = useRef(0);
+  const dragLastX = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
@@ -188,20 +189,18 @@ export default function MemoryWheelPage() {
     });
   }, [angleOfItem, norm180, snapTo, rerender, ITEM_COUNT]);
 
-  // Drag handlers
+  // Drag handlers — horizontal pixel → rotation (natural 1:1)
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-    // Capture pointer so drag works even outside the wheel element
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
     velocityRef.current = 0;
-    const ang = angleAt(e.clientX, e.clientY);
-    dragLastAngle.current = ang;
+    dragLastX.current = e.clientX;
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
     lastMoveTime.current = performance.now();
-  }, [angleAt]);
+  }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragActive.current) return;
@@ -209,26 +208,23 @@ export default function MemoryWheelPage() {
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
 
-    const currentAngle = angleAt(e.clientX, e.clientY);
-    let delta = currentAngle - dragLastAngle.current;
-    if (delta > 180) delta -= 360;
-    if (delta < -180) delta += 360;
+    // Horizontal pixel delta → degrees (1:1, full wheel width = 360°)
+    const pixelDelta = e.clientX - dragLastX.current;
+    dragLastX.current = e.clientX;
+    const degDelta = pixelDelta * DEG_PER_PX;
+    rotationRef.current += degDelta;
 
-    rotationRef.current += delta * DRAG_SENSITIVITY;
-    dragLastAngle.current = currentAngle;
-
-    // Track velocity (degrees per frame normalized to ~60fps)
+    // Track velocity (degrees per ~60fps frame)
     const now = performance.now();
     const dt = now - lastMoveTime.current;
     if (dt > 0) {
-      // Smooth velocity — blend with previous for stability
-      const instantV = delta * DRAG_SENSITIVITY * (16.67 / Math.max(dt, 8));
+      const instantV = degDelta * (16.67 / Math.max(dt, 8));
       velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
     }
     lastMoveTime.current = now;
 
     rerender();
-  }, [angleAt, rerender]);
+  }, [rerender]);
 
   const onPointerUp = useCallback(() => {
     if (!dragActive.current) return;
