@@ -166,9 +166,9 @@ export default function MemoryWheelPage() {
   const startInertia = useCallback((velocity: number) => {
     if (ITEM_COUNT === 0) return;
     animRef.current = requestAnimationFrame(function inertiaStep() {
-      // Decay velocity
-      velocity *= 0.955; // friction
-      if (Math.abs(velocity) < 0.3) {
+      // Decay velocity — smooth friction
+      velocity *= 0.97;
+      if (Math.abs(velocity) < 0.15) {
         // Stop inertia, snap to nearest
         animRef.current = null;
         const rot = rotationRef.current;
@@ -190,6 +190,8 @@ export default function MemoryWheelPage() {
   // Drag handlers
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+    // Capture pointer so drag works even outside the wheel element
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
     velocityRef.current = 0;
     const ang = angleAt(e.clientX, e.clientY);
@@ -214,11 +216,13 @@ export default function MemoryWheelPage() {
     rotationRef.current += delta;
     dragLastAngle.current = currentAngle;
 
-    // Track velocity (degrees per frame)
+    // Track velocity (degrees per frame normalized to ~60fps)
     const now = performance.now();
     const dt = now - lastMoveTime.current;
     if (dt > 0) {
-      velocityRef.current = delta * (16.67 / dt); // normalize to ~60fps
+      // Smooth velocity — blend with previous for stability
+      const instantV = delta * (16.67 / Math.max(dt, 8));
+      velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
     }
     lastMoveTime.current = now;
 
@@ -230,8 +234,8 @@ export default function MemoryWheelPage() {
     dragActive.current = false;
     if (dragTotalDist.current > CLICK_THRESHOLD) {
       const v = velocityRef.current;
-      if (Math.abs(v) >= 1.5) {
-        // Start inertia spin — calculate extra rotations based on velocity
+      if (Math.abs(v) >= 0.5) {
+        // Start inertia spin — momentum + multi-rotation
         startInertia(v);
       } else {
         snapTo(activeIdx);
