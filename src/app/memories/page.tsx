@@ -7,6 +7,7 @@ import { Plus, Search, BookHeart, RefreshCw, Calendar, Image as ImageIcon, Arrow
 import { memoryService } from '@/lib/services/memory-service';
 import { useAppStore } from '@/stores/app-store';
 import type { MemoryWithEvent, MoodEmoji } from '@/types/database';
+import { PanelsTopLeft, Disc3 } from 'lucide-react';
 
 const MOOD_FILTERS: { emoji: MoodEmoji | 'ALL'; label: string }[] = [
   { emoji: 'ALL', label: 'Tất cả' },
@@ -72,6 +73,12 @@ export default function MemoriesPage() {
           </div>
         </div>
 
+        {/* Mobile wheel entry */}
+        <button onClick={() => router.push('/memories/wheel')}
+          className="w-full mb-3 py-2 rounded-[10px] text-[12px] font-medium text-[#FF2D55] bg-[rgba(255,45,85,0.06)] border border-[rgba(255,45,85,0.1)] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all">
+          <Disc3 size={14} /> Bánh xe ký ức
+        </button>
+
         {/* Filter chips */}
         <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
           {MOOD_FILTERS.map((f) => (
@@ -124,10 +131,16 @@ export default function MemoriesPage() {
       {/* Top row */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[20px] font-bold text-[#111]">🧠 Ký ức</h1>
-        <button onClick={() => router.push('/memories/add')}
-          className="h-[36px] px-4 rounded-[8px] bg-[#FF2D55] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm">
-          <Plus size={16} strokeWidth={2.5} /> Thêm ký ức
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.push('/memories/wheel')}
+            className="h-[36px] px-3 rounded-[8px] text-[12px] font-medium text-[#FF2D55] bg-[rgba(255,45,85,0.06)] border border-[rgba(255,45,85,0.1)] flex items-center gap-1.5 hover:bg-[rgba(255,45,85,0.1)] transition-all">
+            <Disc3 size={15} /> Bánh xe
+          </button>
+          <button onClick={() => router.push('/memories/add')}
+            className="h-[36px] px-4 rounded-[8px] bg-[#FF2D55] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm">
+            <Plus size={16} strokeWidth={2.5} /> Thêm ký ức
+          </button>
+        </div>
       </div>
 
       {/* Search + filters */}
