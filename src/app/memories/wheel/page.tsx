@@ -310,7 +310,7 @@ export default function MemoryWheelPage() {
           <button onClick={() => router.back()} className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"><ArrowLeft size={18}/></button>
           <div>
             <h1 className="text-[18px] font-bold text-[#111]">Bánh xe ký ức</h1>
-            <p className="text-[11px] text-[#8E8E93]">{ITEM_COUNT} ký ức · Kéo để xem</p>
+            <p className="text-[11px] text-[#8E8E93]">{ITEM_COUNT} ký ức · Sắp xếp theo thời gian</p>
           </div>
         </div>
         <button onClick={loadMemories} className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]">
@@ -359,8 +359,22 @@ export default function MemoryWheelPage() {
               boxShadow: '0 14px 30px rgba(255,45,85,0.35), 0 4px 12px rgba(255,45,85,0.2)',
             }}
           >
-            <span className="text-[9px] font-bold tracking-[1.5px] uppercase opacity-85">TỔNG</span>
+            <span className="text-[9px] font-bold tracking-[1.5px] uppercase opacity-85">MỚI NHẤT</span>
             <span className="text-[22px] font-extrabold mt-0.5 leading-tight">{ITEM_COUNT}</span>
+          </div>
+
+          {/* Time-direction labels */}
+          <div className="absolute top-1/2 left-[10px] -translate-y-1/2 pointer-events-none z-10 select-none">
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[8px] font-bold text-[#8E8E93] tracking-[1.5px] uppercase opacity-60">CŨ</span>
+              <span className="text-[9px] opacity-30">←</span>
+            </div>
+          </div>
+          <div className="absolute top-1/2 right-[10px] -translate-y-1/2 pointer-events-none z-10 select-none">
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[8px] font-bold text-[#8E8E93] tracking-[1.5px] uppercase opacity-60">MỚI</span>
+              <span className="text-[9px] opacity-30">→</span>
+            </div>
           </div>
 
           {/* Memory nodes */}
@@ -403,7 +417,7 @@ export default function MemoryWheelPage() {
         </div>
 
         <p className="text-[12px] text-[#8E8E93] font-medium">
-          ← Kéo trái để xem ký ức cũ hơn · Kéo phải để xem gần đây →
+          ← CŨ &nbsp;·&nbsp; Kéo lùi về quá khứ &nbsp;·&nbsp; Kéo tiến tới gần đây &nbsp;·&nbsp; MỚI →
         </p>
       </div>
 
