@@ -95,12 +95,17 @@ export default function TimelinePage() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    // Separate events into past/future/today
+    // Build set of EventIDs that have memories — these replace their events
+    const linkedEventIds = new Set<string>();
+    memories.forEach(m => { if (m.EventID) linkedEventIds.add(m.EventID); });
+
+    // Separate events into past/future/today, skipping those linked to memories
     const pastEvents: EventItem[] = [];
     const futureEvents: EventItem[] = [];
     let todayEvent: MemoryItem | null = null;
 
     events.forEach(e => {
+      if (linkedEventIds.has(e.EventID)) return; // Skip — memory replaces this event
       const d = new Date(e.StartDate);
       d.setHours(0, 0, 0, 0);
       if (d < now) pastEvents.push(e);
@@ -134,13 +139,14 @@ export default function TimelinePage() {
       desc: buildDesc(e),
     }));
 
-    // Convert memories to MemoryItems (always past)
+    // Convert memories to MemoryItems (always past) — use EventDate if linked
     const pastMemories: MemoryItem[] = memories.map(m => {
       const moodIcon = memoryIcon(m.MoodEmoji);
+      const dateLabel = m.EventDate || m.CreatedDate;
       return {
         icon: moodIcon,
         title: m.Title,
-        when: relativeTime(m.CreatedDate),
+        when: relativeTime(dateLabel),
         desc: m.Content ? (m.Content.length > 80 ? m.Content.slice(0, 80) + '...' : m.Content) : '🧠 Ký ức',
         isMemory: true,
         moodEmoji: m.MoodEmoji || undefined,
@@ -148,18 +154,6 @@ export default function TimelinePage() {
       };
     });
 
-    // Interleave past events and memories by date (newest first)
-    // All are in the past, sorted by their date descending
-    const pastAll = [...past, ...pastMemories];
-    pastAll.sort((a, b) => {
-      // Parse 'when' — crude but works for relative times
-      // Actually, we need the original dates. Let's keep events first, then memories
-      // Better approach: use the order from data
-      return 0; // Keep original relative order from each source
-    });
-
-    // Actually, let's just put past events first, then past memories, then present, then future
-    // This is simpler and more intuitive
     const present: MemoryItem = todayEvent || {
       icon: '❤️',
       title: 'Hôm nay',

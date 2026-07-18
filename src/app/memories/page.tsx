@@ -215,7 +215,12 @@ function MemoryCardMobile({ memory, onClick }: { memory: MemoryWithEvent; onClic
           {memory.Content && <p className="text-[11px] text-[#6B7280] mt-0.5 line-clamp-2 leading-relaxed">{memory.Content}</p>}
           <div className="flex items-center gap-2 mt-1.5">
             <Calendar size={10} className="text-[#8E8E93]" />
-            <span className="text-[10px] text-[#8E8E93] font-medium">{new Date(memory.CreatedDate).toLocaleDateString('vi-VN')}</span>
+            <span className="text-[10px] text-[#8E8E93] font-medium">
+              {memory.EventDate
+                ? new Date(memory.EventDate).toLocaleDateString('vi-VN')
+                : new Date(memory.CreatedDate).toLocaleDateString('vi-VN')}
+              {memory.EventTitle ? '' : ' · Đã ghi'}
+            </span>
             {memory.EventTitle && (
               <span className="text-[10px] text-[#5856D6] font-medium truncate">🔗 {memory.EventTitle}</span>
             )}
@@ -271,7 +276,12 @@ function MemoryCardDesktop({ memory, index, onClick }: { memory: MemoryWithEvent
       {/* Date */}
       <div className="flex items-center gap-1">
         <Calendar size={10} className="text-[#8E8E93]" />
-        <span className="text-[10px] text-[#8E8E93] font-medium">{new Date(memory.CreatedDate).toLocaleDateString('vi-VN')}</span>
+        <span className="text-[10px] text-[#8E8E93] font-medium">
+          {memory.EventDate
+            ? new Date(memory.EventDate).toLocaleDateString('vi-VN')
+            : new Date(memory.CreatedDate).toLocaleDateString('vi-VN')}
+          {memory.EventTitle ? '' : ' · Đã ghi'}
+        </span>
       </div>
     </motion.div>
   );
