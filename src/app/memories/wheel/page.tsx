@@ -58,7 +58,6 @@ export default function MemoryWheelPage() {
     setIsLoading(true); setError('');
     try {
       const data = await memoryService.getAllWithEvent();
-      // Sort by CreatedDate ascending (oldest first)
       setMemories(data.sort((a, b) => {
         const aDate = a.EventDate || a.CreatedDate;
         const bDate = b.EventDate || b.CreatedDate;
@@ -95,6 +94,10 @@ export default function MemoryWheelPage() {
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
   const CLICK_THRESHOLD = 8;
+
+  // Velocity for inertia
+  const velocityRef = useRef(0);
+  const lastMoveTime = useRef(0);
 
   // Geometry helpers
   const angleOfItem = useCallback((i: number) => {
@@ -139,13 +142,13 @@ export default function MemoryWheelPage() {
 
   const activeMemory = activeIdx >= 0 ? memories[activeIdx] : null;
 
-  // Snap animation
-  const snapTo = useCallback((i: number) => {
+  // Snap to target index (animation)
+  const snapTo = useCallback((i: number, extraRotations = 0) => {
     if (ITEM_COUNT === 0) return;
     if (animRef.current) cancelAnimationFrame(animRef.current);
-    const target = -angleOfItem(i);
+    const target = -angleOfItem(i) + extraRotations * 360;
     const start = rotationRef.current;
-    let diff = norm180(target - start);
+    let diff = target - start;
     const dur = 380;
     const t0 = performance.now();
     function step(t: number) {
@@ -157,17 +160,44 @@ export default function MemoryWheelPage() {
       else animRef.current = null;
     }
     animRef.current = requestAnimationFrame(step);
-  }, [angleOfItem, norm180, rerender, ITEM_COUNT]);
+  }, [angleOfItem, rerender, ITEM_COUNT]);
+
+  // Inertia deceleration (momentum spin after release)
+  const startInertia = useCallback((velocity: number) => {
+    if (ITEM_COUNT === 0) return;
+    animRef.current = requestAnimationFrame(function inertiaStep() {
+      // Decay velocity
+      velocity *= 0.955; // friction
+      if (Math.abs(velocity) < 0.3) {
+        // Stop inertia, snap to nearest
+        animRef.current = null;
+        const rot = rotationRef.current;
+        let best = 0;
+        let bestDist = Infinity;
+        for (let i = 0; i < ITEM_COUNT; i++) {
+          const d = Math.abs(norm180(angleOfItem(i) + rot));
+          if (d < bestDist) { bestDist = d; best = i; }
+        }
+        snapTo(best);
+        return;
+      }
+      rotationRef.current += velocity;
+      rerender();
+      animRef.current = requestAnimationFrame(inertiaStep);
+    });
+  }, [angleOfItem, norm180, snapTo, rerender, ITEM_COUNT]);
 
   // Drag handlers
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
     dragActive.current = true;
+    velocityRef.current = 0;
     const ang = angleAt(e.clientX, e.clientY);
     dragLastAngle.current = ang;
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+    lastMoveTime.current = performance.now();
   }, [angleAt]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -180,8 +210,18 @@ export default function MemoryWheelPage() {
     let delta = currentAngle - dragLastAngle.current;
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
+
     rotationRef.current += delta;
     dragLastAngle.current = currentAngle;
+
+    // Track velocity (degrees per frame)
+    const now = performance.now();
+    const dt = now - lastMoveTime.current;
+    if (dt > 0) {
+      velocityRef.current = delta * (16.67 / dt); // normalize to ~60fps
+    }
+    lastMoveTime.current = now;
+
     rerender();
   }, [angleAt, rerender]);
 
@@ -189,19 +229,26 @@ export default function MemoryWheelPage() {
     if (!dragActive.current) return;
     dragActive.current = false;
     if (dragTotalDist.current > CLICK_THRESHOLD) {
-      snapTo(activeIdx);
+      const v = velocityRef.current;
+      if (Math.abs(v) >= 1.5) {
+        // Start inertia spin — calculate extra rotations based on velocity
+        startInertia(v);
+      } else {
+        snapTo(activeIdx);
+      }
     }
-  }, [activeIdx, snapTo]);
+  }, [activeIdx, snapTo, startInertia]);
 
   // Initial snap to newest (first render)
   const hasSnapped = useRef(false);
   useEffect(() => {
     if (!hasSnapped.current && wheelRef.current && ITEM_COUNT > 0) {
       hasSnapped.current = true;
-      // Snap to newest memory (last in array)
       snapTo(ITEM_COUNT - 1);
     }
   }, [snapTo, ITEM_COUNT]);
+
+  // ── Render ──
 
   if (isLoading) {
     return (
@@ -278,7 +325,7 @@ export default function MemoryWheelPage() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          {/* Track — warm gradient ring (memories are always past) */}
+          {/* Track — warm gradient ring */}
           <div
             className="absolute inset-[16px] rounded-full"
             style={{
@@ -300,7 +347,7 @@ export default function MemoryWheelPage() {
 
           {/* Hub — Center: memory count */}
           <div
-            onClick={() => snapTo(Math.min(1, ITEM_COUNT - 1))}
+            onClick={() => snapTo(ITEM_COUNT - 1)}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full flex flex-col items-center justify-center text-white cursor-pointer z-10 select-none active:scale-95 transition-transform"
             style={{
               width: 88, height: 88,
@@ -418,14 +465,13 @@ export default function MemoryWheelPage() {
             </div>
           )}
 
-          {/* Date footer */}
+          {/* Date footer — chỉ hiển thị ngày, không hiển thị giờ */}
           <div className="flex items-center justify-between pt-2 border-t border-[rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-1.5">
               <Calendar size={12} className="text-[#8E8E93]" />
               <span className="text-[11px] text-[#8E8E93]">
                 {new Date(activeMemory.EventDate || activeMemory.CreatedDate).toLocaleDateString('vi-VN', {
                   day: '2-digit', month: '2-digit', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit',
                 })}
               </span>
             </div>
