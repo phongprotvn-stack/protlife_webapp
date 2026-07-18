@@ -89,12 +89,9 @@ export default function MemoryWheelPage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state — cross-product angular tracking (correct for ALL positions)
+  // Drag state — simple atan2 tracking (matching demo spec)
   const dragActive = useRef(false);
-  const prevPointerX = useRef(0);
-  const prevPointerY = useRef(0);
-  const startRotation = useRef(0);
-  const cumulativeAngle = useRef(0);
+  const lastAngle = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
@@ -112,11 +109,6 @@ export default function MemoryWheelPage() {
   const norm180 = useCallback((deg: number) => {
     let d = ((deg % 360) + 360) % 360;
     return d > 180 ? d - 360 : d;
-  }, []);
-
-  const angleAt = useCallback((clientX: number, clientY: number) => {
-    const { x, y } = centerRef.current;
-    return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
   }, []);
 
   // Update center on resize
@@ -192,18 +184,16 @@ export default function MemoryWheelPage() {
     });
   }, [angleOfItem, norm180, snapTo, rerender, ITEM_COUNT]);
 
-  // Drag handlers — cross-product tracking: pointer motion vector × center → signed angle
+  // Drag handlers — exact demo mechanism: atan2 + delta unwrap
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
     velocityRef.current = 0;
 
-    // Save current pointer position for cross-product tracking
-    prevPointerX.current = e.clientX;
-    prevPointerY.current = e.clientY;
-    startRotation.current = rotationRef.current;
-    cumulativeAngle.current = 0;
+    // Save initial angle (like demo's lastAngle = angleAt(p))
+    const { x: cx, y: cy } = centerRef.current;
+    lastAngle.current = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
 
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
@@ -217,41 +207,21 @@ export default function MemoryWheelPage() {
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
 
-    // Vectors from center to pointer (current and previous)
+    // Compute angle delta using atan2 (exactly like the demo)
     const { x: cx, y: cy } = centerRef.current;
-    const pdx = prevPointerX.current - cx;
-    const pdy = prevPointerY.current - cy;
-    const cdx = e.clientX - cx;
-    const cdy = e.clientY - cy;
+    const ang = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
+    let delta = ang - lastAngle.current;
+    // Unwrap ±180° boundary (crossing 6 o'clock)
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+    rotationRef.current += delta;
+    lastAngle.current = ang;
 
-    // Cross product z = cdx * pdy - cdy * pdx
-    // > 0 = CCW hand motion, < 0 = CW hand motion
-    const cross = cdx * pdy - cdy * pdx;
-
-    // Dot product: cdx * pdx + cdy * pdy
-    const dot = cdx * pdx + cdy * pdy;
-    const mag = Math.sqrt((cdx * cdx + cdy * cdy) * (pdx * pdx + pdy * pdy));
-
-    let degDelta = 0;
-    if (mag > 1) {
-      // Signed angle using acos (magnitude) + cross (sign)
-      const angleRad = Math.acos(Math.max(-1, Math.min(1, dot / mag)));
-      // cross < 0 = CW hand → CW wheel = +degrees
-      degDelta = (cross < 0 ? angleRad : -angleRad) * (180 / Math.PI);
-    }
-
-    cumulativeAngle.current += degDelta;
-    prevPointerX.current = e.clientX;
-    prevPointerY.current = e.clientY;
-    rotationRef.current = startRotation.current + cumulativeAngle.current;
-
-    // Track velocity (degrees per ~60fps frame)
+    // Track velocity (demo: velocity = delta / dt * 16)
     const now = performance.now();
-    const dt = now - lastMoveTime.current;
-    if (dt > 0) {
-      const instantV = degDelta * (16.67 / Math.max(dt, 8));
-      velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
-    }
+    const dt = Math.max(1, now - lastMoveTime.current);
+    const instantV = delta * (16.67 / dt);
+    velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
     lastMoveTime.current = now;
 
     rerender();

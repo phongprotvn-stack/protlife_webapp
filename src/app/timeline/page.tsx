@@ -188,12 +188,9 @@ export default function TimelinePage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state — cross-product angular tracking (correct for ALL positions)
+  // Drag state — simple atan2 tracking (matching demo spec)
   const dragActive = useRef(false);
-  const prevPointerX = useRef(0);
-  const prevPointerY = useRef(0);
-  const startRotation = useRef(0);
-  const cumulativeAngle = useRef(0);
+  const lastAngle = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
@@ -252,17 +249,15 @@ export default function TimelinePage() {
     }
     animRef.current = requestAnimationFrame(step);
   }, [angleOfItem, norm180, rerender, ITEM_COUNT]);
-
+  // Drag handlers — exact demo mechanism: atan2 + delta unwrap
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
 
-    // Save current pointer position for cross-product tracking
-    prevPointerX.current = e.clientX;
-    prevPointerY.current = e.clientY;
-    startRotation.current = rotationRef.current;
-    cumulativeAngle.current = 0;
+    // Save initial angle (like demo's lastAngle = angleAt(p))
+    const { x: cx, y: cy } = centerRef.current;
+    lastAngle.current = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
 
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
@@ -275,30 +270,15 @@ export default function TimelinePage() {
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
 
-    // Vectors from center to pointer (current and previous)
+    // Compute angle delta using atan2 (exactly like the demo)
     const { x: cx, y: cy } = centerRef.current;
-    const pdx = prevPointerX.current - cx;
-    const pdy = prevPointerY.current - cy;
-    const cdx = e.clientX - cx;
-    const cdy = e.clientY - cy;
-
-    // Cross product z = cdx * pdy - cdy * pdx
-    const cross = cdx * pdy - cdy * pdx;
-
-    // Dot product
-    const dot = cdx * pdx + cdy * pdy;
-    const mag = Math.sqrt((cdx * cdx + cdy * cdy) * (pdx * pdx + pdy * pdy));
-
-    let degDelta = 0;
-    if (mag > 1) {
-      const angleRad = Math.acos(Math.max(-1, Math.min(1, dot / mag)));
-      degDelta = (cross < 0 ? angleRad : -angleRad) * (180 / Math.PI);
-    }
-
-    cumulativeAngle.current += degDelta;
-    prevPointerX.current = e.clientX;
-    prevPointerY.current = e.clientY;
-    rotationRef.current = startRotation.current + cumulativeAngle.current;
+    const ang = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
+    let delta = ang - lastAngle.current;
+    // Unwrap ±180° boundary (crossing 6 o'clock)
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+    rotationRef.current += delta;
+    lastAngle.current = ang;
     rerender();
   }, [rerender]);
 
