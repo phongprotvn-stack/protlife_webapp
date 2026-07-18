@@ -8,6 +8,7 @@ import { AuthGuard } from '@/components/layout/auth-guard';
 import { MobileLayout } from '@/components/layout/mobile-layout';
 import { DesktopLayout } from '@/components/layout/desktop-layout';
 import { PWARegister } from '@/components/pwa-register';
+import { Providers } from '@/components/providers';
 
 // Pages that don't need the app layout (login, register, etc.)
 const AUTH_PAGES = ['/login', '/register', '/', '/_not-found'];
@@ -54,13 +55,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <PWARegister />
-        <AuthGuard>
-          {isMobile ? (
-            <MobileLayout>{children}</MobileLayout>
-          ) : (
-            <DesktopLayout>{children}</DesktopLayout>
-          )}
-        </AuthGuard>
+        <Providers>
+          <AuthGuard>
+            {isMobile ? (
+              <MobileLayout>{children}</MobileLayout>
+            ) : (
+              <DesktopLayout>{children}</DesktopLayout>
+            )}
+          </AuthGuard>
+        </Providers>
       </body>
     </html>
   );
