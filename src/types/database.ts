@@ -98,3 +98,34 @@ export interface EventFormData {
   Cost?: number;
   Notes?: string | null;
 }
+
+// ── Memories ──
+export type MoodEmoji = '😊' | '😢' | '🤩' | '😌' | '😤' | '😴';
+
+export interface Memory {
+  MemoryID: string;
+  EventID: string | null;
+  Title: string;
+  Content: string | null;
+  Image: string | null;
+  Mood: Mood | null;
+  MoodEmoji: MoodEmoji | null;
+  CreatedDate: string;
+  UpdatedDate: string;
+  user_id?: string;
+}
+
+export interface MemoryFormData {
+  Title: string;
+  Content?: string | null;
+  Image?: string | null;
+  Mood?: Mood | null;
+  MoodEmoji?: MoodEmoji | null;
+  EventID?: string | null;
+}
+
+export interface MemoryWithEvent extends Memory {
+  EventTitle?: string;
+  EventDate?: string;
+  EventType?: EventType;
+}

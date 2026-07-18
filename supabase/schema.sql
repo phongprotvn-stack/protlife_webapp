@@ -76,11 +76,13 @@ ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
 -- 5. Memories
 CREATE TABLE IF NOT EXISTS memories (
   "MemoryID" TEXT PRIMARY KEY,
-  "EventID" TEXT REFERENCES events("EventID") ON DELETE SET NULL,
+  "EventID" TEXT UNIQUE REFERENCES events("EventID") ON DELETE SET NULL,
   "Title" TEXT NOT NULL,
   "Content" TEXT,
   "MediaUrl" TEXT,
+  "Image" TEXT,
   "Mood" TEXT CHECK ("Mood" IN ('Happy', 'Normal', 'Sad', 'Excited', 'Tired', 'Angry', 'Thoughtful', 'Loved')),
+  "MoodEmoji" TEXT,
   "CreatedDate" TIMESTAMPTZ DEFAULT NOW(),
   "UpdatedDate" TIMESTAMPTZ DEFAULT NOW(),
   user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id)
@@ -136,6 +138,9 @@ CREATE SEQUENCE IF NOT EXISTS contact_id_seq START 1;
 -- Auto-generate EventID
 CREATE SEQUENCE IF NOT EXISTS event_no_seq START 1;
 
+-- Auto-generate MemoryID
+CREATE SEQUENCE IF NOT EXISTS memory_id_seq START 1;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts("Name");
 CREATE INDEX IF NOT EXISTS idx_contacts_relationship ON contacts("Relationship");
@@ -145,6 +150,9 @@ CREATE INDEX IF NOT EXISTS idx_events_type ON events("EventType");
 CREATE INDEX IF NOT EXISTS idx_participants_event ON participants("EventID");
 CREATE INDEX IF NOT EXISTS idx_participants_contact ON participants("ContactID");
 CREATE INDEX IF NOT EXISTS idx_memories_event ON memories("EventID");
+CREATE INDEX IF NOT EXISTS idx_memories_mood ON memories("Mood");
+CREATE INDEX IF NOT EXISTS idx_memories_created ON memories("CreatedDate");
+CREATE INDEX IF NOT EXISTS idx_memories_moodemoji ON memories("MoodEmoji");
 
 -- RLS Policies (Admin-only by default)
 CREATE POLICY "Admin can do everything on contacts"

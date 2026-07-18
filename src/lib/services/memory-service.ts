@@ -1,66 +1,148 @@
-// Stub memory service - in-memory + localStorage backed
-export interface Memory {
-  MemoryID: string;
-  Title: string;
-  Date: string;
-  Type: string;
-  Notes: string;
-}
+'use client';
 
-export interface MemoryFormData {
-  Title: string;
-  Date: string;
-  Type: string;
-  Notes?: string;
-}
+import { supabase } from '@/lib/supabase/client';
+import type { Memory, MemoryFormData, MemoryWithEvent } from '@/types/database';
 
-function getMemories(): Memory[] {
-  if (typeof window === 'undefined') return [];
-  const raw = localStorage.getItem('protlife_memories');
-  return raw ? JSON.parse(raw) : [];
-}
-
-function saveMemories(items: Memory[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('protlife_memories', JSON.stringify(items));
+// Sequence-based ID generator (client-side fallback)
+function generateMemoryID(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `MEM${timestamp}${random}`;
 }
 
 export const memoryService = {
   async getAll(): Promise<Memory[]> {
-    return getMemories();
+    const { data, error } = await supabase
+      .from('memories')
+      .select('*')
+      .order('CreatedDate', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get all memories with their linked event info (for Memory Wheel)
+   */
+  async getAllWithEvent(): Promise<MemoryWithEvent[]> {
+    const { data, error } = await supabase
+      .from('memories')
+      .select(`
+        *,
+        events!memories_EventID_fkey (Title, StartDate, EventType)
+      `)
+      .order('CreatedDate', { ascending: false });
+    if (error) throw error;
+    // Transform the joined data
+    return (data || []).map((m: any) => ({
+      MemoryID: m.MemoryID,
+      EventID: m.EventID,
+      Title: m.Title,
+      Content: m.Content,
+      Image: m.Image,
+      Mood: m.Mood,
+      MoodEmoji: m.MoodEmoji,
+      CreatedDate: m.CreatedDate,
+      UpdatedDate: m.UpdatedDate,
+      user_id: m.user_id,
+      EventTitle: m.events?.Title || undefined,
+      EventDate: m.events?.StartDate || undefined,
+      EventType: m.events?.EventType || undefined,
+    }));
   },
 
   async getById(id: string): Promise<Memory | null> {
-    const items = getMemories();
-    return items.find((m) => m.MemoryID === id) || null;
+    const { data, error } = await supabase
+      .from('memories')
+      .select('*')
+      .eq('MemoryID', id)
+      .single();
+    if (error) return null;
+    return data;
+  },
+
+  /**
+   * Check if an event already has a memory linked to it
+   */
+  async getByEventId(eventId: string): Promise<Memory | null> {
+    const { data, error } = await supabase
+      .from('memories')
+      .select('*')
+      .eq('EventID', eventId)
+      .maybeSingle();
+    if (error) return null;
+    return data;
   },
 
   async create(data: MemoryFormData): Promise<Memory> {
-    const items = getMemories();
-    const nextNum = items.length + 1;
+    const now = new Date().toISOString();
     const memory: Memory = {
-      MemoryID: `MEM${String(nextNum).padStart(4, '0')}`,
+      MemoryID: generateMemoryID(),
+      EventID: data.EventID || null,
       Title: data.Title,
-      Date: data.Date,
-      Type: data.Type,
-      Notes: data.Notes || '',
+      Content: data.Content || null,
+      Image: data.Image || null,
+      Mood: data.Mood || null,
+      MoodEmoji: data.MoodEmoji || null,
+      CreatedDate: now,
+      UpdatedDate: now,
     };
-    items.push(memory);
-    saveMemories(items);
-    return memory;
+    const { data: result, error } = await supabase
+      .from('memories')
+      .insert(memory)
+      .select()
+      .single();
+    if (error) throw error;
+    return result;
   },
 
   async update(id: string, data: Partial<MemoryFormData>): Promise<Memory> {
-    const items = getMemories();
-    const idx = items.findIndex((m) => m.MemoryID === id);
-    if (idx === -1) throw new Error('Không tìm thấy ký ức');
-    items[idx] = { ...items[idx], ...data };
-    saveMemories(items);
-    return items[idx];
+    const updates: any = { UpdatedDate: new Date().toISOString() };
+    if (data.Title !== undefined) updates.Title = data.Title;
+    if (data.Content !== undefined) updates.Content = data.Content;
+    if (data.Image !== undefined) updates.Image = data.Image;
+    if (data.Mood !== undefined) updates.Mood = data.Mood;
+    if (data.MoodEmoji !== undefined) updates.MoodEmoji = data.MoodEmoji;
+    if (data.EventID !== undefined) updates.EventID = data.EventID;
+
+    const { data: result, error } = await supabase
+      .from('memories')
+      .update(updates)
+      .eq('MemoryID', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return result;
   },
 
   async delete(id: string): Promise<void> {
-    const items = getMemories();
-    saveMemories(items.filter((m) => m.MemoryID !== id));
+    const { error } = await supabase
+      .from('memories')
+      .delete()
+      .eq('MemoryID', id);
+    if (error) throw error;
+  },
+
+  /**
+   * Get memories by mood (for Memory Wheel filtering)
+   */
+  async getByMood(mood: string): Promise<Memory[]> {
+    const { data, error } = await supabase
+      .from('memories')
+      .select('*')
+      .eq('Mood', mood)
+      .order('CreatedDate', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Count total memories
+   */
+  async count(): Promise<number> {
+    const { count, error } = await supabase
+      .from('memories')
+      .select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    return count || 0;
   },
 };
