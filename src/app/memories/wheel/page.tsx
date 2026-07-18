@@ -78,8 +78,8 @@ export default function MemoryWheelPage() {
   const SNAP_THRESHOLD = 12;
   const NODE_SIZE = 52;
   const HALF_NODE = NODE_SIZE / 2;
-  const WHEEL_PX = 360; // wheel container width in px
-  const DEG_PER_PX = -(360 / WHEEL_PX); // negate: drag right → counterclockwise rotation (items come from right)
+  const WHEEL_PX = 360; // wheel container width in px (kept for reference)
+  // Angular tracking: pointer angle around center → cumulative rotation
 
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
@@ -89,9 +89,11 @@ export default function MemoryWheelPage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state — uses horizontal pixel tracking for natural 1:1 feel
+  // Drag state — cumulative angular tracking from center
   const dragActive = useRef(false);
-  const dragLastX = useRef(0);
+  const prevAngle = useRef(0);
+  const startRotation = useRef(0);
+  const cumulativeAngle = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
@@ -189,18 +191,24 @@ export default function MemoryWheelPage() {
     });
   }, [angleOfItem, norm180, snapTo, rerender, ITEM_COUNT]);
 
-  // Drag handlers — horizontal pixel → rotation (natural 1:1)
+  // Drag handlers — cumulative angular tracking (pointer angle around center)
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
     velocityRef.current = 0;
-    dragLastX.current = e.clientX;
+
+    // Save start state for cumulative unwrapping
+    const ang = angleAt(e.clientX, e.clientY);
+    prevAngle.current = ang;
+    startRotation.current = rotationRef.current;
+    cumulativeAngle.current = 0;
+
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
     lastMoveTime.current = performance.now();
-  }, []);
+  }, [angleAt]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragActive.current) return;
@@ -208,23 +216,28 @@ export default function MemoryWheelPage() {
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
 
-    // Horizontal pixel delta → degrees (1:1, full wheel width = 360°)
-    const pixelDelta = e.clientX - dragLastX.current;
-    dragLastX.current = e.clientX;
-    const degDelta = pixelDelta * DEG_PER_PX;
-    rotationRef.current += degDelta;
+    // Angular delta from center — tracks true hand rotation direction
+    const curAngle = angleAt(e.clientX, e.clientY);
+    let delta = curAngle - prevAngle.current;
+    // Unwrap: handle ±180° boundary crossing (e.g., at 6 o'clock on the wheel)
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+
+    cumulativeAngle.current += delta;
+    prevAngle.current = curAngle;
+    rotationRef.current = startRotation.current + cumulativeAngle.current;
 
     // Track velocity (degrees per ~60fps frame)
     const now = performance.now();
     const dt = now - lastMoveTime.current;
     if (dt > 0) {
-      const instantV = degDelta * (16.67 / Math.max(dt, 8));
+      const instantV = delta * (16.67 / Math.max(dt, 8));
       velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
     }
     lastMoveTime.current = now;
 
     rerender();
-  }, [rerender]);
+  }, [angleAt, rerender]);
 
   const onPointerUp = useCallback(() => {
     if (!dragActive.current) return;

@@ -179,18 +179,20 @@ export default function TimelinePage() {
   const ITEM_COUNT = list.length;
   const RADIUS = 128;
   const SNAP_THRESHOLD = 12;
-  const WHEEL_PX = 340; // wheel container width in px
-  const DEG_PER_PX = -(360 / WHEEL_PX); // negate: drag right → counterclockwise rotation
 
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
   const rerender = useCallback(() => setRenderTick(t => t + 1), []);
 
   const wheelRef = useRef<HTMLDivElement>(null);
+  const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
+  // Drag state — cumulative angular tracking from center
   const dragActive = useRef(false);
-  const dragLastX = useRef(0);
+  const prevAngle = useRef(0);
+  const startRotation = useRef(0);
+  const cumulativeAngle = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
@@ -205,8 +207,21 @@ export default function TimelinePage() {
     return d > 180 ? d - 360 : d;
   }, []);
 
+  const angleAt = useCallback((clientX: number, clientY: number) => {
+    const { x, y } = centerRef.current;
+    return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
+  }, []);
+
   useEffect(() => {
-    // No center tracking needed — drag uses horizontal pixel tracking
+    const update = () => {
+      if (wheelRef.current) {
+        const r = wheelRef.current.getBoundingClientRect();
+        centerRef.current = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   const activeIdx = useMemo(() => {
@@ -245,12 +260,18 @@ export default function TimelinePage() {
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
-    dragLastX.current = e.clientX;
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+
+    // Save start state for cumulative unwrapping
+    const ang = angleAt(e.clientX, e.clientY);
+    prevAngle.current = ang;
+    startRotation.current = rotationRef.current;
+    cumulativeAngle.current = 0;
+
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-  }, []);
+  }, [angleAt]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragActive.current) return;
@@ -258,13 +279,18 @@ export default function TimelinePage() {
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
 
-    // Horizontal pixel delta → degrees (1:1, full wheel width = 360°)
-    const pixelDelta = e.clientX - dragLastX.current;
-    dragLastX.current = e.clientX;
-    const degDelta = pixelDelta * DEG_PER_PX;
-    rotationRef.current += degDelta;
+    // Angular delta from center — tracks true hand rotation direction
+    const curAngle = angleAt(e.clientX, e.clientY);
+    let delta = curAngle - prevAngle.current;
+    // Unwrap: handle ±180° boundary crossing
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+
+    cumulativeAngle.current += delta;
+    prevAngle.current = curAngle;
+    rotationRef.current = startRotation.current + cumulativeAngle.current;
     rerender();
-  }, [rerender]);
+  }, [angleAt, rerender]);
 
   const onPointerUp = useCallback(() => {
     if (!dragActive.current) return;
