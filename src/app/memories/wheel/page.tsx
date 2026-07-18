@@ -78,6 +78,7 @@ export default function MemoryWheelPage() {
   const SNAP_THRESHOLD = 12;
   const NODE_SIZE = 52;
   const HALF_NODE = NODE_SIZE / 2;
+  const DRAG_SENSITIVITY = 2.0; // ×2 sensitivity so a full hand sweep = full wheel rotation
 
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
@@ -213,7 +214,7 @@ export default function MemoryWheelPage() {
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
 
-    rotationRef.current += delta;
+    rotationRef.current += delta * DRAG_SENSITIVITY;
     dragLastAngle.current = currentAngle;
 
     // Track velocity (degrees per frame normalized to ~60fps)
@@ -221,7 +222,7 @@ export default function MemoryWheelPage() {
     const dt = now - lastMoveTime.current;
     if (dt > 0) {
       // Smooth velocity — blend with previous for stability
-      const instantV = delta * (16.67 / Math.max(dt, 8));
+      const instantV = delta * DRAG_SENSITIVITY * (16.67 / Math.max(dt, 8));
       velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
     }
     lastMoveTime.current = now;
