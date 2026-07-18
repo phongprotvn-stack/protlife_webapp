@@ -188,9 +188,10 @@ export default function TimelinePage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state — cumulative angular tracking from center
+  // Drag state — cross-product angular tracking (correct for ALL positions)
   const dragActive = useRef(false);
-  const prevAngle = useRef(0);
+  const prevPointerX = useRef(0);
+  const prevPointerY = useRef(0);
   const startRotation = useRef(0);
   const cumulativeAngle = useRef(0);
   const dragStartX = useRef(0);
@@ -205,11 +206,6 @@ export default function TimelinePage() {
   const norm180 = useCallback((deg: number) => {
     let d = ((deg % 360) + 360) % 360;
     return d > 180 ? d - 360 : d;
-  }, []);
-
-  const angleAt = useCallback((clientX: number, clientY: number) => {
-    const { x, y } = centerRef.current;
-    return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
   }, []);
 
   useEffect(() => {
@@ -262,16 +258,16 @@ export default function TimelinePage() {
     dragActive.current = true;
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
 
-    // Save start state for cumulative unwrapping
-    const ang = angleAt(e.clientX, e.clientY);
-    prevAngle.current = ang;
+    // Save current pointer position for cross-product tracking
+    prevPointerX.current = e.clientX;
+    prevPointerY.current = e.clientY;
     startRotation.current = rotationRef.current;
     cumulativeAngle.current = 0;
 
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
-  }, [angleAt]);
+  }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragActive.current) return;
@@ -279,18 +275,32 @@ export default function TimelinePage() {
     const dy = e.clientY - dragStartY.current;
     dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
 
-    // Angular delta from center — tracks true hand rotation direction
-    const curAngle = angleAt(e.clientX, e.clientY);
-    let delta = curAngle - prevAngle.current;
-    // Unwrap: handle ±180° boundary crossing
-    if (delta > 180) delta -= 360;
-    else if (delta < -180) delta += 360;
+    // Vectors from center to pointer (current and previous)
+    const { x: cx, y: cy } = centerRef.current;
+    const pdx = prevPointerX.current - cx;
+    const pdy = prevPointerY.current - cy;
+    const cdx = e.clientX - cx;
+    const cdy = e.clientY - cy;
 
-    cumulativeAngle.current += delta;
-    prevAngle.current = curAngle;
+    // Cross product z = cdx * pdy - cdy * pdx
+    const cross = cdx * pdy - cdy * pdx;
+
+    // Dot product
+    const dot = cdx * pdx + cdy * pdy;
+    const mag = Math.sqrt((cdx * cdx + cdy * cdy) * (pdx * pdx + pdy * pdy));
+
+    let degDelta = 0;
+    if (mag > 1) {
+      const angleRad = Math.acos(Math.max(-1, Math.min(1, dot / mag)));
+      degDelta = (cross < 0 ? angleRad : -angleRad) * (180 / Math.PI);
+    }
+
+    cumulativeAngle.current += degDelta;
+    prevPointerX.current = e.clientX;
+    prevPointerY.current = e.clientY;
     rotationRef.current = startRotation.current + cumulativeAngle.current;
     rerender();
-  }, [angleAt, rerender]);
+  }, [rerender]);
 
   const onPointerUp = useCallback(() => {
     if (!dragActive.current) return;
