@@ -180,7 +180,7 @@ export default function TimelinePage() {
   const RADIUS = 128;
   const SNAP_THRESHOLD = 12;
   const WHEEL_PX = 340; // wheel container width in px
-  const DEG_PER_PX = 360 / WHEEL_PX; // 1:1 — full sweep = 360°
+  const DEG_PER_PX = -(360 / WHEEL_PX); // negate: drag right → counterclockwise rotation
 
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);

@@ -79,7 +79,7 @@ export default function MemoryWheelPage() {
   const NODE_SIZE = 52;
   const HALF_NODE = NODE_SIZE / 2;
   const WHEEL_PX = 360; // wheel container width in px
-  const DEG_PER_PX = 360 / WHEEL_PX; // 1px horizontal = 1° rotation
+  const DEG_PER_PX = -(360 / WHEEL_PX); // negate: drag right → counterclockwise rotation (items come from right)
 
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
