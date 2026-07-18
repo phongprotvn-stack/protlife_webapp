@@ -89,7 +89,7 @@ export default function MemoryWheelPage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state — simple atan2 tracking (matching demo spec)
+  // ── Drag — EXACT demo mechanism: element onDown, window onMove/onUp ──
   const dragActive = useRef(false);
   const lastAngle = useRef(0);
   const dragStartX = useRef(0);
@@ -100,6 +100,10 @@ export default function MemoryWheelPage() {
   // Velocity for inertia
   const velocityRef = useRef(0);
   const lastMoveTime = useRef(0);
+
+  // Stable refs for callbacks — assigned after snapTo/activeIdx are defined below
+  const snapToRef = useRef<(i: number) => void>(() => {});
+  const activeIdxRef = useRef(0);
 
   // Geometry helpers
   const angleOfItem = useCallback((i: number) => {
@@ -184,62 +188,70 @@ export default function MemoryWheelPage() {
     });
   }, [angleOfItem, norm180, snapTo, rerender, ITEM_COUNT]);
 
-  // Drag handlers — exact demo mechanism: atan2 + delta unwrap
+  // Assign refs so window-level event listeners always have latest callbacks
+  snapToRef.current = snapTo;
+  activeIdxRef.current = activeIdx;
+
+  // onPointerDown captures the start position (on the wheel element)
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
     velocityRef.current = 0;
-
-    // Save initial angle (like demo's lastAngle = angleAt(p))
     const { x: cx, y: cy } = centerRef.current;
     lastAngle.current = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
-
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
     lastMoveTime.current = performance.now();
   }, []);
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragActive.current) return;
-    const dx = e.clientX - dragStartX.current;
-    const dy = e.clientY - dragStartY.current;
-    dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
-
-    // Compute angle delta using atan2 (exactly like the demo)
-    const { x: cx, y: cy } = centerRef.current;
-    const ang = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
-    let delta = ang - lastAngle.current;
-    // Unwrap ±180° boundary (crossing 6 o'clock)
-    if (delta > 180) delta -= 360;
-    else if (delta < -180) delta += 360;
-    rotationRef.current += delta;
-    lastAngle.current = ang;
-
-    // Track velocity (demo: velocity = delta / dt * 16)
-    const now = performance.now();
-    const dt = Math.max(1, now - lastMoveTime.current);
-    const instantV = delta * (16.67 / dt);
-    velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
-    lastMoveTime.current = now;
-
-    rerender();
-  }, [rerender]);
-
-  const onPointerUp = useCallback(() => {
-    if (!dragActive.current) return;
-    dragActive.current = false;
-    if (dragTotalDist.current > CLICK_THRESHOLD) {
-      const v = velocityRef.current;
-      if (Math.abs(v) >= 0.5) {
-        // Start inertia spin — momentum + multi-rotation
-        startInertia(v);
-      } else {
-        snapTo(activeIdx);
+  // Window-level pointermove / pointerup — EXACTLY like the demo's
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragActive.current) return;
+      e.preventDefault();
+      // Recompute center every frame (matching demo's pointFromEvent pattern)
+      const rect = wheelRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - dragStartX.current;
+      const dy = e.clientY - dragStartY.current;
+      dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
+      let delta = ang - lastAngle.current;
+      if (delta > 180) delta -= 360;
+      else if (delta < -180) delta += 360;
+      rotationRef.current += delta;
+      lastAngle.current = ang;
+      // Track velocity (demo: velocity = delta / dt * 16)
+      const now = performance.now();
+      const dt = Math.max(1, now - lastMoveTime.current);
+      const instantV = delta * (16.67 / dt);
+      velocityRef.current = velocityRef.current * 0.6 + instantV * 0.4;
+      lastMoveTime.current = now;
+      rerender();
+    };
+    const onUp = () => {
+      if (!dragActive.current) return;
+      dragActive.current = false;
+      const dist = dragTotalDist.current;
+      if (dist > CLICK_THRESHOLD) {
+        const v = velocityRef.current;
+        if (Math.abs(v) >= 0.5) {
+          startInertia(v);
+        } else {
+          snapToRef.current(activeIdxRef.current);
+        }
       }
-    }
-  }, [activeIdx, snapTo, startInertia]);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [rerender, startInertia]);
 
   // Initial snap to newest (first render)
   const hasSnapped = useRef(false);
@@ -323,9 +335,7 @@ export default function MemoryWheelPage() {
           className="relative w-[360px] h-[360px] mx-auto mb-6 select-none touch-none"
           style={{ cursor: 'grab' }}
           onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={() => { dragActive.current = false; }}
         >
           {/* Track — warm gradient ring */}
           <div
@@ -415,7 +425,7 @@ export default function MemoryWheelPage() {
         </div>
 
         <p className="text-[12px] text-[#8E8E93] font-medium">
-          ← CŨ &nbsp;·&nbsp; Kéo lùi về quá khứ &nbsp;·&nbsp; Kéo tiến tới gần đây &nbsp;·&nbsp; MỚI →
+          ← Kéo để lùi về quá khứ · &nbsp;kéo phải để tiến tới tương lai →
         </p>
       </div>
 

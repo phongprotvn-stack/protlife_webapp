@@ -188,13 +188,17 @@ export default function TimelinePage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state — simple atan2 tracking (matching demo spec)
+  // ── Drag — EXACT demo mechanism: element onDown, window onMove/onUp ──
   const dragActive = useRef(false);
   const lastAngle = useRef(0);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragTotalDist = useRef(0);
   const CLICK_THRESHOLD = 8;
+
+  // Stable refs for callbacks — assigned after snapTo/activeIdx are defined below
+  const snapToRef = useRef<(i: number) => void>(() => {});
+  const activeIdxRef = useRef(0);
 
   const angleOfItem = useCallback((i: number) => {
     return ITEM_COUNT > 0 ? (i - presentIndex) * (360 / ITEM_COUNT) : 0;
@@ -249,46 +253,56 @@ export default function TimelinePage() {
     }
     animRef.current = requestAnimationFrame(step);
   }, [angleOfItem, norm180, rerender, ITEM_COUNT]);
-  // Drag handlers — exact demo mechanism: atan2 + delta unwrap
+
+  // Assign refs so window-level event listeners always have latest callbacks
+  snapToRef.current = snapTo;
+  activeIdxRef.current = activeIdx;
+
+  // onPointerDown captures the start position (on the wheel element)
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragActive.current = true;
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-
-    // Save initial angle (like demo's lastAngle = angleAt(p))
     const { x: cx, y: cy } = centerRef.current;
     lastAngle.current = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
-
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragTotalDist.current = 0;
   }, []);
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragActive.current) return;
-    const dx = e.clientX - dragStartX.current;
-    const dy = e.clientY - dragStartY.current;
-    dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
-
-    // Compute angle delta using atan2 (exactly like the demo)
-    const { x: cx, y: cy } = centerRef.current;
-    const ang = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
-    let delta = ang - lastAngle.current;
-    // Unwrap ±180° boundary (crossing 6 o'clock)
-    if (delta > 180) delta -= 360;
-    else if (delta < -180) delta += 360;
-    rotationRef.current += delta;
-    lastAngle.current = ang;
-    rerender();
+  // Window-level pointermove / pointerup — EXACTLY like the demo's
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragActive.current) return;
+      e.preventDefault();
+      const rect = wheelRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - dragStartX.current;
+      const dy = e.clientY - dragStartY.current;
+      dragTotalDist.current = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * (180 / Math.PI);
+      let delta = ang - lastAngle.current;
+      if (delta > 180) delta -= 360;
+      else if (delta < -180) delta += 360;
+      rotationRef.current += delta;
+      lastAngle.current = ang;
+      rerender();
+    };
+    const onUp = () => {
+      if (!dragActive.current) return;
+      dragActive.current = false;
+      if (dragTotalDist.current > CLICK_THRESHOLD) {
+        snapToRef.current(activeIdxRef.current);
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
   }, [rerender]);
-
-  const onPointerUp = useCallback(() => {
-    if (!dragActive.current) return;
-    dragActive.current = false;
-    if (dragTotalDist.current > CLICK_THRESHOLD) {
-      snapTo(activeIdx);
-    }
-  }, [activeIdx, snapTo]);
 
   const snapToToday = useCallback(() => {
     snapTo(presentIndex);
@@ -376,9 +390,7 @@ export default function TimelinePage() {
           className="relative w-[340px] h-[340px] mx-auto mb-6 select-none touch-none"
           style={{ cursor: 'grab' }}
           onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={() => { dragActive.current = false; }}
         >
           {/* Track conic gradient */}
           <div
