@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Search, Users, RefreshCw, ChevronLeft, ChevronRight, Heart, ArrowUpDown, ArrowRight } from 'lucide-react';
 import { ContactCard } from '@/components/contacts/contact-card';
@@ -9,7 +10,7 @@ import { useAppStore } from '@/stores/app-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRouter } from 'next/navigation';
 import type { Contact } from '@/types/database';
-import { formatDate, calculateAge } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 
@@ -32,9 +33,6 @@ export default function ContactsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const [isDesktop, setIsDesktop] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<SortField>('Name');
@@ -45,23 +43,21 @@ export default function ContactsPage() {
   const refreshKey = useAppStore((s) => s.refreshKey);
   const user = useAuthStore((s) => s.user);
 
-  useEffect(() => {
-    setIsDesktop(window.innerWidth >= 768);
-    loadContacts();
-  }, [refreshKey]);
-
-  const loadContacts = async () => {
-    setIsLoading(true);
-    setError('');
-    try {
+  const { data: contacts = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['contacts', refreshKey],
+    queryFn: async () => {
       const data = await contactService.getAll();
-      setContacts(data);
-    } catch (e: any) {
-      setError(e.message || 'Không thể tải dữ liệu');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return data;
+    },
+    staleTime: 60_000,       // 1 phút trước khi coi là stale
+    refetchOnWindowFocus: true,
+  });
+
+  const loadError = error ? (error as Error).message || 'Không thể tải dữ liệu' : '';
+
+  useState(() => {
+    setIsDesktop(window.innerWidth >= 768);
+  });
 
   // Filtered + sorted contacts
   const processedContacts = useMemo(() => {
@@ -123,7 +119,7 @@ export default function ContactsPage() {
             <p className="text-[12px] text-[#8E8E93] mt-0.5">{contacts.length} người</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={loadContacts} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
+            <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
             <button onClick={() => router.push('/contacts/add')}
@@ -160,10 +156,10 @@ export default function ContactsPage() {
             <div className="w-7 h-7 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin mb-2" />
             <p className="text-[12px] text-[#8E8E93]">Đang tải...</p>
           </div>
-        ) : error ? (
+        ) : loadError ? (
           <div className="glass-card p-6 text-center">
-            <p className="text-[13px] font-medium text-[#E6002D]">{error}</p>
-            <button onClick={loadContacts} className="mt-3 px-4 py-1.5 rounded-[8px] text-[11px] font-medium text-white bg-[#E6002D]">Thử lại</button>
+            <p className="text-[13px] font-medium text-[#E6002D]">{loadError}</p>
+            <button onClick={() => refetch()} className="mt-3 px-4 py-1.5 rounded-[8px] text-[11px] font-medium text-white bg-[#E6002D]">Thử lại</button>
           </div>
         ) : processedContacts.length === 0 ? (
           <div className="glass-card p-8 text-center">
@@ -195,14 +191,14 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {!isLoading && error && (
+      {!isLoading && loadError && (
         <div className="glass-card p-8 text-center">
-          <p className="text-[14px] font-medium text-[#E6002D]">{error}</p>
-          <button onClick={loadContacts} className="btn-glass-primary mt-4 px-5 py-2 text-[12px]">Thử lại</button>
+          <p className="text-[14px] font-medium text-[#E6002D]">{loadError}</p>
+          <button onClick={() => refetch()} className="btn-glass-primary mt-4 px-5 py-2 text-[12px]">Thử lại</button>
         </div>
       )}
 
-      {!isLoading && !error && (
+      {!isLoading && !loadError && (
         <>
           {/* ═══ TOP ROW: Search + Filter + Add ═══ */}
           <div className="flex items-center gap-3 mb-5">

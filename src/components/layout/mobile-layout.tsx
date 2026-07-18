@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard, Users, Calendar,
-  BrainCircuit, Settings,
+  BrainCircuit, History,
 } from 'lucide-react';
 
 const TABS = [
@@ -14,7 +14,7 @@ const TABS = [
   { id: 'contacts', label: 'Quan hệ', icon: Users, href: '/contacts' },
   { id: 'events', label: 'Sự kiện', icon: Calendar, href: '/events' },
   { id: 'ai-insight', label: 'AI Insight', icon: BrainCircuit, href: '/ai-insight' },
-  { id: 'settings', label: 'Cá nhân', icon: Settings, href: '/settings' },
+  { id: 'timeline', label: 'Dòng thời gian', icon: History, href: '/timeline' },
 ];
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
