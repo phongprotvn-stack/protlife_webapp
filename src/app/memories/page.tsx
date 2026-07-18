@@ -34,8 +34,15 @@ export default function MemoriesPage() {
 
   const loadMemories = async () => {
     setIsLoading(true); setError('');
-    try { setMemories(await memoryService.getAllWithEvent()); }
-    catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
+    try {
+      const data = await memoryService.getAllWithEvent();
+      data.sort((a, b) => {
+        const aDate = a.EventDate || a.CreatedDate;
+        const bDate = b.EventDate || b.CreatedDate;
+        return new Date(aDate).getTime() - new Date(bDate).getTime();
+      });
+      setMemories(data);
+    } catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
     finally { setIsLoading(false); }
   };
 

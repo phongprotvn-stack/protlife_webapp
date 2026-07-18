@@ -11,6 +11,7 @@ interface MemoryItem {
   title: string;
   when: string;
   desc: string;
+  sortDate: string; // ISO date for sorting
   isPresent?: boolean;
   isMemory?: boolean;
   moodEmoji?: string;
@@ -109,15 +110,16 @@ export default function TimelinePage() {
       const d = new Date(e.StartDate);
       d.setHours(0, 0, 0, 0);
       if (d < now) pastEvents.push(e);
-      else if (d > now) futureEvents.push(e);
-      else {
-        todayEvent = {
-          icon: getEventIcon(e.EventType),
-          title: e.Title,
-          when: 'Hôm nay',
-          desc: buildDesc(e),
-        };
-      }
+ else if (d > now) futureEvents.push(e);
+ else {
+   todayEvent = {
+     icon: getEventIcon(e.EventType),
+     title: e.Title,
+     when: 'Hôm nay',
+     desc: buildDesc(e),
+     sortDate: e.StartDate,
+   };
+ }
     });
 
     // Sort
@@ -130,6 +132,7 @@ export default function TimelinePage() {
       title: e.Title,
       when: relativeTime(e.StartDate),
       desc: buildDesc(e),
+      sortDate: e.StartDate,
     }));
 
     const future: MemoryItem[] = futureEvents.map(e => ({
@@ -137,6 +140,7 @@ export default function TimelinePage() {
       title: e.Title,
       when: relativeTime(e.StartDate),
       desc: buildDesc(e),
+      sortDate: e.StartDate,
     }));
 
     // Convert memories to MemoryItems (always past) — use EventDate if linked
@@ -149,20 +153,26 @@ export default function TimelinePage() {
         when: relativeTime(dateLabel),
         desc: m.Content ? (m.Content.length > 80 ? m.Content.slice(0, 80) + '...' : m.Content) : '🧠 Ký ức',
         isMemory: true,
+        sortDate: dateLabel,
         moodEmoji: m.MoodEmoji || undefined,
         memoryId: m.MemoryID,
       };
     });
+
+    // Merge past events + memories, sort by date descending (newest → closest to present)
+    const pastAll = [...past, ...pastMemories];
+    pastAll.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
 
     const present: MemoryItem = todayEvent || {
       icon: '❤️',
       title: 'Hôm nay',
       when: 'Hiện tại',
       desc: 'Tận hưởng khoảnh khắc này — mọi ký ức đều bắt đầu từ đây.',
+      sortDate: new Date().toISOString(),
       isPresent: true,
     };
 
-    return [...past, ...pastMemories, { ...present, isPresent: true }, ...future];
+    return [...pastAll, { ...present, isPresent: true }, ...future];
   }, [events, memories, dbLoaded]);
 
   const presentIndex = useMemo(() => list.findIndex(i => i.isPresent), [list]);
@@ -214,10 +224,9 @@ export default function TimelinePage() {
   const activeIdx = useMemo(() => {
     if (ITEM_COUNT === 0) return -1;
     const rot = rotationRef.current;
-    let best = presentIndex;
+    let best = 0;
     let bestDist = Infinity;
     list.forEach((item, i) => {
-      if (item.isPresent) return;
       const d = Math.abs(norm180(angleOfItem(i) + rot));
       if (d < bestDist) { bestDist = d; best = i; }
     });
