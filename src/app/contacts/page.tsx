@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Search, Users, RefreshCw, ChevronLeft, ChevronRight, Heart, ArrowUpDown, ArrowRight } from 'lucide-react';
@@ -55,9 +55,12 @@ export default function ContactsPage() {
 
   const loadError = error ? (error as Error).message || 'Không thể tải dữ liệu' : '';
 
-  useState(() => {
+  useEffect(() => {
     setIsDesktop(window.innerWidth >= 768);
-  });
+    const onResize = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // Filtered + sorted contacts
   const processedContacts = useMemo(() => {

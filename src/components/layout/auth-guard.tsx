@@ -8,15 +8,29 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const [hydrated, setHydrated] = useState(false);
   const [checking, setChecking] = useState(true);
 
+  // Wait for zustand persist to finish hydrating from localStorage
   useEffect(() => {
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
+    // If already hydrated, set immediately
+    if (useAuthStore.persist.hasHydrated()) {
+      setHydrated(true);
+    }
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return; // still loading from localStorage
     if (!isLoggedIn) {
       router.replace('/login');
     } else {
       setChecking(false);
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, router, hydrated]);
 
   if (checking) {
     return (
