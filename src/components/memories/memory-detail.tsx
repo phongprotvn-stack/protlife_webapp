@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/shared/modal';
 import { memoryService } from '@/lib/services/memory-service';
 import type { Memory, Mood, MoodEmoji } from '@/types/database';
 import { formatDate } from '@/lib/utils';
-import { BookHeart, Calendar, Edit3, Trash2, X, Image, Smile } from 'lucide-react';
+import { BookHeart, Calendar, Edit3, Trash2, X, Link as LinkIcon } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 
 const MOOD_EMOJIS: { emoji: MoodEmoji; label: string; mood: Mood }[] = [
@@ -41,10 +42,13 @@ interface Props {
 }
 
 export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
+  const router = useRouter();
   const [memory, setMemory] = useState<Memory | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({ Title: '', Content: '', Mood: '' as Mood | '', MoodEmoji: '' as MoodEmoji | '' });
   const selectMemory = useAppStore((s) => s.selectMemory);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!memoryId) { setMemory(null); return; }
@@ -59,19 +63,24 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
 
   const handleSave = async () => {
     if (!memory) return;
-    await memoryService.update(memory.MemoryID, {
-      Title: form.Title,
-      Content: form.Content || null,
-      Mood: form.Mood || null,
-      MoodEmoji: form.MoodEmoji || null,
-    });
-    const updated = await memoryService.getById(memory.MemoryID);
-    setMemory(updated);
-    setEditMode(false);
+    setSaving(true);
+    try {
+      await memoryService.update(memory.MemoryID, {
+        Title: form.Title,
+        Content: form.Content || null,
+        Mood: form.Mood || null,
+        MoodEmoji: form.MoodEmoji || null,
+      });
+      const updated = await memoryService.getById(memory.MemoryID);
+      setMemory(updated);
+      setEditMode(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
-    if (!memory || !confirm('Xoá ký ức này?')) return;
+    if (!memory) return;
     await memoryService.delete(memory.MemoryID);
     selectMemory(null);
     onClose();
@@ -89,7 +98,7 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
                 <Edit3 size={14} className="text-[#8E8E93]" />
               </button>
             )}
-            <button onClick={handleDelete}
+            <button onClick={() => setConfirmDelete(true)}
               className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)]">
               <Trash2 size={14} className="text-[#E6002D]" />
             </button>
@@ -100,6 +109,23 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
               </button>
             )}
           </div>
+
+          {/* Confirm Delete */}
+          {confirmDelete && (
+            <div className="mb-4 p-4 rounded-[14px] bg-[rgba(230,0,45,0.06)] border border-[rgba(230,0,45,0.12)] text-center">
+              <div className="w-10 h-10 rounded-full bg-[rgba(230,0,45,0.1)] mx-auto mb-2 flex items-center justify-center">
+                <Trash2 size={18} className="text-[#E6002D]" />
+              </div>
+              <p className="text-[14px] font-semibold text-[#E6002D] mb-1">Xoá ký ức này?</p>
+              <p className="text-[12px] text-[#8E8E93] mb-3">Hành động này không thể hoàn tác.</p>
+              <div className="flex gap-2 justify-center">
+                <button onClick={() => setConfirmDelete(false)}
+                  className="px-5 py-2 rounded-[10px] text-[12px] font-medium text-[#5F6368] bg-white border border-[rgba(0,0,0,0.06)]">Không</button>
+                <button onClick={handleDelete}
+                  className="px-5 py-2 rounded-[10px] text-[12px] font-medium text-white bg-[#E6002D]">Xoá</button>
+              </div>
+            </div>
+          )}
 
           {/* Mood Emoji */}
           <div className="flex justify-center mb-3">
@@ -161,10 +187,14 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
             )}
           </div>
 
-          {/* Event link */}
-          {memory.EventID && (
-            <div className="mt-3 p-2.5 rounded-[10px] bg-[rgba(88,86,214,0.05)] text-center">
-              <span className="text-[11px] text-[#5856D6] font-medium">🔗 Liên kết với sự kiện</span>
+          {/* Event link — clickable */}
+          {memory.EventID && !editMode && (
+            <div className="mt-3 p-2.5 rounded-[10px] bg-[rgba(88,86,214,0.05)] border border-[rgba(88,86,214,0.1)]">
+              <button onClick={() => { router.push(`/events`); selectMemory(null); }}
+                className="w-full flex items-center justify-center gap-1.5 text-[11px] font-medium text-[#5856D6] hover:text-[#3B3BB5] transition-colors cursor-pointer">
+                <LinkIcon size={12} />
+                🔗 Xem sự kiện liên quan
+              </button>
             </div>
           )}
 
@@ -175,9 +205,9 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
                 className="flex-1 py-2.5 rounded-[10px] text-[12px] font-medium bg-[rgba(0,0,0,0.04)] text-[#5F6368]">
                 Huỷ
               </button>
-              <button onClick={handleSave}
+              <button onClick={handleSave} disabled={saving}
                 className="flex-1 py-2.5 rounded-[10px] text-[12px] font-medium text-white bg-[#E6002D]">
-                Lưu
+                {saving ? '...' : 'Lưu'}
               </button>
             </div>
           )}

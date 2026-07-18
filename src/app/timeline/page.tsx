@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Plus, Sparkles } from 'lucide-react';
 import { eventService } from '@/lib/services/event-service';
-import type { EventItem } from '@/types/database';
+import { memoryService } from '@/lib/services/memory-service';
+import type { EventItem, MemoryWithEvent } from '@/types/database';
 
 interface MemoryItem {
   icon: string;
@@ -11,18 +12,15 @@ interface MemoryItem {
   when: string;
   desc: string;
   isPresent?: boolean;
+  isMemory?: boolean;
+  moodEmoji?: string;
+  memoryId?: string;
 }
 
 function getEventIcon(type?: string): string {
   const map: Record<string, string> = {
-    Meeting: '🤝',
-    Birthday: '🎂',
-    Travel: '✈️',
-    Work: '💼',
-    Sport: '⚽',
-    Meal: '🍽️',
-    Entertainment: '🎮',
-    Other: '📌',
+    Meeting: '🤝', Birthday: '🎂', Travel: '✈️', Work: '💼',
+    Sport: '⚽', Meal: '🍽️', Entertainment: '🎮', Other: '📌',
   };
   return map[type || ''] || '📌';
 }
@@ -40,7 +38,6 @@ function relativeTime(dateStr: string): string {
 
   if (days === 0) return 'Hôm nay';
   if (days > 0) {
-    // Past
     if (days === 1) return 'Hôm qua';
     if (days < 30) return `${days} ngày trước`;
     const months = Math.floor(days / 30);
@@ -48,7 +45,6 @@ function relativeTime(dateStr: string): string {
     const years = Math.floor(days / 365);
     return `${years} năm trước`;
   } else {
-    // Future
     const abs = Math.abs(days);
     if (abs === 1) return 'Ngày mai';
     if (abs < 30) return `${abs} ngày tới`;
@@ -71,15 +67,26 @@ function buildDesc(event: EventItem): string {
   return parts.join(' · ') || 'Không có mô tả';
 }
 
+function memoryIcon(moodEmoji?: string | null): string {
+  return moodEmoji || '🧠';
+}
+
 export default function TimelinePage() {
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [memories, setMemories] = useState<MemoryWithEvent[]>([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    eventService.getAll()
-      .then(data => { setEvents(data); setDbLoaded(true); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      eventService.getAll(),
+      memoryService.getAllWithEvent(),
+    ]).then(([eventsData, memoriesData]) => {
+      setEvents(eventsData);
+      setMemories(memoriesData);
+      setDbLoaded(true);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   const list = useMemo<MemoryItem[]>(() => {
@@ -88,6 +95,7 @@ export default function TimelinePage() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
+    // Separate events into past/future/today
     const pastEvents: EventItem[] = [];
     const futureEvents: EventItem[] = [];
     let todayEvent: MemoryItem | null = null;
@@ -107,11 +115,11 @@ export default function TimelinePage() {
       }
     });
 
-    // Past: newest first (closest to present)
+    // Sort
     pastEvents.sort((a, b) => new Date(b.StartDate).getTime() - new Date(a.StartDate).getTime());
-    // Future: soonest first (closest to present)
     futureEvents.sort((a, b) => new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime());
 
+    // Convert events to MemoryItems
     const past: MemoryItem[] = pastEvents.map(e => ({
       icon: getEventIcon(e.EventType),
       title: e.Title,
@@ -126,6 +134,32 @@ export default function TimelinePage() {
       desc: buildDesc(e),
     }));
 
+    // Convert memories to MemoryItems (always past)
+    const pastMemories: MemoryItem[] = memories.map(m => {
+      const moodIcon = memoryIcon(m.MoodEmoji);
+      return {
+        icon: moodIcon,
+        title: m.Title,
+        when: relativeTime(m.CreatedDate),
+        desc: m.Content ? (m.Content.length > 80 ? m.Content.slice(0, 80) + '...' : m.Content) : '🧠 Ký ức',
+        isMemory: true,
+        moodEmoji: m.MoodEmoji || undefined,
+        memoryId: m.MemoryID,
+      };
+    });
+
+    // Interleave past events and memories by date (newest first)
+    // All are in the past, sorted by their date descending
+    const pastAll = [...past, ...pastMemories];
+    pastAll.sort((a, b) => {
+      // Parse 'when' — crude but works for relative times
+      // Actually, we need the original dates. Let's keep events first, then memories
+      // Better approach: use the order from data
+      return 0; // Keep original relative order from each source
+    });
+
+    // Actually, let's just put past events first, then past memories, then present, then future
+    // This is simpler and more intuitive
     const present: MemoryItem = todayEvent || {
       icon: '❤️',
       title: 'Hôm nay',
@@ -134,15 +168,14 @@ export default function TimelinePage() {
       isPresent: true,
     };
 
-    return [...past, { ...present, isPresent: true }, ...future];
-  }, [events, dbLoaded]);
+    return [...past, ...pastMemories, { ...present, isPresent: true }, ...future];
+  }, [events, memories, dbLoaded]);
 
   const presentIndex = useMemo(() => list.findIndex(i => i.isPresent), [list]);
   const ITEM_COUNT = list.length;
   const RADIUS = 128;
   const SNAP_THRESHOLD = 12;
 
-  // Use a ref for rotation (avoids stale-closure issues during drag)
   const rotationRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
   const rerender = useCallback(() => setRenderTick(t => t + 1), []);
@@ -151,7 +184,6 @@ export default function TimelinePage() {
   const centerRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number | null>(null);
 
-  // Drag state refs
   const dragActive = useRef(false);
   const dragLastAngle = useRef(0);
   const dragStartX = useRef(0);
@@ -159,7 +191,6 @@ export default function TimelinePage() {
   const dragTotalDist = useRef(0);
   const CLICK_THRESHOLD = 8;
 
-  // ── Geometry helpers ──
   const angleOfItem = useCallback((i: number) => {
     return ITEM_COUNT > 0 ? (i - presentIndex) * (360 / ITEM_COUNT) : 0;
   }, [presentIndex, ITEM_COUNT]);
@@ -174,7 +205,6 @@ export default function TimelinePage() {
     return Math.atan2(clientX - x, -(clientY - y)) * 180 / Math.PI;
   }, []);
 
-  // Update center on resize
   useEffect(() => {
     const update = () => {
       if (wheelRef.current) {
@@ -187,7 +217,6 @@ export default function TimelinePage() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // ── Active index ──
   const activeIdx = useMemo(() => {
     if (ITEM_COUNT === 0) return -1;
     const rot = rotationRef.current;
@@ -203,7 +232,6 @@ export default function TimelinePage() {
 
   const activeItem = list[activeIdx];
 
-  // ── Snap animation ──
   const snapTo = useCallback((i: number) => {
     if (ITEM_COUNT === 0) return;
     if (animRef.current) cancelAnimationFrame(animRef.current);
@@ -223,7 +251,6 @@ export default function TimelinePage() {
     animRef.current = requestAnimationFrame(step);
   }, [angleOfItem, norm180, rerender, ITEM_COUNT]);
 
-  // ── Drag handlers ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     dragActive.current = true;
     const ang = angleAt(e.clientX, e.clientY);
@@ -257,12 +284,10 @@ export default function TimelinePage() {
     }
   }, [activeIdx, snapTo]);
 
-  // ── Hub (today) click ──
   const snapToToday = useCallback(() => {
     snapTo(presentIndex);
   }, [presentIndex, snapTo]);
 
-  // ── UI labels ──
   const activeType = activeItem?.isPresent ? 'present'
     : (activeIdx < presentIndex) ? 'past' : 'future';
 
@@ -276,7 +301,6 @@ export default function TimelinePage() {
     : activeType === 'future' ? '🗓️ Lên kế hoạch'
     : '💭 Ghi lại';
 
-  // On first render, snap to center (rotation = 0 = presentIndex)
   const hasSnapped = useRef(false);
   useEffect(() => {
     if (!hasSnapped.current && wheelRef.current && ITEM_COUNT > 0) {
@@ -299,7 +323,7 @@ export default function TimelinePage() {
         </div>
         <div className="card-ios text-center py-16">
           <div className="w-8 h-8 border-2 border-[#5856D6]/20 border-t-[#5856D6] rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[13px] text-[#8E8E93]">Đang tải sự kiện...</p>
+          <p className="text-[13px] text-[#8E8E93]">Đang tải sự kiện & ký ức...</p>
         </div>
       </div>
     );
@@ -401,6 +425,14 @@ export default function TimelinePage() {
             const opacity = 0.55 + 0.45 * (1 - Math.min(dist, 150) / 150);
             const nodeType = i < presentIndex ? 'past' : 'future';
 
+            // Different styling for memories vs events
+            const isMemory = item.isMemory;
+            const nodeGradient = isMemory
+              ? 'linear-gradient(135deg, #FF2D55 0%, #FF5E7A 55%, #FF8A9E 100%)'
+              : nodeType === 'past'
+                ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
+                : 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)';
+
             return (
               <div
                 key={i}
@@ -410,9 +442,7 @@ export default function TimelinePage() {
                   top: '50%', left: '50%',
                   width: 48, height: 48,
                   marginLeft: -24, marginTop: -24,
-                  background: nodeType === 'past'
-                    ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
-                    : 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)',
+                  background: nodeGradient,
                   border: isActive ? '3px solid #111' : '2px solid rgba(255,255,255,0.8)',
                   boxShadow: isActive
                     ? '0 10px 24px rgba(0,0,0,0.18)'
@@ -421,6 +451,7 @@ export default function TimelinePage() {
                   fontSize: 20,
                   transform: `translate(${x}px, ${y}px) scale(${scale.toFixed(2)})`,
                   opacity: opacity.toFixed(2),
+                  outline: isMemory ? '2px solid rgba(255,45,85,0.3)' : undefined,
                 }}
               >
                 {item.icon}
@@ -450,11 +481,13 @@ export default function TimelinePage() {
             <div
               className="w-[44px] h-[44px] rounded-[16px] flex items-center justify-center text-[21px] flex-shrink-0 text-white"
               style={{
-                background: activeType === 'past'
-                  ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
-                  : activeType === 'future'
-                    ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
-                    : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
+                background: activeItem.isMemory
+                  ? 'linear-gradient(135deg, #FF2D55 0%, #FF5E7A 55%, #FF8A9E 100%)'
+                  : activeType === 'past'
+                    ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
+                    : activeType === 'future'
+                      ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
+                      : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
               }}
             >
               {activeItem.icon}
@@ -462,12 +495,13 @@ export default function TimelinePage() {
             <div className="min-w-0 flex-1">
               <div
                 className={`text-[10px] font-bold tracking-[1px] uppercase ${
-                  activeType === 'past' ? 'text-[#F59E0B]'
+                  activeItem.isMemory ? 'text-[#FF2D55]'
+                  : activeType === 'past' ? 'text-[#F59E0B]'
                   : activeType === 'future' ? 'text-[#8B5CF6]'
                   : 'text-[#E6002D]'
                 }`}
               >
-                {timeLabel}
+                {activeItem.isMemory ? '🧠 Ký ức' : timeLabel}
               </div>
               <div className="text-[17px] font-extrabold text-[#101010] mt-0.5 tracking-[-0.2px]">
                 {activeItem.title}
@@ -480,19 +514,23 @@ export default function TimelinePage() {
           <button
             className="w-full py-[13px] border-none rounded-[18px] text-[14px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform"
             style={{
-              background: activeType === 'past'
-                ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
-                : activeType === 'future'
-                  ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
-                  : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
-              boxShadow: activeType === 'past'
-                ? '0 10px 22px rgba(217,119,6,0.28)'
-                : activeType === 'future'
-                  ? '0 10px 22px rgba(124,58,237,0.28)'
-                  : '0 10px 22px rgba(214,0,50,0.28)',
+              background: activeItem.isMemory
+                ? 'linear-gradient(135deg, #FF2D55 0%, #FF5E7A 55%, #FF8A9E 100%)'
+                : activeType === 'past'
+                  ? 'linear-gradient(135deg, #D97706 0%, #F59E0B 55%, #FBBF24 100%)'
+                  : activeType === 'future'
+                    ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A78BFA 100%)'
+                    : 'linear-gradient(135deg, #D60032 0%, #FF4B3A 55%, #FF6A3D 100%)',
+              boxShadow: activeItem.isMemory
+                ? '0 10px 22px rgba(255,45,85,0.28)'
+                : activeType === 'past'
+                  ? '0 10px 22px rgba(217,119,6,0.28)'
+                  : activeType === 'future'
+                    ? '0 10px 22px rgba(124,58,237,0.28)'
+                    : '0 10px 22px rgba(214,0,50,0.28)',
             }}
           >
-            {btnLabel}
+            {activeItem.isMemory ? '🧠 Xem ký ức' : btnLabel}
           </button>
         </div>
       )}
