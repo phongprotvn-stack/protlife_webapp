@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
+import { memoryService } from '@/lib/services/memory-service';
 import { participantService } from '@/lib/services/participant-service';
 import { contactService } from '@/lib/services/contact-service';
-import type { EventItem } from '@/types/database';
+import type { EventItem, Memory, MoodEmoji } from '@/types/database';
 import type { Contact } from '@/types/database';
 import type { EventParticipant } from '@/lib/services/participant-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { formatVND, parseVND } from '@/lib/utils';
-import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus, BookHeart } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 
 interface Props { eventId: string | null; onClose: () => void; panelMode?: boolean; }
@@ -19,6 +20,14 @@ const EVENT_TYPES = ['Meeting','Birthday','Travel','Work','Sport','Hospital','Me
 const MOODS = ['Happy','Normal','Sad','Excited','Tired','Angry','Thoughtful','Loved'] as const;
 const IMPORTANCE = ['Lowest','Low','Medium','High','Highest'] as const;
 const LIFE_STAGES = ['Infancy','Childhood','Secondary School','High School','University','Early Career','Mid Career','Mature Career','Retirement'] as const;
+const MOOD_EMOJIS: { emoji: MoodEmoji; label: string }[] = [
+  { emoji: '😊', label: 'Vui vẻ' },
+  { emoji: '😢', label: 'Buồn' },
+  { emoji: '🤩', label: 'Phấn khích' },
+  { emoji: '😌', label: 'Bình yên' },
+  { emoji: '😤', label: 'Tức giận' },
+  { emoji: '😴', label: 'Mệt mỏi' },
+];
 
 export function EventDetail({ eventId, onClose, panelMode }: Props) {
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
@@ -28,17 +37,24 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [participants, setParticipants] = useState<EventParticipant[]>([]);
 
+  // Participants
+  const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [form, setForm] = useState({
     Title:'', EventType:'', LifeStage:'', StartDate:'', EndDate:'', Place:'', Maplink:'',
     Mood:'', Importance:'', Cost:0, Notes:'',
   });
-
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<{ContactID:string;ContactName:string}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showContactSearch, setShowContactSearch] = useState(false);
+
+  // Memory Journal
+  const [existingMemory, setExistingMemory] = useState<Memory | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryForm, setMemoryForm] = useState({ Content: '', MoodEmoji: '' as MoodEmoji | '', Image: '' });
+  const [memorySaving, setMemorySaving] = useState(false);
+  const [memoryMsg, setMemoryMsg] = useState('');
 
   useEffect(() => {
     contactService.getAll().then(setAllContacts).catch(() => {});
@@ -50,8 +66,11 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     Promise.all([
       eventService.getById(eventId),
       participantService.getByEventWithNames(eventId),
-    ]).then(([data, pData]) => {
-      setEvent(data); setParticipants(pData); setSelectedParticipants(pData.map(p => ({ContactID: p.ContactID, ContactName: p.ContactName || ''})));
+      memoryService.getByEventId(eventId),
+    ]).then(([data, pData, mem]) => {
+      setEvent(data); setParticipants(pData);
+      setSelectedParticipants(pData.map(p => ({ContactID: p.ContactID, ContactName: p.ContactName || ''})));
+      setExistingMemory(mem);
       if (data) {
         setForm({
           Title:data.Title, EventType:data.EventType, LifeStage:data.LifeStage||'',
@@ -61,7 +80,8 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
       }
       setLoading(false);
     }).catch(() => setLoading(false));
-    setEditMode(false); setConfirmDelete(false); setError(''); setParticipants([]);
+    setEditMode(false); setConfirmDelete(false); setError('');
+    setMemoryOpen(false); setMemoryMsg('');
   }, [eventId]);
 
   const handleSave = async () => {
@@ -104,6 +124,65 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     if (!eventId) return;
     try { await eventService.delete(eventId); triggerRefresh(); onClose(); }
     catch(e:any) { setError(e.message||'Lỗi khi xoá'); }
+  };
+
+  // ── Memory Journal handlers ──
+  const openMemoryForm = () => {
+    if (!event) return;
+    setMemoryForm({
+      Content: event.Notes || '',
+      MoodEmoji: '' as MoodEmoji,
+      Image: '',
+    });
+    setMemoryOpen(true);
+    setMemoryMsg('');
+  };
+
+  const saveMemory = async () => {
+    if (!event) return;
+    setMemorySaving(true); setMemoryMsg('');
+    try {
+      if (existingMemory) {
+        // Update existing
+        const updated = await memoryService.update(existingMemory.MemoryID, {
+          Content: memoryForm.Content || null,
+          MoodEmoji: memoryForm.MoodEmoji || null,
+          Image: memoryForm.Image || null,
+        });
+        setExistingMemory(updated);
+        setMemoryMsg('✅ Đã cập nhật ký ức');
+      } else {
+        // Create new
+        const mem = await memoryService.create({
+          EventID: event.EventID,
+          Title: event.Title,
+          Content: memoryForm.Content || null,
+          MoodEmoji: memoryForm.MoodEmoji || null,
+          Image: memoryForm.Image || null,
+          Mood: null,
+        });
+        setExistingMemory(mem);
+        setMemoryMsg('✅ Đã lưu vào Ký ức');
+        triggerRefresh();
+      }
+      setMemoryOpen(false);
+    } catch (e: any) {
+      setMemoryMsg('❌ Lỗi: ' + (e.message || ''));
+    } finally {
+      setMemorySaving(false);
+    }
+  };
+
+  const deleteMemory = async () => {
+    if (!existingMemory || !confirm('Xoá ký ức này?')) return;
+    try {
+      await memoryService.delete(existingMemory.MemoryID);
+      setExistingMemory(null);
+      setMemoryMsg('🗑️ Đã xoá ký ức');
+      triggerRefresh();
+    } catch (e: any) {
+      setMemoryMsg('❌ Lỗi: ' + (e.message || ''));
+    }
   };
 
   const content = (
@@ -210,6 +289,93 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                   <p className="text-[13px] text-[#111] whitespace-pre-wrap">{event.Notes}</p>
                 </div>
               )}
+
+              {/* ══════ Memory Journal Section ══════ */}
+              <div className="mt-4 pt-3 border-t border-[rgba(0,0,0,0.04)]">
+                {existingMemory ? (
+                  /* Memory exists — show preview */
+                  <div className="p-3 rounded-[12px] bg-[rgba(255,45,85,0.04)] border border-[rgba(255,45,85,0.08)]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-semibold text-[#FF2D55] uppercase tracking-[0.3px] flex items-center gap-1">
+                        <BookHeart size={12}/> Ký ức đã lưu
+                      </span>
+                      <div className="flex gap-1">
+                        <button onClick={openMemoryForm} className="px-2 py-0.5 rounded-[6px] text-[10px] font-medium text-[#FF2D55] hover:bg-[rgba(255,45,85,0.06)]">Sửa</button>
+                        <button onClick={deleteMemory} className="px-2 py-0.5 rounded-[6px] text-[10px] font-medium text-[#8E8E93] hover:bg-[rgba(0,0,0,0.04)]">Xoá</button>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-[22px]">{existingMemory.MoodEmoji || '🧠'}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] font-semibold text-[#111]">{existingMemory.Title}</p>
+                        {existingMemory.Content && <p className="text-[11px] text-[#6B7280] mt-0.5 line-clamp-2">{existingMemory.Content}</p>}
+                      </div>
+                    </div>
+                    {existingMemory.Image && (
+                      <div className="mt-2 rounded-[8px] overflow-hidden">
+                        <img src={existingMemory.Image} alt="" className="w-full h-[100px] object-cover" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* No memory yet — show save button */
+                  <button onClick={openMemoryForm}
+                    className="w-full py-2.5 rounded-[10px] text-[12px] font-medium text-[#FF2D55] bg-[rgba(255,45,85,0.06)] hover:bg-[rgba(255,45,85,0.1)] transition-all flex items-center justify-center gap-1.5 border border-[rgba(255,45,85,0.1)]">
+                    <BookHeart size={14}/> 💾 Lưu vào Ký ức
+                  </button>
+                )}
+
+                {/* Memory form (inline) */}
+                {(memoryOpen || memoryMsg) && (
+                  <div className="mt-3 p-3 rounded-[10px] bg-white border border-[rgba(0,0,0,0.06)]">
+                    {memoryMsg ? (
+                      <div className="text-center">
+                        <p className="text-[12px] font-medium text-[#111]">{memoryMsg}</p>
+                        <button onClick={() => setMemoryMsg('')} className="mt-1 text-[10px] text-[#8E8E93]">Đóng</button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Mood emoji picker */}
+                        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1.5">Cảm xúc</p>
+                        <div className="flex gap-1.5 mb-3">
+                          {MOOD_EMOJIS.map((item) => (
+                            <button key={item.emoji} onClick={() => setMemoryForm((f) => ({ ...f, MoodEmoji: item.emoji }))}
+                              className={`w-[34px] h-[34px] rounded-full flex items-center justify-center text-[16px] transition-all ${
+                                memoryForm.MoodEmoji === item.emoji ? 'bg-[#E6002D]/10 ring-2 ring-[#E6002D] scale-110' : 'hover:bg-[rgba(0,0,0,0.04)]'
+                              }`}>
+                              {item.emoji}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Content */}
+                        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Ghi chép ký ức</p>
+                        <textarea value={memoryForm.Content}
+                          onChange={(e) => setMemoryForm((f) => ({ ...f, Content: e.target.value }))}
+                          className="input-glass text-[12px] min-h-[60px] w-full mb-3" rows={2}
+                          placeholder="Điều gì làm sự kiện này đáng nhớ..." />
+
+                        {/* Image URL */}
+                        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Ảnh (tuỳ chọn)</p>
+                        <input value={memoryForm.Image}
+                          onChange={(e) => setMemoryForm((f) => ({ ...f, Image: e.target.value }))}
+                          className="input-glass text-[12px] w-full mb-3"
+                          placeholder="https://... (tối đa 1 ảnh)" />
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          <button onClick={() => { setMemoryOpen(false); setMemoryMsg(''); }}
+                            className="flex-1 py-2 rounded-[8px] text-[11px] font-medium bg-[rgba(0,0,0,0.04)] text-[#5F6368]">Huỷ</button>
+                          <button onClick={saveMemory} disabled={memorySaving || !memoryForm.Content.trim()}
+                            className="flex-1 py-2 rounded-[8px] text-[11px] font-medium text-white bg-[#FF2D55] disabled:opacity-50">
+                            {memorySaving ? '...' : (existingMemory ? 'Cập nhật' : '💾 Lưu')}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
