@@ -1,28 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Heart, ShieldCheck, Users, CalendarDays, Brain, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
 import { supabase } from '@/lib/supabase/client';
 
 export default function LandingPage() {
   const router = useRouter();
-  const login = useAuthStore((s) => s.login);
-  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const login = useAuthStore(s => s.login);
+  const isLoggedIn = useAuthStore(s => s.isLoggedIn);
 
+  // ─── Session check ───
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setHasSession(!!data.session);
+    });
+  }, []);
+
+  // ─── Auth redirect ───
+  useEffect(() => {
+    if (isLoggedIn) router.push('/dashboard');
+  }, [isLoggedIn, router]);
+
+  // ─── Login method tab ───
+  const [method, setMethod] = useState<'password' | 'magic'>('password');
+
+  // ─── Password fields ───
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
   const [detectedAdmin, setDetectedAdmin] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
-
-  useEffect(() => {
-    // No auto-redirect - landing page is standalone
-  }, [isLoggedIn, router]);
 
   useEffect(() => {
     if (email.toLowerCase() === 'admin') {
@@ -33,172 +42,384 @@ export default function LandingPage() {
     }
   }, [email]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // ─── Magic link state ───
+  const [magicSent, setMagicSent] = useState(false);
+  const [magicEmail, setMagicEmail] = useState('');
+
+  // ─── Loading / Error ───
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // ─── Toast ───
+  const showToast = useCallback((msg: string) => {
+    const el = document.getElementById('l-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout((el as any)._t);
+    (el as any)._t = setTimeout(() => el.classList.remove('show'), 2200);
+  }, []);
+
+  // ─── Password login ───
+  const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!email.trim()) { setError('Vui lòng nhập email'); return; }
     if (!password.trim()) { setError('Vui lòng nhập mật khẩu'); return; }
-    setIsLoading(true);
+    setLoading(true);
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(), password,
       });
       if (signInError) {
-        setError(signInError.message === 'Invalid login credentials' ? 'Email hoặc mật khẩu không đúng' : signInError.message);
+        setError(signInError.message === 'Invalid login credentials'
+          ? 'Email hoặc mật khẩu không đúng' : signInError.message);
         return;
       }
       if (data.user) {
-        login({ id: data.user.id, email: data.user.email || '', name: data.user.user_metadata?.name || '', avatar: data.user.user_metadata?.avatar_url || '', role: 'admin' });
+        login({
+          id: data.user.id,
+          email: data.user.email || email.trim(),
+          name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || '',
+          avatar: data.user.user_metadata?.avatar_url || '',
+          role: 'admin',
+        });
         router.push('/dashboard');
       }
-    } catch { setError('Lỗi kết nối, vui lòng thử lại'); }
-    finally { setIsLoading(false); }
+    } catch {
+      setError('Lỗi kết nối, vui lòng thử lại');
+    } finally { setLoading(false); }
   };
 
+  // ─── Magic Link ───
+  const handleSendMagic = async () => {
+    const targetEmail = magicEmail.trim() || email.trim();
+    if (!targetEmail) { showToast('⚠️ Vui lòng nhập email'); return; }
+    setLoading(true);
+    try {
+      const { error: magicError } = await supabase.auth.signInWithOtp({
+        email: targetEmail,
+        options: { shouldCreateUser: false },
+      });
+      if (magicError) {
+        showToast('❌ ' + magicError.message);
+        return;
+      }
+      setMagicSent(true);
+      setMagicEmail(targetEmail);
+    } catch {
+      showToast('❌ Lỗi kết nối');
+    } finally { setLoading(false); }
+  };
+
+  // ─── Google OAuth ───
+  const handleGoogle = async () => {
+    setLoading(true);
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/dashboard' },
+      });
+      if (oauthError) showToast('❌ ' + oauthError.message);
+    } catch {
+      showToast('❌ Lỗi kết nối');
+    } finally { setLoading(false); }
+  };
+
+  // ─── Constants ───
   const features = [
-    { icon: Users, label: 'Quản lý quan hệ', desc: 'Theo dõi kết nối, sinh nhật, tương tác' },
-    { icon: CalendarDays, label: 'Sự kiện & Ký ức', desc: 'Ghi lại mọi khoảnh khắc đáng nhớ' },
-    { icon: Brain, label: 'AI Insight', desc: 'Phân tích thông minh cuộc sống của bạn' },
-    { icon: ShieldCheck, label: 'Bảo mật & Riêng tư', desc: 'Dữ liệu cá nhân được bảo vệ tuyệt đối' },
+    { icon: '👥', label: 'Quản lý quan hệ', desc: 'Theo dõi kết nối, sinh nhật, tương tác' },
+    { icon: '📅', label: 'Sự kiện & Ký ức', desc: 'Ghi lại mọi khoảnh khắc đáng nhớ' },
+    { icon: '🧠', label: 'AI Insight', desc: 'Phân tích thông minh cuộc sống của bạn' },
+    { icon: '🛡️', label: 'Bảo mật & Riêng tư', desc: 'Dữ liệu cá nhân được bảo vệ tuyệt đối' },
   ];
 
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* ─── LEFT: HERO / INTRO (Desktop only) ─── */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#E6002D] via-[#CC0028] to-[#99001E] flex-col justify-between p-10">
-        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/5" />
-        <div className="absolute bottom-20 -left-20 w-80 h-80 rounded-full bg-white/5" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-white/[0.03]" />
+    <>
+      {/* ─── Toast ─── */}
+      <div id="l-toast"
+        className="fixed top-5 left-1/2 -translate-x-1/2 -translate-y-5 scale-90 bg-black/85 backdrop-blur-xl text-white px-[22px] py-3 rounded-[26px] text-[13px] font-semibold z-[100] opacity-0 pointer-events-none shadow-[0_16px_40px_rgba(0,0,0,.25)] transition-all duration-[400ms]"
+        style={{ transitionTimingFunction: 'cubic-bezier(.34,1.4,.64,1)' }} />
+      <style>{`#l-toast.show{opacity:1;transform:translateX(-50%)translateY(0)scale(1)}`}</style>
 
-        <div>
-          <div className="flex items-center gap-3 mb-16">
-            <div className="w-12 h-12 rounded-[14px] bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-[22px]">P</div>
-            <div>
-              <h1 className="text-white text-[24px] font-bold tracking-tight">Prot Life</h1>
-              <p className="text-white/60 text-[11px] font-medium">Hệ điều hành cuộc sống cá nhân</p>
-            </div>
-          </div>
+      {/* ─── SCREEN ─── */}
+      <div className="flex h-screen overflow-hidden">
 
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-white text-[40px] font-bold leading-[1.15] tracking-tight">
-                Quản lý cuộc sống<br />
-                <span className="text-white/80">theo cách của bạn</span>
-              </h2>
-              <p className="text-white/60 text-[15px] mt-4 max-w-[380px] leading-relaxed">
-                Một nền tảng cá nhân để quản lý quan hệ, sự kiện, ký ức và mục tiêu — tất cả trong một không gian riêng tư, bảo mật.
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* ══════ LEFT: BRAND + COVER ══════ */}
+        <div className="hidden md:flex flex-1 relative overflow-hidden flex-col justify-between p-[44px_48px]"
+          style={{ background: 'linear-gradient(135deg,#8A0020 0%,#D60032 45%,#FF4B3A 100%)' }}>
 
-        <div className="grid grid-cols-2 gap-4">
-          {features.map((f, i) => (
-            <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * i }}
-              className="bg-white/10 backdrop-blur-sm rounded-[14px] p-4">
-              <f.icon size={20} className="text-white/80 mb-2" />
-              <p className="text-white text-[13px] font-semibold">{f.label}</p>
-              <p className="text-white/50 text-[11px] mt-0.5">{f.desc}</p>
-            </motion.div>
-          ))}
-        </div>
+          {/* Cover image */}
+          <div className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: 'url(/images/protlife-cover.jpg)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center 35%',
+              opacity: 0.55,
+            }} />
 
-        <p className="text-white/40 text-[12px] font-medium flex items-center gap-1">
-          Made with <Heart size={12} className="text-white/60 fill-white/60" /> by Prot
-        </p>
-      </div>
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 z-[1]"
+            style={{
+              background: 'linear-gradient(180deg, rgba(138,0,32,.55) 0%, rgba(138,0,32,.25) 30%, rgba(20,0,5,.65) 78%, rgba(10,0,2,.9) 100%)',
+            }} />
 
-      {/* ─── RIGHT: LOGIN FORM ─── */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-10">
-        <div className="w-full max-w-[380px]">
-          {/* Logo (mobile) */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center gap-2.5 mb-4">
-              <div className="w-10 h-10 rounded-[10px] bg-[#E6002D] flex items-center justify-center text-white font-bold text-[18px]">P</div>
-              <span className="text-[20px] font-bold text-[#111]">Prot Life</span>
-            </div>
-            <p className="text-[13px] text-[#8E8E93]">Đăng nhập để tiếp tục</p>
-          </div>
+          {/* Content (above layers) */}
+          <div className="relative z-[2] flex flex-col h-full">
 
-          <div className="hidden lg:block mb-8">
-            <h2 className="text-[24px] font-bold text-[#111]">Đăng nhập</h2>
-            <p className="text-[13px] text-[#8E8E93] mt-1">Đăng nhập để tiếp tục</p>
-          </div>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-[10px] bg-[rgba(230,0,45,0.06)] border border-[rgba(230,0,45,0.12)]">
-              <p className="text-[12px] text-[#E6002D] font-medium">{error}</p>
-            </div>
-          )}
-
-          {detectedAdmin && (
-            <div className="mb-4 p-3 rounded-[10px] bg-[rgba(52,199,89,0.06)] border border-[rgba(52,199,89,0.12)]">
-              <p className="text-[12px] text-[#34C759] font-medium flex items-center gap-1">
-                <ShieldCheck size={14}/> Đã phát hiện Admin
-              </p>
-            </div>
-          )}
-
-          {isLoggedIn && (
-            <div className="mb-4 p-3 rounded-[10px] bg-[rgba(0,122,255,0.06)] border border-[rgba(0,122,255,0.12)]">
-              <p className="text-[12px] text-[#007AFF] font-medium mb-2">Bạn đã đăng nhập</p>
-              <button onClick={() => router.push('/dashboard')}
-                className="w-full h-[42px] rounded-[10px] bg-[#007AFF] text-white text-[13px] font-semibold hover:bg-[#0066CC] transition-colors">
-                Vào Dashboard →
-              </button>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase mb-1.5">Email</p>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@domain.com"
-                className="w-full h-[46px] px-4 rounded-[10px] border border-[rgba(0,0,0,0.06)] text-[14px] text-[#111] bg-white placeholder:text-[#B0B0B8] focus:outline-none focus:ring-2 focus:ring-[#E6002D]/20 focus:border-[#E6002D] transition-all"
-                autoComplete="email" />
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase mb-1.5">Mật khẩu</p>
-              <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-[46px] px-4 rounded-[10px] border border-[rgba(0,0,0,0.06)] text-[14px] text-[#111] bg-white placeholder:text-[#B0B0B8] focus:outline-none focus:ring-2 focus:ring-[#E6002D]/20 focus:border-[#E6002D] transition-all pr-10"
-                  autoComplete="current-password" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E8E93]">
-                  {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
-                </button>
+            {/* Brand */}
+            <div className="flex items-center gap-[11px]">
+              <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center font-extrabold text-[17px] text-white"
+                style={{ background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,.25)' }}>
+                P
+              </div>
+              <div>
+                <div className="font-extrabold text-[17px] text-white">Prot Life</div>
+                <div className="text-[11.5px] text-white/75 mt-[1px]">Hệ điều hành cuộc sống cá nhân</div>
               </div>
             </div>
-            <button type="submit" disabled={isLoading}
-              className="w-full h-[46px] rounded-[10px] bg-[#E6002D] text-white text-[14px] font-semibold flex items-center justify-center gap-2 hover:bg-[#CC0028] transition-colors disabled:opacity-50">
-              {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : 'Đăng nhập'}
-            </button>
-          </form>
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[rgba(0,0,0,0.06)]"/></div>
-            <div className="relative flex justify-center"><span className="px-3 text-[11px] font-medium text-[#B0B0B8] bg-white">Hoặc</span></div>
-          </div>
+            {/* Hero */}
+            <div className="my-auto max-w-[460px]">
+              <h1 className="text-white text-[34px] font-extrabold leading-[1.2] tracking-[-.5px] mb-[14px]">
+                Quản lý cuộc sống theo cách của bạn
+              </h1>
+              <p className="text-[14px] leading-[1.65] text-white/82 mb-[30px]">
+                Một nền tảng cá nhân để quản lý quan hệ, sự kiện, ký ức và mục tiêu — tất cả trong một không gian riêng tư, bảo mật.
+              </p>
 
-          <div className="space-y-3">
-            <button disabled className="w-full h-[46px] rounded-[10px] border border-[rgba(0,0,0,0.06)] text-[13px] font-medium text-[#5F6368] bg-white flex items-center justify-center gap-2.5 opacity-50 cursor-not-allowed">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-              Google
-            </button>
-            <button disabled className="w-full h-[46px] rounded-[10px] border border-[rgba(0,0,0,0.06)] text-[13px] font-medium text-[#5F6368] bg-white flex items-center justify-center gap-2.5 opacity-50 cursor-not-allowed">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#111" d="M17.57 12.7c0-3.13 2.55-4.63 2.66-4.71-1.45-2.12-3.7-2.41-4.5-2.44-1.92-.2-3.75 1.13-4.72 1.13-.97 0-2.48-1.1-4.08-1.07-2.1.03-4.04 1.22-5.12 3.1-2.18 3.79-.56 9.4 1.57 12.47 1.04 1.5 2.28 3.18 3.9 3.12 1.57-.06 2.16-1.01 4.05-1.01 1.89 0 2.43 1.01 4.08.98 1.69-.03 2.76-1.52 3.78-3.03 1.2-1.74 1.69-3.43 1.72-3.52-.04-.02-3.3-1.27-3.34-5.02zM14.66 4.64c.87-1.05 1.46-2.51 1.3-3.96-1.26.05-2.79.84-3.7 1.9-.81 1.94-.99 3.53-.87 3.87 1.34.1 2.7-.76 3.27-1.81z"/></svg>
-              Apple
-            </button>
-          </div>
+              {/* Features grid 2×2 */}
+              <div className="grid grid-cols-2 gap-[12px]">
+                {features.map((f, i) => (
+                  <div key={i} className="rounded-[16px] p-[16px] transition-colors"
+                    style={{ background: 'rgba(255,255,255,.09)', border: '1px solid rgba(255,255,255,.16)', backdropFilter: 'blur(10px)' }}>
+                    <span className="text-[19px] mb-[8px] block">{f.icon}</span>
+                    <div className="text-[13px] font-bold text-white mb-[3px]">{f.label}</div>
+                    <div className="text-[11px] text-white/68 leading-[1.4]">{f.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-          <div className="lg:hidden mt-8 text-center">
-            <p className="text-[11px] text-[#B0B0B8] font-medium flex items-center justify-center gap-1">
-              Made with <Heart size={10} className="text-[#E6002D] fill-[#E6002D]"/> by Prot
-            </p>
+            {/* Footer */}
+            <div className="text-[12px] text-white/55">Made with ♥ by Prot</div>
           </div>
         </div>
+
+        {/* ══════ RIGHT: LOGIN FORM ══════ */}
+        <div
+          className="bg-white flex items-center justify-center p-[40px] overflow-y-auto"
+          style={{ width: '46%', minWidth: '420px' }}>
+          <div className="w-full max-w-[380px]">
+
+            {/* Mobile brand */}
+            <div className="md:hidden text-center mb-8">
+              <div className="inline-flex items-center gap-2.5 mb-4">
+                <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center font-extrabold text-[17px] text-white"
+                  style={{ background: 'linear-gradient(135deg,#8A0020 0%,#D60032 45%,#FF4B3A 100%)' }}>P</div>
+                <span className="text-[20px] font-extrabold text-[#101010]">Prot Life</span>
+              </div>
+              <p className="text-[13px] text-[#9CA3AF]">Đăng nhập để tiếp tục</p>
+            </div>
+
+            {/* Session banner (conditional) */}
+            {hasSession && (
+              <div className="mb-[26px] p-[14px_16px] rounded-[14px]"
+                style={{ background: '#EFF6FF', border: '1px solid #DBEAFE' }}>
+                <div className="text-[12px] font-bold text-[#2563EB] mb-[8px]">Bạn đã đăng nhập</div>
+                <button onClick={() => router.push('/dashboard')}
+                  className="w-full py-[11px] rounded-[10px] border-none text-[13.5px] font-bold text-white cursor-pointer flex items-center justify-center gap-[6px]"
+                  style={{ background: '#2563EB' }}>
+                  Vào Dashboard →
+                </button>
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div className="mb-[16px] p-[12px_14px] rounded-[12px] text-[12.5px] font-semibold"
+                style={{ background: 'rgba(230,0,45,.06)', border: '1px solid rgba(230,0,45,.12)', color: '#E6002D' }}>
+                {error}
+              </div>
+            )}
+
+            {/* Detected admin */}
+            {detectedAdmin && (
+              <div className="mb-[16px] p-[12px_14px] rounded-[12px] text-[12.5px] font-semibold flex items-center gap-2"
+                style={{ background: 'rgba(52,199,89,.06)', border: '1px solid rgba(52,199,89,.12)', color: '#34C759' }}>
+                🛡️ Đã phát hiện Admin
+              </div>
+            )}
+
+            {/* Title */}
+            <div className="text-[24px] font-extrabold mb-[4px]" style={{ color: 'var(--color-text-primary, #101010)' }}>Đăng nhập</div>
+            <div className="text-[13px] mb-[22px]" style={{ color: '#9CA3AF' }}>Đăng nhập để tiếp tục</div>
+
+            {/* Method tabs */}
+            <div className="flex rounded-[12px] p-[4px] mb-[22px]"
+              style={{ background: '#F4F4F6' }}>
+              <button onClick={() => setMethod('password')}
+                className={`flex-1 text-center py-[9px] rounded-[9px] text-[12.5px] font-bold border-none cursor-pointer transition-all duration-[180ms] ${
+                  method === 'password'
+                    ? 'text-[#E6002D] shadow-[0_2px_8px_rgba(0,0,0,.06)]'
+                    : 'text-[#6B7280] bg-transparent'
+                }`}
+                style={method === 'password' ? { background: '#fff', color: 'var(--color-primary, #E6002D)' } : undefined}>
+                Mật khẩu
+              </button>
+              <button onClick={() => setMethod('magic')}
+                className={`flex-1 text-center py-[9px] rounded-[9px] text-[12.5px] font-bold border-none cursor-pointer transition-all duration-[180ms] ${
+                  method === 'magic'
+                    ? 'text-[#E6002D] shadow-[0_2px_8px_rgba(0,0,0,.06)]'
+                    : 'text-[#6B7280] bg-transparent'
+                }`}
+                style={method === 'magic' ? { background: '#fff', color: 'var(--color-primary, #E6002D)' } : undefined}>
+                Magic Link
+              </button>
+            </div>
+
+            {/* ─── PASSWORD MODE ─── */}
+            {method === 'password' && (
+              <form onSubmit={handlePasswordLogin}>
+                {/* Email */}
+                <div className="mb-[16px]">
+                  <label className="block text-[11px] font-extrabold tracking-[.4px] uppercase mb-[7px]"
+                    style={{ color: '#6B7280' }}>Email</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="email@domain.com"
+                    className="w-full px-[14px] py-[12px] rounded-[11px] text-[13.5px] outline-none transition-colors"
+                    style={{ border: '1.5px solid #EEEEF1', background: '#FAFAFB' }}
+                    onFocus={e => { e.target.style.borderColor = '#E6002D'; e.target.style.background = '#fff'; }}
+                    onBlur={e => { e.target.style.borderColor = '#EEEEF1'; e.target.style.background = '#FAFAFB'; }}
+                    autoComplete="email" />
+                </div>
+
+                {/* Password */}
+                <div className="mb-[16px]">
+                  <label className="block text-[11px] font-extrabold tracking-[.4px] uppercase mb-[7px]"
+                    style={{ color: '#6B7280' }}>Mật khẩu</label>
+                  <div className="relative">
+                    <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-[14px] py-[12px] rounded-[11px] text-[13.5px] outline-none transition-colors"
+                      style={{ border: '1.5px solid #EEEEF1', background: '#FAFAFB', paddingRight: '40px' }}
+                      onFocus={e => { e.target.style.borderColor = '#E6002D'; e.target.style.background = '#fff'; }}
+                      onBlur={e => { e.target.style.borderColor = '#EEEEF1'; e.target.style.background = '#FAFAFB'; }}
+                      autoComplete="current-password" />
+                    <button type="button" onClick={() => setShowPw(!showPw)}
+                      className="absolute right-[12px] top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[15px]"
+                      style={{ color: '#9CA3AF' }}>
+                      {showPw ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Forgot password */}
+                <div className="flex justify-end -mt-[8px] mb-[18px]">
+                  <button type="button" onClick={() => showToast('🔐 Chức năng đặt lại mật khẩu đang phát triển')}
+                    className="text-[12px] font-bold bg-transparent border-none cursor-pointer"
+                    style={{ color: 'var(--color-primary, #E6002D)' }}>
+                    Quên mật khẩu?
+                  </button>
+                </div>
+
+                {/* Submit */}
+                <button type="submit" disabled={loading}
+                  className="w-full py-[13.5px] rounded-[13px] border-none text-[14px] font-extrabold text-white cursor-pointer active:scale-[.98] transition-transform disabled:opacity-50"
+                  style={{
+                    background: 'linear-gradient(135deg,#8A0020 0%,#D60032 45%,#FF4B3A 100%)',
+                    boxShadow: '0 12px 28px rgba(184,0,31,.28)',
+                  }}>
+                  {loading ? (
+                    <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin align-middle" />
+                  ) : 'Đăng nhập'}
+                </button>
+              </form>
+            )}
+
+            {/* ─── MAGIC LINK MODE ─── */}
+            {method === 'magic' && (
+              <>
+                {!magicSent ? (
+                  /* State A: form */
+                  <div>
+                    <div className="mb-[16px]">
+                      <label className="block text-[11px] font-extrabold tracking-[.4px] uppercase mb-[7px]"
+                        style={{ color: '#6B7280' }}>Email</label>
+                      <input id="magicEmail" type="email" value={magicEmail} onChange={e => setMagicEmail(e.target.value)}
+                        placeholder="email@domain.com"
+                        className="w-full px-[14px] py-[12px] rounded-[11px] text-[13.5px] outline-none transition-colors"
+                        style={{ border: '1.5px solid #EEEEF1', background: '#FAFAFB' }}
+                        onFocus={e => { e.target.style.borderColor = '#E6002D'; e.target.style.background = '#fff'; }}
+                        onBlur={e => { e.target.style.borderColor = '#EEEEF1'; e.target.style.background = '#FAFAFB'; }} />
+                    </div>
+                    <button type="button" onClick={handleSendMagic} disabled={loading}
+                      className="w-full py-[13.5px] rounded-[13px] border-none text-[14px] font-extrabold text-white cursor-pointer active:scale-[.98] transition-transform disabled:opacity-50"
+                      style={{
+                        background: 'linear-gradient(135deg,#8A0020 0%,#D60032 45%,#FF4B3A 100%)',
+                        boxShadow: '0 12px 28px rgba(184,0,31,.28)',
+                      }}>
+                      {loading
+                        ? <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin align-middle" />
+                        : 'Gửi link đăng nhập'}
+                    </button>
+                  </div>
+                ) : (
+                  /* State B: success */
+                  <div className="text-center py-[20px]">
+                    <div className="w-[56px] h-[56px] rounded-full flex items-center justify-center text-[24px] mx-auto mb-[18px]"
+                      style={{ background: '#DCFCE7', color: '#16A34A' }}>
+                      ✓
+                    </div>
+                    <h3 className="text-[16px] font-extrabold mb-[8px]">Đã gửi link đăng nhập!</h3>
+                    <p className="text-[12.5px] leading-[1.6] mb-[18px]" style={{ color: '#6B7280' }}>
+                      Kiểm tra hộp thư <strong className="text-[#101010]">{magicEmail}</strong> và bấm vào link để đăng nhập — không cần nhớ mật khẩu.
+                    </p>
+                    <button type="button" onClick={handleSendMagic} disabled={loading}
+                      className="text-[12.5px] font-bold bg-transparent border-none cursor-pointer"
+                      style={{ color: 'var(--color-primary, #E6002D)' }}>
+                      Gửi lại email
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ─── DIVIDER ─── */}
+            <div className="flex items-center gap-[12px] my-[22px]">
+              <span className="flex-1 h-[1px]" style={{ background: '#EEEEF1' }} />
+              <span className="text-[11.5px] font-semibold shrink-0" style={{ color: '#9CA3AF' }}>Hoặc</span>
+              <span className="flex-1 h-[1px]" style={{ background: '#EEEEF1' }} />
+            </div>
+
+            {/* ─── OAUTH: Google only ─── */}
+            <div className="flex flex-col gap-[10px]">
+              <button onClick={handleGoogle} disabled={loading}
+                className="w-full py-[11.5px] rounded-[12px] text-[13px] font-bold flex items-center justify-center gap-[10px] cursor-pointer transition-colors disabled:opacity-50"
+                style={{ background: '#fff', border: '1.5px solid #EEEEF1', color: '#101010' }}>
+                <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
+                  style={{ background: '#4285F4' }}>G</span>
+                Google
+              </button>
+            </div>
+
+            {/* ─── SIGNUP ─── */}
+            <div className="text-center mt-[26px] text-[12.5px]" style={{ color: '#6B7280' }}>
+              Chưa có tài khoản?{' '}
+              <Link href="/register" className="font-bold no-underline" style={{ color: 'var(--color-primary, #E6002D)' }}>
+                Đăng ký ngay
+              </Link>
+            </div>
+
+            {/* Footer mobile */}
+            <div className="md:hidden text-center mt-[32px] text-[11px] text-[#9CA3AF] font-medium">
+              Made with ♥ by Prot
+            </div>
+
+          </div>
+        </div>
+
       </div>
-    </div>
+    </>
   );
 }
