@@ -212,33 +212,42 @@ function MemoryCardMobile({ memory, onClick }: { memory: MemoryWithEvent; onClic
   return (
     <div onClick={onClick}
       className="bg-white rounded-[14px] p-3.5 shadow-sm border border-[rgba(0,0,0,0.04)] active:scale-[0.98] transition-all cursor-pointer">
-      <div className="flex items-start gap-3">
+      {/* Top row: mood + title */}
+      <div className="flex items-start gap-3 mb-2">
         <div className="w-[42px] h-[42px] rounded-full flex items-center justify-center text-[20px] shrink-0"
           style={{ background: `${moodColor(memory.MoodEmoji)}12` }}>
           {memory.MoodEmoji || '🧠'}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-[#111] line-clamp-1">{memory.Title}</p>
-          {memory.Content && <p className="text-[11px] text-[#6B7280] mt-0.5 line-clamp-2 leading-relaxed">{memory.Content}</p>}
-          <div className="flex items-center gap-2 mt-1.5">
-            <Calendar size={10} className="text-[#8E8E93]" />
-            <span className="text-[10px] text-[#8E8E93] font-medium">
-              {memory.EventDate
-                ? new Date(memory.EventDate).toLocaleDateString('vi-VN')
-                : new Date(memory.CreatedDate).toLocaleDateString('vi-VN')}
-              {memory.EventTitle ? '' : ' · Đã ghi'}
-            </span>
-            {memory.EventTitle && (
-              <span className="text-[10px] text-[#5856D6] font-medium truncate">🔗 {memory.EventTitle}</span>
-            )}
-          </div>
         </div>
       </div>
+
+      {/* Content — full width, spans both margins */}
+      {memory.Content && (
+        <p className="text-[11px] text-[#6B7280] leading-relaxed mb-2">{memory.Content}</p>
+      )}
+
+      {/* Image — full width */}
       {memory.Image && (
-        <div className="mt-2 rounded-[10px] overflow-hidden">
+        <div className="mb-2 rounded-[10px] overflow-hidden">
           <img src={memory.Image} alt="" className="w-full h-[120px] object-cover" />
         </div>
       )}
+
+      {/* Footer: date + event link */}
+      <div className="flex items-center gap-2">
+        <Calendar size={10} className="text-[#8E8E93]" />
+        <span className="text-[10px] text-[#8E8E93] font-medium">
+          {memory.EventDate
+            ? new Date(memory.EventDate).toLocaleDateString('vi-VN')
+            : new Date(memory.CreatedDate).toLocaleDateString('vi-VN')}
+          {memory.EventTitle ? '' : ' · Đã ghi'}
+        </span>
+        {memory.EventTitle && (
+          <span className="text-[10px] text-[#5856D6] font-medium truncate">🔗 {memory.EventTitle}</span>
+        )}
+      </div>
     </div>
   );
 }
