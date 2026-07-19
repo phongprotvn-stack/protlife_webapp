@@ -519,7 +519,7 @@ export default function TimelinePage() {
                   : 'text-[#E6002D]'
                 }`}
               >
-                {activeItem.isMemory ? '🧠 Ký ức' : timeLabel}
+                {activeItem.isMemory ? `🧠 Ký ức · ${activeItem.when}` : timeLabel}
               </div>
               <div className="text-[17px] font-extrabold text-[#101010] mt-0.5 tracking-[-0.2px]">
                 {activeItem.title}
