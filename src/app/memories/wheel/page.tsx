@@ -425,7 +425,7 @@ export default function MemoryWheelPage() {
         </div>
 
         <p className="text-[12px] text-[#8E8E93] font-medium">
-          ← Kéo về Quá khứ · &nbsp;Tương lai →
+          ← Quá khứ · &nbsp;Tương lai →
         </p>
       </div>
 
@@ -465,7 +465,7 @@ export default function MemoryWheelPage() {
 
           {/* Content */}
           {activeMemory.Content && (
-            <div className="text-[13px] text-[#6B7280] leading-relaxed mb-3 whitespace-pre-wrap line-clamp-4">
+            <div className="text-[13px] text-[#6B7280] leading-relaxed mb-3 whitespace-pre-wrap">
               {activeMemory.Content}
             </div>
           )}

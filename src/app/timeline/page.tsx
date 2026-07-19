@@ -151,7 +151,7 @@ export default function TimelinePage() {
         icon: moodIcon,
         title: m.Title,
         when: relativeTime(dateLabel),
-        desc: m.Content ? (m.Content.length > 80 ? m.Content.slice(0, 80) + '...' : m.Content) : '🧠 Ký ức',
+        desc: m.Content || '🧠 Ký ức',
         isMemory: true,
         sortDate: dateLabel,
         moodEmoji: m.MoodEmoji || undefined,
@@ -479,7 +479,7 @@ export default function TimelinePage() {
         </div>
 
         <p className="text-[12px] text-[#8E8E93] font-semibold">
-          ← Kéo về Quá khứ · &nbsp;Tương lai →
+          ← Quá khứ · &nbsp;Tương lai →
         </p>
       </div>
 
