@@ -21,11 +21,6 @@ export default function LoginPage() {
   const [detectedAdmin, setDetectedAdmin] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
 
-  // Redirect if already logged in
-  useEffect(() => {
-    if (isLoggedIn) router.push('/dashboard');
-  }, [isLoggedIn, router]);
-
   // Auto-detect "admin" shortcut
   useEffect(() => {
     if (email.toLowerCase() === 'admin') {

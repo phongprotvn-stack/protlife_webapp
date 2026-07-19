@@ -19,11 +19,6 @@ export default function LandingPage() {
     });
   }, []);
 
-  // ─── Auth redirect ───
-  useEffect(() => {
-    if (isLoggedIn) router.push('/dashboard');
-  }, [isLoggedIn, router]);
-
   // ─── Login method tab ───
   const [method, setMethod] = useState<'password' | 'magic'>('password');
 
