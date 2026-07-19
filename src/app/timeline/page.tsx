@@ -5,6 +5,7 @@ import { Plus, Sparkles } from 'lucide-react';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
 import type { EventItem, MemoryWithEvent } from '@/types/database';
+import { useAppStore } from '@/stores/app-store';
 
 interface MemoryItem {
   icon: string;
@@ -16,6 +17,7 @@ interface MemoryItem {
   isMemory?: boolean;
   moodEmoji?: string;
   memoryId?: string;
+  eventId?: string; // for actual events (not memories)
 }
 
 function getEventIcon(type?: string): string {
@@ -118,6 +120,7 @@ export default function TimelinePage() {
      when: 'Hôm nay',
      desc: buildDesc(e),
      sortDate: e.StartDate,
+     eventId: e.EventID,
    };
  }
     });
@@ -133,6 +136,7 @@ export default function TimelinePage() {
       when: relativeTime(e.StartDate),
       desc: buildDesc(e),
       sortDate: e.StartDate,
+      eventId: e.EventID,
     }));
 
     const future: MemoryItem[] = futureEvents.map(e => ({
@@ -141,6 +145,7 @@ export default function TimelinePage() {
       when: relativeTime(e.StartDate),
       desc: buildDesc(e),
       sortDate: e.StartDate,
+      eventId: e.EventID,
     }));
 
     // Convert memories to MemoryItems (always past) — use EventDate if linked
@@ -530,6 +535,13 @@ export default function TimelinePage() {
             {activeItem.desc}
           </div>
           <button
+            onClick={() => {
+              if (activeItem.isMemory) {
+                if (activeItem.memoryId) useAppStore.getState().selectMemory(activeItem.memoryId);
+              } else if (activeItem.eventId) {
+                useAppStore.getState().selectEvent(activeItem.eventId);
+              }
+            }}
             className="w-full py-[13px] border-none rounded-[18px] text-[14px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform"
             style={{
               background: activeItem.isMemory
