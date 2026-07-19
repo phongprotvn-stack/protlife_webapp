@@ -161,6 +161,7 @@ export default function TimelinePage() {
         sortDate: dateLabel,
         moodEmoji: m.MoodEmoji || undefined,
         memoryId: m.MemoryID,
+        eventId: m.EventID || undefined,
       };
     });
 
@@ -537,7 +538,13 @@ export default function TimelinePage() {
           <button
             onClick={() => {
               if (activeItem.isMemory) {
-                if (activeItem.memoryId) useAppStore.getState().selectMemory(activeItem.memoryId);
+                // Memory with linked event → show EventDetail (with red memory badge)
+                if (activeItem.eventId) {
+                  useAppStore.getState().selectEvent(activeItem.eventId);
+                } else if (activeItem.memoryId) {
+                  // Standalone memory → show MemoryDetail
+                  useAppStore.getState().selectMemory(activeItem.memoryId);
+                }
               } else if (activeItem.eventId) {
                 useAppStore.getState().selectEvent(activeItem.eventId);
               }

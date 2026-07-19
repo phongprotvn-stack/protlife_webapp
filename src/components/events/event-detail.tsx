@@ -293,14 +293,14 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
               {/* ══════ Memory Journal Section ══════ */}
               <div className="mt-4 pt-3 border-t border-[rgba(0,0,0,0.04)]">
                 {existingMemory ? (
-                  /* Memory exists — show preview */
-                  <div className="p-3 rounded-[12px] bg-[rgba(255,45,85,0.04)] border border-[rgba(255,45,85,0.08)]">
+                  /* Memory exists — show preview with dark red highlight */
+                  <div className="p-3 rounded-[12px] bg-[rgba(230,0,45,0.06)] border border-[rgba(230,0,45,0.15)]">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-semibold text-[#FF2D55] uppercase tracking-[0.3px] flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-[#E6002D] uppercase tracking-[0.3px] flex items-center gap-1">
                         <BookHeart size={12}/> Ký ức đã lưu
                       </span>
                       <div className="flex gap-1">
-                        <button onClick={openMemoryForm} className="px-2 py-0.5 rounded-[6px] text-[10px] font-medium text-[#FF2D55] hover:bg-[rgba(255,45,85,0.06)]">Sửa</button>
+                        <button onClick={openMemoryForm} className="px-2 py-0.5 rounded-[6px] text-[10px] font-medium text-[#E6002D] hover:bg-[rgba(230,0,45,0.08)]">Sửa</button>
                         <button onClick={deleteMemory} className="px-2 py-0.5 rounded-[6px] text-[10px] font-medium text-[#8E8E93] hover:bg-[rgba(0,0,0,0.04)]">Xoá</button>
                       </div>
                     </div>
@@ -308,7 +308,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                       <span className="text-[22px]">{existingMemory.MoodEmoji || '🧠'}</span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[12px] font-semibold text-[#111]">{existingMemory.Title}</p>
-                        {existingMemory.Content && <p className="text-[11px] text-[#6B7280] mt-0.5 line-clamp-2">{existingMemory.Content}</p>}
+                        {existingMemory.Content && <p className="text-[11px] text-[#6B7280] mt-0.5">{existingMemory.Content}</p>}
                       </div>
                     </div>
                     {existingMemory.Image && (
