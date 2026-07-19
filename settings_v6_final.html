@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cài đặt — Prot Life</title>
+<style>
+:root{
+  --color-primary:#E6002D; --color-primary-dark:#D60032; --color-primary-light:#FF4B3A;
+  --color-past:#F59E0B; --color-future:#8B5CF6; --color-green:#10B981;
+  --color-surface:#F8F8FA; --color-card:#FFFFFF;
+  --color-text-primary:#101010; --color-text-secondary:#6B7280; --color-text-muted:#9CA3AF;
+  --border:#EDEDF1;
+  --shadow-soft:0 8px 28px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.03);
+  --grad-primary:linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif;}
+body{background:var(--color-surface);color:var(--color-text-primary);font-size:14px;}
+.app-shell{display:flex;height:100vh;overflow:hidden;}
+
+/* Sidebar */
+.sidebar{width:216px;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.sidebar-logo{display:flex;align-items:center;gap:9px;padding:22px 20px 18px;}
+.logo-mark{width:30px;height:30px;border-radius:9px;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 14px rgba(230,0,45,.3);}
+.logo-text{font-weight:800;font-size:15px;letter-spacing:.3px;}
+.nav-list{list-style:none;padding:6px 12px;flex:1;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:12px;color:var(--color-text-secondary);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:2px;transition:background .15s,color .15s;}
+.nav-item svg{width:17px;height:17px;flex-shrink:0;}
+.nav-item:hover{background:#F5F5F7;}
+.nav-item.active{background:rgba(230,0,45,.08);color:var(--color-primary);}
+.sidebar-user{display:flex;align-items:center;gap:10px;padding:16px 20px;border-top:1px solid var(--border);}
+.avatar-sm{width:34px;height:34px;border-radius:50%;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0;}
+.sidebar-user .name{font-weight:700;font-size:13px;}
+.sidebar-user .role{font-size:11px;color:var(--color-text-muted);}
+
+/* Main panel — Settings is an overlay on top of the main page */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.main-header{display:flex;align-items:center;justify-content:space-between;padding:20px 28px 0;}
+.main-title{font-size:19px;font-weight:800;letter-spacing:-.3px;}
+.header-actions{display:flex;align-items:center;gap:6px;}
+.icon-btn{width:32px;height:32px;border-radius:9px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);cursor:pointer;transition:background .15s;}
+.icon-btn:hover{background:#F1F1F4;}
+.icon-btn svg{width:17px;height:17px;}
+
+.tabs{display:flex;gap:4px;padding:16px 28px 0;border-bottom:1px solid var(--border);overflow-x:auto;}
+.tab-btn{background:none;border:none;padding:9px 4px 12px;margin-right:22px;font-size:13.5px;font-weight:600;color:var(--color-text-muted);cursor:pointer;position:relative;white-space:nowrap;}
+.tab-btn:hover{color:var(--color-text-primary);}
+.tab-btn.active{color:var(--color-primary);font-weight:700;}
+.tab-btn.active::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--color-primary);border-radius:2px;}
+
+.tab-content{flex:1;overflow-y:auto;padding:24px 28px 60px;}
+.tab-panel{display:none;animation:fadeIn .25s ease;}
+.tab-panel.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+.settings-grid.wide-left{grid-template-columns:1.3fr 1fr;}
+@media(max-width:860px){.settings-grid,.settings-grid.wide-left{grid-template-columns:1fr;}.sidebar{display:none;}}
+
+.card{background:var(--color-card);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:var(--shadow-soft);margin-bottom:18px;}
+.card-title{font-size:14.5px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.card-title svg{width:16px;height:16px;color:var(--color-primary);}
+.card-sub{font-size:12px;color:var(--color-text-muted);margin-top:-10px;margin-bottom:16px;}
+
+.form-group{margin-bottom:14px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+label.field-label{display:block;font-size:12px;font-weight:700;color:var(--color-text-secondary);margin-bottom:6px;}
+.input,.select{width:100%;padding:11px 13px;border-radius:11px;border:1px solid var(--border);background:#FAFAFB;font-size:13px;color:var(--color-text-primary);outline:none;transition:border-color .15s,background .15s;}
+.input:focus,.select:focus{border-color:var(--color-primary);background:#fff;}
+
+.avatar-row{display:flex;align-items:center;gap:14px;margin-bottom:20px;}
+.avatar-lg{width:56px;height:56px;border-radius:50%;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;}
+.avatar-meta .avatar-name{font-weight:700;font-size:14px;}
+.avatar-meta .avatar-role{font-size:12px;color:var(--color-text-muted);margin-bottom:6px;}
+.link-btn{background:none;border:1px solid var(--border);padding:6px 12px;border-radius:9px;font-size:11.5px;font-weight:700;color:var(--color-text-primary);cursor:pointer;}
+.link-btn:hover{background:#F5F5F7;}
+
+.btn-primary{background:var(--grad-primary);color:#fff;border:none;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px rgba(214,0,50,.25);}
+.btn-primary:active{transform:scale(.98);}
+.btn-block{width:100%;}
+.btn-outline{width:100%;background:#fff;border:1px solid var(--border);padding:12px 16px;border-radius:12px;font-size:13px;font-weight:700;color:var(--color-text-primary);cursor:pointer;text-align:center;margin-bottom:9px;}
+.btn-outline:hover{background:#F5F5F7;}
+.btn-outline.danger{color:var(--color-primary);border-color:rgba(230,0,45,.25);}
+
+/* Toggle switch */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);gap:16px;}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-row .t-title{font-size:13px;font-weight:700;}
+.toggle-row .t-desc{font-size:11.5px;color:var(--color-text-muted);margin-top:2px;}
+.switch{position:relative;width:42px;height:25px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:#E5E5EA;border-radius:25px;cursor:pointer;transition:.2s;}
+.slider::before{content:'';position:absolute;width:21px;height:21px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+input:checked+.slider{background:var(--color-primary);}
+input:checked+.slider::before{transform:translateX(17px);}
+input:disabled+.slider{opacity:.4;cursor:not-allowed;}
+.soon-badge{display:inline-block;font-size:9.5px;font-weight:800;color:var(--color-future);background:rgba(139,92,246,.1);padding:2px 7px;border-radius:6px;margin-left:6px;letter-spacing:.2px;vertical-align:1px;}
+
+/* Role table */
+table.role-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.role-table th{text-align:left;color:var(--color-text-muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:0 8px 10px;border-bottom:1px solid var(--border);}
+table.role-table td{padding:12px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.role-table tr:last-child td{border-bottom:none;}
+.role-pill{display:inline-block;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;}
+.role-pill.admin{background:rgba(230,0,45,.1);color:var(--color-primary);}
+.role-pill.member{background:rgba(139,92,246,.1);color:var(--color-future);}
+.role-pill.viewer{background:rgba(16,185,129,.1);color:var(--color-green);}
+.role-pill.guest{background:#F1F1F4;color:var(--color-text-secondary);}
+.row-edit{background:none;border:none;color:var(--color-primary);font-weight:700;font-size:12px;cursor:pointer;}
+.role-row{cursor:pointer;}
+.role-row:hover{background:#FAFAFB;}
+.role-row.selected{background:rgba(230,0,45,.04);}
+.perm-item{display:flex;align-items:center;gap:10px;padding:9px 0;font-size:13px;font-weight:600;}
+.perm-check{width:18px;height:18px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.perm-check.on{background:var(--color-green);color:#fff;}
+.perm-check.off{background:#F1F1F4;color:var(--color-text-muted);}
+.perm-check svg{width:11px;height:11px;}
+.perm-item.disabled{color:var(--color-text-muted);}
+
+/* Storage bars */
+.storage-bar-track{width:100%;height:9px;border-radius:6px;background:#F1F1F4;overflow:hidden;margin:10px 0 6px;}
+.storage-bar-fill{height:100%;border-radius:6px;background:var(--grad-primary);}
+.storage-legend{display:flex;justify-content:space-between;font-size:11.5px;color:var(--color-text-muted);font-weight:600;}
+.data-stat-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.data-stat-row:last-child{border-bottom:none;}
+.data-stat-row .count{font-weight:800;color:var(--color-primary);}
+
+/* Theme cards */
+.theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+.theme-card{border:2px solid var(--border);border-radius:14px;padding:10px;cursor:pointer;text-align:center;}
+.theme-card.selected{border-color:var(--color-primary);}
+.theme-preview{height:52px;border-radius:9px;margin-bottom:8px;}
+.theme-preview.light{background:linear-gradient(180deg,#fff 0%,#F1F1F4 100%);border:1px solid var(--border);}
+.theme-preview.dark{background:linear-gradient(180deg,#2A2A2E 0%,#101012 100%);}
+.theme-preview.system{background:linear-gradient(90deg,#fff 50%,#101012 50%);}
+.theme-card .t-label{font-size:11.5px;font-weight:700;}
+.color-row{display:flex;gap:10px;margin-top:6px;}
+.color-swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;display:flex;align-items:center;justify-content:center;}
+.color-swatch.selected{border-color:var(--color-text-primary);}
+.color-swatch svg{width:13px;height:13px;color:#fff;}
+
+/* Login methods */
+.login-method-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
+.login-method-row:last-of-type{border-bottom:none;}
+.lm-icon{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.device-count-pill{background:var(--color-primary);color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;margin-left:6px;}
+.storage-block{margin-bottom:14px;}
+.storage-block-head{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px;}
+.storage-block-val{color:var(--color-text-muted);font-weight:600;}
+
+/* Modal overlay */
+.modal-overlay-c{
+  position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:80;
+  display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay-c.show{opacity:1;pointer-events:auto;}
+.modal-sheet-c{
+  width:100%;max-width:460px;max-height:82vh;overflow-y:auto;background:#fff;border-radius:24px;padding:22px;
+  transform:scale(.96)translateY(10px);transition:transform .25s cubic-bezier(.34,1.4,.64,1);box-shadow:0 30px 80px rgba(0,0,0,.25);
+}
+.modal-overlay-c.show .modal-sheet-c{transform:scale(1)translateY(0);}
+.modal-actions{display:flex;gap:10px;}
+.modal-btn{flex:1;padding:12px;border-radius:12px;border:none;font-size:13px;font-weight:700;cursor:pointer;}
+.modal-btn.cancel{background:#F1F1F4;color:var(--color-text-secondary);}
+.modal-btn.confirm{color:#fff;}
+.dm-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;}
+.dm-title{font-size:17px;font-weight:800;}
+.dm-sub{font-size:12px;color:var(--color-text-muted);margin-top:2px;}
+.device-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border);transition:opacity .3s;}
+.device-row:last-of-type{border-bottom:none;}
+.device-icon{width:38px;height:38px;border-radius:12px;background:#F1F1F4;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.device-row.current .device-icon{background:rgba(230,0,45,.08);}
+.device-logout-btn{background:none;border:1px solid var(--border);padding:7px 13px;border-radius:10px;font-size:11.5px;font-weight:700;color:var(--color-primary);cursor:pointer;flex-shrink:0;}
+.device-logout-btn:hover{background:rgba(230,0,45,.06);}
+.device-logout-btn:disabled{color:var(--color-text-muted);border-color:var(--border);cursor:default;}
+code{background:#F1F1F4;padding:1px 6px;border-radius:5px;font-size:11px;}
+
+/* Sync diagram */
+.sync-diagram{width:100%;height:auto;margin:6px 0 4px;}
+.sheet-link-row{display:flex;align-items:center;gap:12px;padding:10px 0;}
+.sync-log-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.sync-log-item:last-child{border-bottom:none;}
+.sync-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;background:var(--color-green);}
+.sync-log-item.error .sync-dot{background:var(--color-primary);}
+.sync-log-text{font-size:12.5px;font-weight:600;}
+.sync-log-item.error .sync-log-text{color:var(--color-primary);}
+.sync-log-time{font-size:11px;color:var(--color-text-muted);margin-top:1px;}
+
+/* Format pills */
+.format-pills{display:flex;gap:8px;}
+.format-pill{flex:1;padding:12px;border-radius:14px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:700;cursor:pointer;text-align:center;color:var(--color-text-secondary);transition:all .15s;}
+.format-pill.active{border-color:var(--color-primary);background:rgba(230,0,45,.05);color:var(--color-primary);}
+
+/* Print preview */
+.print-page{
+  background:#fff;border:1px solid var(--border);border-radius:14px;padding:28px 26px;margin-bottom:16px;
+  box-shadow:0 8px 24px rgba(0,0,0,.06);font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;
+  max-height:46vh;overflow-y:auto;
+}
+.pp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-family:-apple-system,sans-serif;}
+.pp-logo{display:flex;align-items:center;gap:7px;font-weight:800;font-size:12px;letter-spacing:.5px;}
+.pp-date{font-size:11px;color:#888;font-family:-apple-system,sans-serif;}
+.pp-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+.pp-range{font-size:12px;color:#666;margin-bottom:20px;font-family:-apple-system,sans-serif;}
+.pp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
+.pp-stat{text-align:center;border:1px solid #eee;border-radius:8px;padding:10px 4px;}
+.pp-stat-num{font-size:19px;font-weight:800;}
+.pp-stat-label{font-size:9.5px;color:#777;margin-top:2px;font-family:-apple-system,sans-serif;}
+.pp-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:22px;}
+.pp-table th{text-align:left;border-bottom:2px solid #1a1a1a;padding:6px 8px;font-family:-apple-system,sans-serif;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;}
+.pp-table td{padding:7px 8px;border-bottom:1px solid #eee;}
+.pp-footer{font-size:10px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:10px;font-family:-apple-system,sans-serif;}
+.export-actions{display:flex;gap:10px;}
+.export-actions button{flex:1;margin-bottom:0;}
+@media print{
+  body *{visibility:hidden;}
+  #printArea,#printArea *{visibility:visible;}
+  #printArea{position:absolute;top:0;left:0;width:100%;box-shadow:none;border:none;max-height:none;overflow:visible;}
+}
+
+/* OAuth mock */
+.google-g-icon{width:44px;height:44px;border-radius:50%;background:#4285F4;color:#fff;font-weight:800;font-size:20px;display:flex;align-items:center;justify-content:center;margin:0 auto;}
+.oauth-account-row{display:flex;align-items:center;gap:12px;padding:11px 10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:background .15s;}
+.oauth-account-row:hover{background:#FAFAFB;}
+.oauth-scope-box{background:#FAFAFB;border-radius:14px;padding:14px;margin-bottom:12px;}
+.oauth-scope-item{font-size:12.5px;line-height:1.6;padding:4px 0;}
+.empty-note{font-size:12px;color:var(--color-text-muted);background:#FAFAFB;border-radius:12px;padding:12px 14px;margin-top:4px;line-height:1.5;}
+
+/* Toast */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%)translateY(-20px)scale(.9);
+  background:rgba(0,0,0,.85);backdrop-filter:blur(20px);color:#fff;padding:12px 22px;border-radius:26px;
+  font-size:13px;font-weight:600;z-index:100;opacity:0;pointer-events:none;
+  transition:all .4s cubic-bezier(.34,1.4,.64,1);box-shadow:0 16px 40px rgba(0,0,0,.25);
+}
+.toast.show{opacity:1;transform:translateX(-50%)translateY(0)scale(1);}
+
+/* Backup specific */
+.badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:7px;}
+.badge.ok{background:rgba(16,185,129,.1);color:var(--color-green);}
+.backup-status{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;background:rgba(16,185,129,.06);margin-bottom:16px;}
+.backup-status .status-icon{width:38px;height:38px;border-radius:50%;background:var(--color-green);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+.backup-status .status-icon svg{width:18px;height:18px;}
+.rule321-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px;}
+@media(max-width:860px){.rule321-grid{grid-template-columns:1fr;}}
+.rule-step{background:#FAFAFB;border:1px solid var(--border);border-radius:16px;padding:16px;}
+.rule-num{width:30px;height:30px;border-radius:9px;background:var(--grad-primary);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.rule-title{font-size:13px;font-weight:800;margin-bottom:5px;}
+.rule-desc{font-size:11.5px;color:var(--color-text-secondary);line-height:1.5;margin-bottom:12px;min-height:52px;}
+.rule-tags{display:flex;flex-wrap:wrap;gap:6px;}
+.mini-tag{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:8px;color:#fff;}
+.mini-tag.supabase{background:#3ECF8E;}
+.mini-tag.gdrive{background:#4285F4;}
+.mini-tag.github{background:#24292F;}
+.mini-tag.r2{background:#F38020;}
+.mini-tag-outline{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:8px;border:1px solid var(--border);color:var(--color-text-secondary);}
+.engine-card{background:linear-gradient(135deg,#F8F8FA 0%,#F1F1F4 100%);}
+.engine-row{display:flex;align-items:flex-start;gap:12px;}
+.node-tag.engine{background:rgba(36,41,47,.08);color:var(--color-text-primary);}
+.storage-node{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border);}
+.storage-node:last-of-type{border-bottom:none;}
+.storage-badge{width:36px;height:36px;border-radius:11px;color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.storage-info{flex:1;min-width:0;}
+.storage-name{font-size:13px;font-weight:700;display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
+.storage-desc{font-size:11.5px;color:var(--color-text-muted);margin-top:2px;line-height:1.4;}
+.node-tag{font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:6px;letter-spacing:.2px;}
+.node-tag.primary{background:rgba(230,0,45,.1);color:var(--color-primary);}
+.node-tag.offsite{background:rgba(16,185,129,.1);color:var(--color-green);}
+.node-tag.beta{background:rgba(139,92,246,.1);color:var(--color-future);}
+.snapshot-timeline{position:relative;padding-left:6px;}
+.snapshot-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+.snapshot-item:last-child{border-bottom:none;}
+.snap-dot{width:11px;height:11px;border-radius:50%;background:#D9D9DE;flex-shrink:0;}
+.snap-dot.current{background:var(--color-primary);box-shadow:0 0 0 4px rgba(230,0,45,.15);}
+.snap-dot.pinned{background:var(--color-future);box-shadow:0 0 0 4px rgba(139,92,246,.15);}
+.snap-body{flex:1;}
+.snap-date{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.snap-meta{font-size:11.5px;color:var(--color-text-muted);margin-top:2px;}
+.badge.pin{background:rgba(139,92,246,.1);color:var(--color-future);}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+<!-- ═══ SIDEBAR ═══ (Dòng thời gian active — Settings là overlay) -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">P</div>
+    <div class="logo-text">PROT LIFE</div>
+  </div>
+  <ul class="nav-list">
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9"/></svg>Trang chủ</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.2 14.2c2.4.3 4.3 2 4.3 4.8"/></svg>Quan hệ</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17"/><path d="M8 3v3.5M16 3v3.5"/></svg>Sự kiện</li>
+    <li class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Dòng thời gian</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5.5" width="17" height="13" rx="2.2"/><circle cx="8.3" cy="10" r="1.6"/><path d="M4 17l4.8-4.4a1.6 1.6 0 0 1 2.1 0L15 16.5"/><path d="M13.5 14.5l1.6-1.5a1.6 1.6 0 0 1 2.1 0l3 2.9"/></svg>Ký ức</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-6.8-5.6-6.8-11A6.8 6.8 0 0 1 12 3.2 6.8 6.8 0 0 1 18.8 10c0 5.4-6.8 11-6.8 11z"/><circle cx="12" cy="10" r="2.4"/></svg>Bản đồ</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.5 8V6.2A1.7 1.7 0 0 1 5.2 4.5h4l2 2.2h7.1a1.7 1.7 0 0 1 1.7 1.7V17a1.7 1.7 0 0 1-1.7 1.7H5.2A1.7 1.7 0 0 1 3.5 17V8z"/></svg>Tổ chức</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V8h4"/><path d="M9 12.5h6M9 15.5h6"/></svg>Tài liệu</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>Mục tiêu</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V11M11 20V4M18 20v-7"/></svg>Thống kê</li>
+    <li class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4L12 3z"/><path d="M19 14l.9 2.3L22 17l-2.1.7L19 20l-.9-2.3L16 17l2.1-.7L19 14z"/></svg>AI Insight</li>
+  </ul>
+  <div class="sidebar-user">
+    <div class="avatar-sm">P</div>
+    <div>
+      <div class="name">Prot</div>
+      <div class="role">Admin</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN PANEL (Settings overlay) ═══ -->
+<main class="main">
+  <!-- Header: "Cài đặt" + action buttons (close ✕ as overlay) -->
+  <div class="main-header">
+    <div class="main-title">Cài đặt</div>
+    <div class="header-actions">
+      <button class="icon-btn" title="Thông báo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+      </button>
+      <button class="icon-btn" title="Thêm tuỳ chọn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+      </button>
+      <button class="icon-btn" title="Đóng (đóng overlay Cài đặt)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="account">Tài khoản</button>
+    <button class="tab-btn" data-tab="data">Dữ liệu</button>
+    <button class="tab-btn" data-tab="privacy">Quyền riêng tư</button>
+    <button class="tab-btn" data-tab="notify">Thông báo</button>
+    <button class="tab-btn" data-tab="appearance">Giao diện</button>
+    <button class="tab-btn" data-tab="permissions">Phân quyền</button>
+    <button class="tab-btn" data-tab="backup">Sao lưu</button>
+  </div>
+
+  <div class="tab-content">
+
+    <!-- ══════ TAB 1: TÀI KHOẢN ══════ -->
+    <div class="tab-panel active" id="panel-account">
+      <div class="settings-grid">
+        <!-- Left: Thông tin tài khoản -->
+        <div class="card">
+          <div class="card-title">Thông tin tài khoản</div>
+          <div class="avatar-row">
+            <div class="avatar-lg">P</div>
+            <div class="avatar-meta">
+              <div class="avatar-name">Prot</div>
+              <div class="avatar-role">Admin</div>
+              <button class="link-btn">Thay đổi avatar</button>
+            </div>
+          </div>
+          <div class="form-group"><label class="field-label">Họ và tên</label><input class="input" value="Prot"/></div>
+          <div class="form-row">
+            <div class="form-group"><label class="field-label">Email</label><input class="input" value="prot@example.com"/></div>
+            <div class="form-group"><label class="field-label">Số điện thoại</label><input class="input" value="0912 345 678"/></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="field-label">Ngày sinh</label><input class="input" value="27/10/1992"/></div>
+            <div class="form-group"><label class="field-label">Giới tính</label>
+              <select class="select"><option>Nam</option><option>Nữ</option><option>Khác</option></select>
+            </div>
+          </div>
+          <button class="btn-primary btn-block" style="margin-top:6px;">Lưu thay đổi</button>
+        </div>
+
+        <!-- Right column -->
+        <div>
+          <!-- Phương thức đăng nhập -->
+          <div class="card">
+            <div class="card-title">Phương thức đăng nhập</div>
+            <div class="login-method-row">
+              <div class="lm-icon" style="background:#F1F1F4;color:var(--color-text-primary);">✉️</div>
+              <div class="storage-info"><div class="storage-name">Email / Mật khẩu</div><div class="storage-desc">prot@example.com</div></div>
+              <span class="badge ok">Đang dùng</span>
+            </div>
+            <div class="login-method-row">
+              <div class="lm-icon" style="background:rgba(139,92,246,.1);color:var(--color-future);">🔗</div>
+              <div class="storage-info"><div class="storage-name">Magic Link</div><div class="storage-desc">Đăng nhập không cần mật khẩu qua email</div></div>
+              <span class="badge ok">Đã bật</span>
+            </div>
+            <div class="login-method-row">
+              <div class="lm-icon" style="background:#fff;border:1px solid var(--border);color:#4285F4;font-weight:800;">G</div>
+              <div class="storage-info"><div class="storage-name">Google</div><div class="storage-desc">Chưa liên kết tài khoản Google</div></div>
+              <button class="link-btn">Liên kết</button>
+            </div>
+            <div class="empty-note" style="margin-top:2px;">Cả 3 phương thức đều miễn phí hoàn toàn qua Supabase Auth. Không dùng SMS OTP vì tốn phí nhà mạng.</div>
+          </div>
+          <!-- Bảo mật -->
+          <div class="card">
+            <div class="card-title">Bảo mật</div>
+            <button class="btn-outline">Đổi mật khẩu</button>
+            <button class="btn-outline" id="openDeviceModal">📱 Quản lý thiết bị <span class="device-count-pill">4</span></button>
+            <button class="btn-outline danger">Đăng xuất tất cả</button>
+          </div>
+          <!-- Ngôn ngữ -->
+          <div class="card">
+            <div class="card-title">Ngôn ngữ</div>
+            <select class="select"><option>Tiếng Việt</option><option>English</option></select>
+          </div>
+          <!-- Múi giờ -->
+          <div class="card">
+            <div class="card-title">Múi giờ</div>
+            <select class="select"><option>(GMT+07:00) Bangkok, Hanoi, Jakarta</option><option>(GMT+09:00) Tokyo, Seoul</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ TAB 2: DỮ LIỆU ══════ -->
+    <div class="tab-panel" id="panel-data">
+      <div class="settings-grid">
+        <!-- Left: Storage -->
+        <div class="card">
+          <div class="card-title">Dung lượng sử dụng <span class="soon-badge" style="background:rgba(16,185,129,.1);color:var(--color-green);">Gói Free — Supabase</span></div>
+          <div class="storage-block">
+            <div class="storage-block-head"><span>Database (Postgres)</span><span class="storage-block-val">312 MB / 500 MB</span></div>
+            <div class="storage-bar-track"><div class="storage-bar-fill" style="width:62%"></div></div>
+          </div>
+          <div class="storage-block">
+            <div class="storage-block-head"><span>File Storage (ảnh/video)</span><span class="storage-block-val">840 MB / 1 GB</span></div>
+            <div class="storage-bar-track"><div class="storage-bar-fill" style="width:84%;background:linear-gradient(135deg,#F59E0B,#FBBF24);"></div></div>
+          </div>
+          <div class="empty-note" style="margin-top:2px;">File Storage sắp đầy — vì đây là 2 hạn mức riêng biệt của Supabase Free (không phải 1 con số gộp chung), nên khi hết ảnh/video sẽ chặn trước, dù Database vẫn còn chỗ.</div>
+          <div style="margin-top:16px;">
+            <div class="data-stat-row"><span>👥 Người thân & bạn bè</span><span class="count">128 hồ sơ</span></div>
+            <div class="data-stat-row"><span>📅 Sự kiện đã tạo</span><span class="count">64 sự kiện</span></div>
+            <div class="data-stat-row"><span>📸 Ký ức & hình ảnh</span><span class="count">842 mục</span></div>
+            <div class="data-stat-row"><span>🗺️ Địa điểm đã lưu</span><span class="count">37 địa điểm</span></div>
+          </div>
+        </div>
+
+        <!-- Right -->
+        <div>
+          <!-- Xuất / nhập dữ liệu -->
+          <div class="card">
+            <div class="card-title">Xuất / nhập dữ liệu</div>
+            <button class="btn-outline">⬇️ Xuất toàn bộ dữ liệu (.json)</button>
+            <button class="btn-outline" id="openExportModal">📄 Xuất báo cáo (Word / Excel / PDF)</button>
+            <button class="btn-outline">⬆️ Nhập từ file trên máy (.json/.csv/.xlsx/.vcf/.ics)</button>
+            <button class="btn-outline">☁️ Chọn file từ Google Drive</button>
+          </div>
+          <!-- Hệ sinh thái Google -->
+          <div class="card">
+            <div class="card-title">Hệ sinh thái Google</div>
+            <div class="toggle-row"><div><div class="t-title">Google Calendar</div><div class="t-desc">Đồng bộ sự kiện hai chiều</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Google Contacts</div><div class="t-desc">Nhập danh bạ hàng loạt, gợi ý người quen mới</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Google Drive</div><div class="t-desc">Chọn tài liệu/ảnh để đính kèm</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Google Photos <span class="soon-badge">Chỉ chọn thủ công</span></div><div class="t-desc">Từ 2025 Google chặn quét toàn bộ thư viện — chỉ chọn từng ảnh qua Picker</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+          </div>
+          <!-- Nguồn mở rộng -->
+          <div class="card">
+            <div class="card-title">Nguồn mở rộng · Chuẩn mở, miễn phí 100%</div>
+            <div class="toggle-row"><div><div class="t-title">CalDAV / file .ics</div><div class="t-desc">Tương thích Apple Calendar, Outlook — không cần duyệt app</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">vCard (.vcf)</div><div class="t-desc">Nhập danh bạ từ mọi điện thoại/email</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Google Takeout <span class="soon-badge">Nhập file thủ công</span></div><div class="t-desc">Người dùng tự tải Takeout rồi nhập file — né rào cản API Photos</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+            <div class="card-sub" style="margin:14px 0 8px;text-transform:uppercase;font-weight:800;font-size:10.5px;letter-spacing:.6px;">Cân nhắc thêm · Sắp tới</div>
+            <div class="toggle-row"><div><div class="t-title">Strava <span class="soon-badge">Sắp ra mắt</span></div><div class="t-desc">Hoạt động thể thao — API free tier ổn định</div></div><label class="switch"><input type="checkbox" disabled/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Spotify <span class="soon-badge">Sắp ra mắt</span></div><div class="t-desc">Lịch sử nghe nhạc làm giàu ký ức</div></div><label class="switch"><input type="checkbox" disabled/><span class="slider"></span></label></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Google Sheets Sync — full width card -->
+      <div class="card">
+        <div class="card-title">🔄 Đồng bộ Google Sheets <span class="soon-badge" style="background:rgba(16,185,129,.1);color:var(--color-green);">App → Sheet · Đang hoạt động</span></div>
+        <div class="card-sub" style="margin-bottom:16px;">Mọi thay đổi trong app (thêm/sửa/xoá người thân, sự kiện, ký ức) tự động đẩy sang Google Sheet — cậu có thể mở Sheet để xem, lọc, hoặc chia sẻ, nhưng sửa trong Sheet <strong>chưa</strong> tự động đẩy ngược lại app (nằm trong lộ trình tiếp theo).</div>
+
+        <svg class="sync-diagram" viewBox="0 0 700 130" xmlns="http://www.w3.org/2000/svg">
+          <defs><marker id="arrow1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#D9D9DE"/></marker></defs>
+          <rect x="0" y="35" width="150" height="60" rx="14" fill="#3ECF8E"/>
+          <text x="75" y="60" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">Supabase</text>
+          <text x="75" y="77" text-anchor="middle" fill="#fff" font-size="10" font-family="-apple-system,sans-serif">Postgres (nguồn)</text>
+          <path d="M155 65 L200 65" stroke="#D9D9DE" stroke-width="2" marker-end="url(#arrow1)"/>
+          <rect x="205" y="35" width="150" height="60" rx="14" fill="#F1F1F4" stroke="#E5E5EA"/>
+          <text x="280" y="60" text-anchor="middle" fill="#101010" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">DB Webhook</text>
+          <text x="280" y="77" text-anchor="middle" fill="#6B7280" font-size="10" font-family="-apple-system,sans-serif">có sẵn, miễn phí</text>
+          <path d="M360 65 L405 65" stroke="#D9D9DE" stroke-width="2" marker-end="url(#arrow1)"/>
+          <rect x="410" y="35" width="150" height="60" rx="14" fill="#101010"/>
+          <text x="485" y="60" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">Edge Function</text>
+          <text x="485" y="77" text-anchor="middle" fill="#9CA3AF" font-size="10" font-family="-apple-system,sans-serif">500K lượt/tháng free</text>
+          <path d="M565 65 L610 65" stroke="#D9D9DE" stroke-width="2" marker-end="url(#arrow1)"/>
+          <rect x="615" y="35" width="85" height="60" rx="14" fill="#0F9D58"/>
+          <text x="657" y="60" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">Sheet</text>
+          <text x="657" y="77" text-anchor="middle" fill="#D1FAE5" font-size="9" font-family="-apple-system,sans-serif">chỉ đọc</text>
+        </svg>
+
+        <div class="settings-grid" style="margin-top:20px;">
+          <div>
+            <div id="sheetLinkedState">
+              <div class="sheet-link-row">
+                <div class="storage-badge" style="background:#0F9D58;">📊</div>
+                <div class="storage-info">
+                  <div class="storage-name">ProtLife_Data_Export.xlsx</div>
+                  <div class="storage-desc">Đã liên kết qua tk.prot@gmail.com · Đồng bộ gần nhất: 4 phút trước</div>
+                </div>
+              </div>
+              <button class="link-btn" style="width:100%;margin-top:8px;" onclick="window.open('https://sheets.google.com','_blank')">Mở Google Sheet ↗</button>
+              <button class="btn-outline danger" style="margin-top:8px;" id="unlinkSheetBtn">Ngắt liên kết</button>
+            </div>
+            <div id="sheetUnlinkedState" style="display:none;">
+              <div class="sheet-link-row">
+                <div class="storage-badge" style="background:#E5E5EA;color:#9CA3AF;">📊</div>
+                <div class="storage-info">
+                  <div class="storage-name">Chưa liên kết Google Sheet</div>
+                  <div class="storage-desc">Cần cấp quyền qua tài khoản Google để bắt đầu đồng bộ</div>
+                </div>
+              </div>
+              <button class="btn-primary btn-block" style="margin-top:8px;" id="linkSheetBtn">🔗 Liên kết với Google</button>
+            </div>
+            <div class="empty-note" style="margin-top:10px;">Đây là quyền <strong>riêng</strong>, tách khỏi việc đăng nhập app — dù cậu đăng nhập bằng Email hay Google, vẫn cần cấp quyền này thêm 1 lần.</div>
+          </div>
+          <div>
+            <div class="card-title" style="font-size:12.5px;margin-bottom:10px;">Log đồng bộ gần đây</div>
+            <div class="sync-log-item ok"><span class="sync-dot"></span><div><div class="sync-log-text">Cập nhật "Minh" · Sự kiện sinh nhật</div><div class="sync-log-time">4 phút trước</div></div></div>
+            <div class="sync-log-item ok"><span class="sync-dot"></span><div><div class="sync-log-text">Thêm mới "Chuyến Đà Lạt" vào sheet Ký ức</div><div class="sync-log-time">2 giờ trước</div></div></div>
+            <div class="sync-log-item error"><span class="sync-dot"></span><div><div class="sync-log-text">Lỗi: dòng 42 sheet Người thân — sai định dạng ngày sinh</div><div class="sync-log-time">Hôm qua, 21:03 · <button class="row-edit" style="padding:0;">Xem chi tiết</button></div></div></div>
+            <div class="sync-log-item ok"><span class="sync-dot"></span><div><div class="sync-log-text">Xoá "Cà phê với Minh" khỏi sheet Sự kiện</div><div class="sync-log-time">Hôm qua, 14:22</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ TAB 3: QUYỀN RIÊNG TƯ ══════ -->
+    <div class="tab-panel" id="panel-privacy">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-title">Hiển thị hồ sơ</div>
+          <div class="toggle-row"><div><div class="t-title">Hồ sơ công khai</div><div class="t-desc">Người khác có thể tìm thấy bạn qua số điện thoại</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><div class="t-title">Trạng thái hoạt động</div><div class="t-desc">Hiện thời điểm bạn dùng app gần nhất</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><div class="t-title">Vị trí trong Bản đồ</div><div class="t-desc">Chia sẻ địa điểm hiện tại với nhóm gia đình</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Chia sẻ dữ liệu</div>
+            <div class="toggle-row"><div><div class="t-title">Dùng dữ liệu để gợi ý AI</div><div class="t-desc">Cải thiện độ chính xác của gợi ý hoạt động</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Thống kê ẩn danh</div><div class="t-desc">Giúp cải thiện chất lượng ứng dụng</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Danh sách chặn</div>
+            <div class="empty-note">Bạn chưa chặn liên hệ nào. Người bị chặn sẽ không thể xem hồ sơ hay mời bạn vào sự kiện chung.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ TAB 4: THÔNG BÁO ══════ -->
+    <div class="tab-panel" id="panel-notify">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-title">Nhắc nhở</div>
+          <div class="toggle-row"><div><div class="t-title">Sinh nhật người thân & bạn bè</div><div class="t-desc">Nhắc trước 3 ngày và trong ngày</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><div class="t-title">Sự kiện sắp diễn ra</div><div class="t-desc">Nhắc trước 1 ngày</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><div class="t-title">Mốc kỷ niệm quan hệ</div><div class="t-desc">VD: 1 năm ngày quen nhau</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><div class="t-title">Gợi ý hoạt động từ AI</div><div class="t-desc">VD: "Lâu rồi chưa gặp Minh"</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Kênh nhận thông báo</div>
+            <div class="toggle-row"><div><div class="t-title">Thông báo đẩy (Push)</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Email</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">SMS</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Giờ yên lặng</div>
+            <div class="form-row">
+              <div class="form-group"><label class="field-label">Từ</label><input class="input" value="22:00"/></div>
+              <div class="form-group"><label class="field-label">Đến</label><input class="input" value="07:00"/></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ TAB 5: GIAO DIỆN ══════ -->
+    <div class="tab-panel" id="panel-appearance">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-title">Chế độ hiển thị</div>
+          <div class="theme-grid">
+            <div class="theme-card selected"><div class="theme-preview light"></div><div class="t-label">Sáng</div></div>
+            <div class="theme-card"><div class="theme-preview dark"></div><div class="t-label">Tối</div></div>
+            <div class="theme-card"><div class="theme-preview system"></div><div class="t-label">Theo hệ thống</div></div>
+          </div>
+          <div class="card-title" style="margin-bottom:6px;">Màu nhấn</div>
+          <div class="color-row">
+            <div class="color-swatch selected" style="background:#E6002D"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+            <div class="color-swatch" style="background:#8B5CF6"></div>
+            <div class="color-swatch" style="background:#10B981"></div>
+            <div class="color-swatch" style="background:#F59E0B"></div>
+            <div class="color-swatch" style="background:#0EA5E9"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Cỡ chữ</div>
+            <input type="range" min="0" max="4" value="1" style="width:100%;accent-color:var(--color-primary);"/>
+            <div class="storage-legend"><span>Nhỏ</span><span>Lớn</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Khác</div>
+            <div class="toggle-row"><div><div class="t-title">Giảm hiệu ứng chuyển động</div></div><label class="switch"><input type="checkbox"/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Rung phản hồi (Haptic)</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ TAB 6: PHÂN QUYỀN ══════ -->
+    <div class="tab-panel" id="panel-permissions">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-title">Quản lý vai trò</div>
+          <table class="role-table">
+            <thead><tr><th>Vai trò</th><th>Mô tả</th><th>Số người</th><th></th></tr></thead>
+            <tbody id="roleTableBody">
+              <tr class="role-row selected" data-role="admin"><td><span class="role-pill admin">Admin</span></td><td>Toàn quyền quản lý</td><td>1</td><td><button class="row-edit">Chỉnh sửa</button></td></tr>
+              <tr class="role-row" data-role="member"><td><span class="role-pill member">Member</span></td><td>Được mời, có thể đóng góp</td><td>4</td><td><button class="row-edit">Chỉnh sửa</button></td></tr>
+              <tr class="role-row" data-role="viewer"><td><span class="role-pill viewer">Viewer</span></td><td>Chỉ xem, không chỉnh sửa</td><td>2</td><td><button class="row-edit">Chỉnh sửa</button></td></tr>
+              <tr class="role-row" data-role="guest"><td><span class="role-pill guest">Guest</span></td><td>Truy cập công khai, hạn chế</td><td>0</td><td><button class="row-edit">Chỉnh sửa</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title" id="permTitle">Quyền chi tiết (Admin)</div>
+          <div id="permList"></div>
+          <button class="btn-primary btn-block" style="margin-top:14px;">+ Thêm vai trò</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ TAB 7: SAO LƯU ══════ -->
+    <div class="tab-panel" id="panel-backup">
+      <!-- 3-2-1 status -->
+      <div class="card">
+        <div class="backup-status">
+          <div class="status-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg></div>
+          <div><div style="font-weight:800;font-size:13.5px;">An toàn theo nguyên tắc 3-2-1 · 100% miễn phí</div><div style="font-size:11.5px;color:var(--color-text-secondary);">3 bản sao · 2 loại lưu trữ · 1 nơi ngoại vi — lần gần nhất: hôm nay, 06:30</div></div>
+        </div>
+        <div class="rule321-grid">
+          <div class="rule-step">
+            <div class="rule-num">3</div>
+            <div class="rule-title">Bản sao dữ liệu</div>
+            <div class="rule-desc">1 bản chính + 2 bản dự phòng, không phụ thuộc vào 1 nơi lưu duy nhất</div>
+            <div class="rule-tags"><span class="mini-tag supabase">Supabase</span><span class="mini-tag r2">R2</span><span class="mini-tag gdrive">Drive</span></div>
+          </div>
+          <div class="rule-step">
+            <div class="rule-num">2</div>
+            <div class="rule-title">Loại lưu trữ khác nhau</div>
+            <div class="rule-desc">Database, object storage kỹ thuật và cloud cá nhân — nếu 1 loại gặp sự cố, loại kia vẫn còn</div>
+            <div class="rule-tags"><span class="mini-tag-outline">Database</span><span class="mini-tag-outline">Object Storage</span><span class="mini-tag-outline">Personal Cloud</span></div>
+          </div>
+          <div class="rule-step">
+            <div class="rule-num">1</div>
+            <div class="rule-title">Bản lưu ngoại vi</div>
+            <div class="rule-desc">R2 (Cloudflare) và Drive (Google) đều khác hoàn toàn nhà cung cấp với Supabase</div>
+            <div class="rule-tags"><span class="mini-tag r2">Cloudflare R2</span><span class="mini-tag gdrive">Google Drive</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GitHub Actions Engine -->
+      <div class="card engine-card">
+        <div class="engine-row">
+          <div class="storage-badge" style="background:#24292F;">G</div>
+          <div class="storage-info">
+            <div class="storage-name">GitHub Actions <span class="node-tag engine">Engine · Miễn phí 2.000 phút/tháng</span></div>
+            <div class="storage-desc">Chạy cron hằng ngày &amp; hằng tháng — không dùng Vercel Cron vì gói Free chỉ cho phép 1 lần/ngày và không đúng giờ. GitHub Actions không giới hạn giờ chạy, đồng thời mỗi lần chạy vô tình giữ Supabase khỏi bị tạm dừng do 7 ngày không hoạt động.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Storage + Automation grid -->
+      <div class="settings-grid wide-left">
+        <div class="card">
+          <div class="card-title">Điểm lưu trữ</div>
+          <div class="storage-node">
+            <div class="storage-badge" style="background:#3ECF8E;">S</div>
+            <div class="storage-info">
+              <div class="storage-name">Supabase <span class="node-tag primary">Bản chính</span></div>
+              <div class="storage-desc">Postgres + Storage sống của app — không có backup tự động ở gói Free</div>
+            </div>
+            <span class="badge ok">Đang chạy</span>
+          </div>
+          <div class="storage-node">
+            <div class="storage-badge" style="background:#F38020;">R</div>
+            <div class="storage-info">
+              <div class="storage-name">Cloudflare R2 <span class="node-tag offsite">Ngoại vi · Kỹ thuật</span></div>
+              <div class="storage-desc">10GB free, 0đ phí tải xuống — backup hằng ngày (rolling 14 ngày) + bản dump kỹ thuật hằng tháng</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked/><span class="slider"></span></label>
+          </div>
+          <div class="storage-node">
+            <div class="storage-badge" style="background:#4285F4;">D</div>
+            <div class="storage-info">
+              <div class="storage-name">Google Drive <span class="node-tag offsite">Ngoại vi · Cá nhân</span></div>
+              <div class="storage-desc">Chỉ nhận bản dump nén hằng tháng — để cậu tự mở, tự tải bằng tay, không cần biết code</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked/><span class="slider"></span></label>
+          </div>
+          <div class="storage-node">
+            <div class="storage-badge" style="background:#24292F;">G</div>
+            <div class="storage-info">
+              <div class="storage-name">GitHub <span class="node-tag offsite">Version control</span></div>
+              <div class="storage-desc">Chỉ giữ manifest.json nhẹ (checksum, danh sách file) — mỗi tháng 1 commit, không chứa file nặng</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked/><span class="slider"></span></label>
+          </div>
+          <div class="empty-note" style="margin-top:2px;">Media (ảnh/video) chỉ mirror 1 bản duy nhất trên R2, đồng bộ kiểu incremental — không nhân bản lại mỗi tháng, tránh vượt 10GB free.</div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Tự động hoá</div>
+            <div class="toggle-row"><div><div class="t-title">Sao lưu hằng ngày</div><div class="t-desc">03:00 UTC — chỉ dump database, nén gửi lên R2</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <div class="toggle-row"><div><div class="t-title">Snapshot hàng tháng</div><div class="t-desc">Ngày 1, 03:00 UTC — gửi song song R2 + Drive</div></div><label class="switch"><input type="checkbox" checked/><span class="slider"></span></label></div>
+            <button class="btn-primary btn-block" style="margin-top:14px;">Sao lưu ngay</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Snapshot timeline -->
+      <div class="card">
+        <div class="card-title">Snapshot hàng tháng — khác gì sao lưu thường?</div>
+        <div class="card-sub" style="margin-bottom:14px;">Sao lưu hằng ngày <strong>ghi đè</strong> bản trước để tiết kiệm dung lượng, chỉ nằm ở R2. Snapshot hàng tháng <strong>đóng băng vĩnh viễn</strong> một mốc, gửi đồng thời tới R2 (bản kỹ thuật) và Google Drive (bản cậu tự xem) — cho phép quay lại đúng trạng thái app ở một tháng bất kỳ, giống hệt cách "Bánh xe ký ức" cho phép nhìn lại quá khứ.</div>
+
+        <div class="form-row" style="margin-bottom:18px;">
+          <div class="form-group">
+            <label class="field-label">Chính sách lưu giữ (retention)</label>
+            <select class="select">
+              <option>Giữ 12 tháng gần nhất, tự xoá bản cũ hơn</option>
+              <option>Giữ 24 tháng gần nhất</option>
+              <option>Giữ vĩnh viễn mốc Tháng 1 mỗi năm, còn lại xoay vòng 12 tháng</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Ngày chụp snapshot</label>
+            <select class="select">
+              <option>Ngày 1 hằng tháng, 03:00</option>
+              <option>Ngày cuối tháng, 03:00</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="snapshot-timeline">
+          <div class="snapshot-item">
+            <div class="snap-dot current"></div>
+            <div class="snap-body">
+              <div class="snap-date">Tháng 7 / 2026 <span class="badge ok">Mới nhất</span></div>
+              <div class="snap-meta">42 MB (dump) · Lưu tại R2 + Drive · manifest trên GitHub</div>
+            </div>
+            <button class="row-edit">Xem lại</button>
+          </div>
+          <div class="snapshot-item">
+            <div class="snap-dot"></div>
+            <div class="snap-body"><div class="snap-date">Tháng 6 / 2026</div><div class="snap-meta">39 MB · R2 + Drive</div></div>
+            <button class="row-edit">Khôi phục</button>
+          </div>
+          <div class="snapshot-item">
+            <div class="snap-dot"></div>
+            <div class="snap-body"><div class="snap-date">Tháng 5 / 2026</div><div class="snap-meta">37 MB · R2 + Drive</div></div>
+            <button class="row-edit">Khôi phục</button>
+          </div>
+          <div class="snapshot-item">
+            <div class="snap-dot pinned"></div>
+            <div class="snap-body"><div class="snap-date">Tháng 1 / 2026 <span class="badge pin">Giữ vĩnh viễn</span></div><div class="snap-meta">31 MB · Mốc đầu năm · R2 + Drive</div></div>
+            <button class="row-edit">Khôi phục</button>
+          </div>
+        </div>
+        <button class="link-btn" style="margin-top:14px;width:100%;">Xem toàn bộ lịch sử snapshot</button>
+      </div>
+    </div>
+
+  </div><!-- tab-content -->
+</main>
+</div><!-- .app-shell -->
+
+<!-- ══════ MODAL 1: QUẢN LÝ THIẾT BỊ ══════ -->
+<div class="modal-overlay-c" id="deviceModal">
+  <div class="modal-sheet-c">
+    <div class="dm-header">
+      <div>
+        <div class="dm-title">Quản lý thiết bị</div>
+        <div class="dm-sub">4 thiết bị đang đăng nhập</div>
+      </div>
+      <button class="icon-btn" id="closeDeviceModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <div class="empty-note" style="margin-bottom:16px;">Danh sách chi tiết từng thiết bị là phần tự xây thêm (Supabase chưa hỗ trợ sẵn) — ghi lại qua Auth Hook mỗi lần đăng nhập, lưu trong 1 bảng riêng.</div>
+
+    <div class="device-row current" data-name="iPhone 15 Pro · Safari">
+      <div class="device-icon">📱</div>
+      <div class="storage-info">
+        <div class="storage-name">iPhone 15 Pro · Safari <span class="node-tag primary">Thiết bị này</span></div>
+        <div class="storage-desc">TP. Hồ Chí Minh · Hoạt động vừa xong · Đăng nhập qua Google</div>
+      </div>
+    </div>
+    <div class="device-row" data-name="MacBook Air · Chrome">
+      <div class="device-icon">💻</div>
+      <div class="storage-info">
+        <div class="storage-name">MacBook Air · Chrome</div>
+        <div class="storage-desc">TP. Hồ Chí Minh · Hoạt động 3 giờ trước · Đăng nhập qua Email/Mật khẩu</div>
+      </div>
+      <button class="device-logout-btn">Đăng xuất</button>
+    </div>
+    <div class="device-row" data-name="iPad · Safari">
+      <div class="device-icon">📱</div>
+      <div class="storage-info">
+        <div class="storage-name">iPad · Safari</div>
+        <div class="storage-desc">Hà Nội · Hoạt động 2 ngày trước · Đăng nhập qua Magic Link</div>
+      </div>
+      <button class="device-logout-btn">Đăng xuất</button>
+    </div>
+    <div class="device-row" data-name="Windows PC · Edge">
+      <div class="device-icon">🖥️</div>
+      <div class="storage-info">
+        <div class="storage-name">Windows PC · Edge</div>
+        <div class="storage-desc">Đà Nẵng · Hoạt động 5 ngày trước · Đăng nhập qua Google</div>
+      </div>
+      <button class="device-logout-btn">Đăng xuất</button>
+    </div>
+
+    <button class="btn-outline danger" id="logoutOthersBtn" style="margin-top:16px;">Đăng xuất tất cả thiết bị khác</button>
+    <div class="empty-note" style="margin-top:10px;">Nút này dùng scope <code>others</code> có sẵn của Supabase Auth — miễn phí, không cần code thêm.</div>
+  </div>
+</div>
+
+<!-- ══════ MODAL 2: XUẤT BÁO CÁO ══════ -->
+<div class="modal-overlay-c" id="exportModal">
+  <div class="modal-sheet-c" style="max-width:560px;">
+    <!-- Form view -->
+    <div id="exportFormView">
+      <div class="dm-header">
+        <div>
+          <div class="dm-title">Xuất báo cáo</div>
+          <div class="dm-sub">Chọn phạm vi, khoảng thời gian và định dạng</div>
+        </div>
+        <button class="icon-btn" id="closeExportModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Phạm vi báo cáo</label>
+        <select class="select" id="exportScope">
+          <option>Tổng quan — tất cả dữ liệu</option>
+          <option>Chỉ Người thân & bạn bè</option>
+          <option>Chỉ Sự kiện</option>
+          <option>Chỉ Ký ức</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Khoảng thời gian</label>
+        <select class="select">
+          <option>Toàn bộ thời gian</option>
+          <option>Năm nay (2026)</option>
+          <option>Tháng này</option>
+          <option>Tuỳ chỉnh...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Định dạng</label>
+        <div class="format-pills">
+          <button class="format-pill active" data-fmt="Word">📝 Word</button>
+          <button class="format-pill" data-fmt="Excel">📊 Excel</button>
+          <button class="format-pill" data-fmt="PDF">📕 PDF</button>
+        </div>
+      </div>
+      <button class="btn-primary btn-block" id="goToPreview" style="margin-top:8px;">Xem trước bản in →</button>
+    </div>
+
+    <!-- Print preview view -->
+    <div id="exportPreviewView" style="display:none;">
+      <div class="dm-header">
+        <button class="link-btn" id="backToForm">← Quay lại chỉnh</button>
+        <button class="icon-btn" id="closeExportModal2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="print-page" id="printArea">
+        <div class="pp-header">
+          <div class="pp-logo"><div class="logo-mark" style="width:24px;height:24px;font-size:11px;">P</div><span>PROT LIFE</span></div>
+          <div class="pp-date">18/07/2026</div>
+        </div>
+        <h1 class="pp-title" id="ppTitle">Báo cáo Tổng quan</h1>
+        <div class="pp-range">Từ 01/01/2026 đến 18/07/2026</div>
+        <div class="pp-stats">
+          <div class="pp-stat"><div class="pp-stat-num">128</div><div class="pp-stat-label">Người thân & bạn bè</div></div>
+          <div class="pp-stat"><div class="pp-stat-num">64</div><div class="pp-stat-label">Sự kiện</div></div>
+          <div class="pp-stat"><div class="pp-stat-num">842</div><div class="pp-stat-label">Ký ức</div></div>
+          <div class="pp-stat"><div class="pp-stat-num">37</div><div class="pp-stat-label">Địa điểm</div></div>
+        </div>
+        <table class="pp-table">
+          <thead><tr><th>Tên</th><th>Nhóm</th><th>Lần gặp gần nhất</th></tr></thead>
+          <tbody>
+            <tr><td>Minh Anh</td><td>Bạn bè · Đại học</td><td>2 tuần trước</td></tr>
+            <tr><td>Linh</td><td>Gia đình ruột</td><td>Hôm qua</td></tr>
+            <tr><td>Hải</td><td>Đồng nghiệp cũ</td><td>3 tháng trước</td></tr>
+            <tr><td>Thu Trang</td><td>Bạn bè · Cấp 3</td><td>1 tháng trước</td></tr>
+          </tbody>
+        </table>
+        <div class="pp-footer">Xuất bởi Prot Life · Trang 1/1 · 18/07/2026</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn-outline" style="margin-bottom:0;" id="printNowBtn">🖨️ In ngay</button>
+        <button class="btn-primary" id="downloadNowBtn">⬇️ Tải xuống (<span id="fmtLabel">Word</span>)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ MODAL 3: OAUTH GOOGLE MOCK ══════ -->
+<div class="modal-overlay-c" id="oauthModal">
+  <div class="modal-sheet-c" style="max-width:380px;padding:0;overflow:hidden;">
+    <div id="oauthStep1" style="padding:28px 24px;">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div class="google-g-icon">G</div>
+        <div style="font-size:16px;font-weight:700;margin-top:12px;">Chọn tài khoản</div>
+        <div style="font-size:12px;color:var(--color-text-muted);margin-top:2px;">để tiếp tục tới <strong>Prot Life</strong></div>
+      </div>
+      <div class="oauth-account-row" id="pickAccount">
+        <div class="avatar-sm" style="background:#4285F4;">P</div>
+        <div><div style="font-weight:700;font-size:13px;">Prot Nguyễn</div><div style="font-size:11.5px;color:var(--color-text-muted);">tk.prot@gmail.com</div></div>
+      </div>
+      <div class="oauth-account-row">
+        <div class="avatar-sm" style="background:#9CA3AF;">＋</div>
+        <div style="font-size:13px;font-weight:600;color:var(--color-text-secondary);">Dùng tài khoản khác</div>
+      </div>
+    </div>
+    <div id="oauthStep2" style="display:none;padding:28px 24px;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div class="google-g-icon" style="background:#101010;">P</div>
+        <div style="font-size:15px;font-weight:700;margin-top:12px;">Prot Life muốn truy cập tài khoản Google của bạn</div>
+        <div style="font-size:11.5px;color:var(--color-text-muted);margin-top:4px;">tk.prot@gmail.com</div>
+      </div>
+      <div class="oauth-scope-box">
+        <div class="oauth-scope-item">📄 Xem, tạo và chỉnh sửa <strong>các file Google Sheets cụ thể</strong> mà bạn chọn</div>
+        <div class="oauth-scope-item" style="color:var(--color-text-muted);">🚫 <strong>Không</strong> truy cập toàn bộ Drive, Gmail hay dữ liệu khác</div>
+      </div>
+      <div class="empty-note" style="margin-bottom:16px;">Đây là scope hẹp <code>drive.file</code> — app chỉ thấy đúng file cậu chọn, không đọc được các file Drive khác.</div>
+      <div class="modal-actions">
+        <button class="modal-btn cancel" id="oauthDeny">Từ chối</button>
+        <button class="modal-btn confirm" id="oauthAllow" style="background:var(--grad-primary);box-shadow:0 10px 22px rgba(214,0,50,.25);">Cho phép</button>
+      </div>
+    </div>
+    <div id="oauthStep3" style="display:none;padding:32px 24px;text-align:center;">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--color-green);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;">✓</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">Đã tạo & liên kết Sheet mới</div>
+      <div style="font-size:12px;color:var(--color-text-muted);">ProtLife_Data_Export.xlsx — sẵn sàng đồng bộ</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Tab switching ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Theme card selection ──
+document.querySelectorAll('.theme-card').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.theme-card').forEach(x => x.classList.remove('selected'));
+    c.classList.add('selected');
+  });
+});
+
+// ── Color swatch selection ──
+document.querySelectorAll('.color-swatch').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.color-swatch').forEach(x => { x.classList.remove('selected'); x.innerHTML=''; });
+    c.classList.add('selected');
+    c.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+  });
+});
+
+// ── Roles / Permissions ──
+const ROLES = {
+  admin:  { label:'Admin',  perms:{view:1,add:1,edit:1,del:1,import:1,export:1,ai:1,users:1,system:1} },
+  member: { label:'Member', perms:{view:1,add:1,edit:1,del:0,import:0,export:1,ai:1,users:0,system:0} },
+  viewer: { label:'Viewer', perms:{view:1,add:0,edit:0,del:0,import:0,export:0,ai:0,users:0,system:0} },
+  guest:  { label:'Guest',  perms:{view:1,add:0,edit:0,del:0,import:0,export:0,ai:0,users:0,system:0} },
+};
+const PERM_LABELS = [
+  ['view','Xem dữ liệu'], ['add','Thêm dữ liệu'], ['edit','Sửa dữ liệu'], ['del','Xoá dữ liệu'],
+  ['import','Import dữ liệu'], ['export','Export dữ liệu'], ['ai','Sử dụng AI Insight'],
+  ['users','Quản lý người dùng'], ['system','Cài đặt hệ thống'],
+];
+const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+const xSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+function renderPerms(roleKey){
+  const role = ROLES[roleKey];
+  document.getElementById('permTitle').textContent = 'Quyền chi tiết (' + role.label + ')';
+  document.getElementById('permList').innerHTML = PERM_LABELS.map(([key,label]) => {
+    const on = role.perms[key];
+    return `<div class="perm-item ${on ? '' : 'disabled'}">
+      <div class="perm-check ${on ? 'on':'off'}">${on ? checkSvg : xSvg}</div>${label}
+    </div>`;
+  }).join('');
+}
+document.querySelectorAll('.role-row').forEach(row => {
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.role-row').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+    renderPerms(row.dataset.role);
+  });
+});
+renderPerms('admin');
+
+// ── Device Management Modal ──
+const deviceModal = document.getElementById('deviceModal');
+document.getElementById('openDeviceModal').addEventListener('click', () => deviceModal.classList.add('show'));
+document.getElementById('closeDeviceModal').addEventListener('click', () => deviceModal.classList.remove('show'));
+deviceModal.addEventListener('click', e => { if (e.target === deviceModal) deviceModal.classList.remove('show'); });
+
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+document.querySelectorAll('.device-logout-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const row = btn.closest('.device-row');
+    row.style.opacity = '0.4';
+    btn.textContent = 'Đã đăng xuất';
+    btn.disabled = true;
+    showToast('✅ Đã đăng xuất thiết bị "' + row.dataset.name + '"');
+  });
+});
+document.getElementById('logoutOthersBtn').addEventListener('click', () => {
+  document.querySelectorAll('.device-row:not(.current)').forEach(row => {
+    row.style.opacity = '0.4';
+    const btn = row.querySelector('.device-logout-btn');
+    if (btn) { btn.textContent = 'Đã đăng xuất'; btn.disabled = true; }
+  });
+  showToast('✅ Đã đăng xuất khỏi mọi thiết bị khác (scope: others)');
+});
+
+// ── Export Report Modal ──
+const exportModal = document.getElementById('exportModal');
+const formView = document.getElementById('exportFormView');
+const previewView = document.getElementById('exportPreviewView');
+let selectedFormat = 'Word';
+
+function openExport(){ exportModal.classList.add('show'); formView.style.display='block'; previewView.style.display='none'; }
+function closeExport(){ exportModal.classList.remove('show'); }
+
+document.getElementById('openExportModal').addEventListener('click', openExport);
+document.getElementById('closeExportModal').addEventListener('click', closeExport);
+document.getElementById('closeExportModal2').addEventListener('click', closeExport);
+exportModal.addEventListener('click', e => { if (e.target === exportModal) closeExport(); });
+
+document.querySelectorAll('.format-pill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.format-pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    selectedFormat = p.dataset.fmt;
+    document.getElementById('fmtLabel').textContent = selectedFormat;
+  });
+});
+
+document.getElementById('goToPreview').addEventListener('click', () => {
+  const scopeText = document.getElementById('exportScope').value;
+  document.getElementById('ppTitle').textContent = 'Báo cáo ' + (scopeText.includes('Tổng quan') ? 'Tổng quan' : scopeText.replace('Chỉ ', ''));
+  formView.style.display = 'none';
+  previewView.style.display = 'block';
+});
+document.getElementById('backToForm').addEventListener('click', () => {
+  formView.style.display = 'block';
+  previewView.style.display = 'none';
+});
+document.getElementById('printNowBtn').addEventListener('click', () => window.print());
+document.getElementById('downloadNowBtn').addEventListener('click', () => showToast('⬇️ Đang tạo file ' + selectedFormat + '...'));
+
+// ── Google Sheets Link / Unlink + OAuth Mock ──
+const linkedState = document.getElementById('sheetLinkedState');
+const unlinkedState = document.getElementById('sheetUnlinkedState');
+const oauthModal = document.getElementById('oauthModal');
+const oauthStep1 = document.getElementById('oauthStep1');
+const oauthStep2 = document.getElementById('oauthStep2');
+const oauthStep3 = document.getElementById('oauthStep3');
+
+document.getElementById('unlinkSheetBtn').addEventListener('click', () => {
+  linkedState.style.display = 'none';
+  unlinkedState.style.display = 'block';
+  showToast('🔌 Đã ngắt liên kết Google Sheet');
+});
+
+document.getElementById('linkSheetBtn').addEventListener('click', () => {
+  oauthStep1.style.display = 'block';
+  oauthStep2.style.display = 'none';
+  oauthStep3.style.display = 'none';
+  oauthModal.classList.add('show');
+});
+document.getElementById('pickAccount').addEventListener('click', () => {
+  oauthStep1.style.display = 'none';
+  oauthStep2.style.display = 'block';
+});
+document.getElementById('oauthDeny').addEventListener('click', () => oauthModal.classList.remove('show'));
+document.getElementById('oauthAllow').addEventListener('click', () => {
+  oauthStep2.style.display = 'none';
+  oauthStep3.style.display = 'block';
+  setTimeout(() => {
+    oauthModal.classList.remove('show');
+    unlinkedState.style.display = 'none';
+    linkedState.style.display = 'block';
+    showToast('✅ Đã liên kết ProtLife_Data_Export.xlsx');
+  }, 1400);
+});
+</script>
+</body>
+</html>
