@@ -154,7 +154,11 @@ export default function SettingsPage() {
     setSetting({ displayName: editName, phone: editPhone, dob: editDob, gender: editGender, displayEmail: editEmail });
     // Đồng bộ lên Supabase
     try {
-      const { error } = await supabase.from('profiles').update({ name: editName }).eq('id', authUser?.id);
+      const { error } = await supabase.from('profiles').upsert({
+        id: authUser?.id,
+        name: editName,
+        email: authUser?.email,
+      });
       if (error) throw error;
       // Cập nhật luôn auth store để persist qua F5
       const currentUser = useAuthStore.getState().user;
