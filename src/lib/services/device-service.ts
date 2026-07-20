@@ -5,6 +5,7 @@ export interface UserDevice {
   user_id: string;
   device_name: string;
   login_method: string;
+  session_id: string | null;
   last_active: string;
   created_at: string;
 }
@@ -18,12 +19,23 @@ const DEVICE_ID_KEY = 'protlife-device-id';
 export async function recordDeviceLogin(userId: string, method: string): Promise<void> {
   try {
     const deviceName = navigator.userAgent;
+    // Get session_id from Supabase session's access token JWT
+    let sessionId: string | null = null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        sessionId = payload?.session_id || null;
+      }
+    } catch { /* non-critical */ }
     const { data, error } = await supabase
       .from('user_devices')
       .insert({
         user_id: userId,
         device_name: deviceName,
         login_method: method,
+        session_id: sessionId,
         last_active: new Date().toISOString(),
       })
       .select('id')
