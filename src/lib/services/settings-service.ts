@@ -9,6 +9,7 @@ export interface AppDataStats {
   storageFileMb: number;
   totalDbMb: number;
   totalFileMb: number;
+  isEstimate: boolean;
 }
 
 export const settingsService = {
@@ -39,6 +40,7 @@ export const settingsService = {
       storageFileMb: Math.min(dbMb * 0.3, 100), // rough file estimate
       totalDbMb: 500,
       totalFileMb: 1024, // 1GB
+      isEstimate: true,
     };
   },
 

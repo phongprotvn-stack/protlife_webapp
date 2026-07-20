@@ -317,8 +317,8 @@ export default function SettingsPage() {
                   <div className="text-[13px] text-[#6B7280] py-4">Đang tải...</div>
                 ) : stats ? (
                   <>
-                    <StorageBar label="Database (Postgres)" used={`${stats.storageDbMb} MB`} total={`${stats.totalDbMb} MB`} pct={Math.round((stats.storageDbMb / stats.totalDbMb) * 100)} />
-                    <StorageBar label="File Storage" used={`${stats.storageFileMb} MB`} total={`${stats.totalFileMb} MB`} pct={Math.round((stats.storageFileMb / stats.totalFileMb) * 100)} color="linear-gradient(135deg,#F59E0B,#FBBF24)" />
+                    <StorageBar label="Database (Postgres)" used={`${stats.isEstimate ? '~' : ''}${stats.storageDbMb} MB`} total={`${stats.totalDbMb} MB`} pct={Math.round((stats.storageDbMb / stats.totalDbMb) * 100)} estimate={stats.isEstimate} />
+                    <StorageBar label="File Storage" used={`${stats.isEstimate ? '~' : ''}${stats.storageFileMb} MB`} total={`${stats.totalFileMb} MB`} pct={Math.round((stats.storageFileMb / stats.totalFileMb) * 100)} color="linear-gradient(135deg,#F59E0B,#FBBF24)" estimate={stats.isEstimate} />
                     <div className="mt-4 space-y-0">
                       <DataStat label="👥 Người thân & bạn bè" value={`${stats.contacts} hồ sơ`} />
                       <DataStat label="📅 Sự kiện" value={`${stats.events} sự kiện`} />
@@ -601,10 +601,10 @@ export default function SettingsPage() {
 
 // ─── Sub-components ───
 
-function StorageBar({ label, used, total, pct, color }: { label: string; used: string; total: string; pct: number; color?: string }) {
+function StorageBar({ label, used, total, pct, color, estimate }: { label: string; used: string; total: string; pct: number; color?: string; estimate?: boolean }) {
   return (
     <div className="mb-3.5">
-      <div className="flex justify-between text-[12px] font-bold mb-1.5"><span>{label}</span><span className="text-[#6B7280] font-semibold">{used} / {total}</span></div>
+      <div className="flex justify-between text-[12px] font-bold mb-1.5"><span>{label}</span><span className="text-[#6B7280] font-semibold">{used} / {total}{estimate ? <span className="text-[10px] text-[#9CA3AF] font-normal ml-1">(ước tính)</span> : null}</span></div>
       <div className="w-full h-[9px] rounded-[6px] bg-[#F1F1F4] overflow-hidden">
         <div className="h-full rounded-[6px]" style={{ width: Math.min(pct, 100) + '%', background: color || 'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)' }} />
       </div>
