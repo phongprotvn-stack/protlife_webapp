@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [detectedAdmin, setDetectedAdmin] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
+  const [socialLoading, setSocialLoading] = useState<'google' | null>(null);
 
   // Auto-detect "admin" shortcut
   useEffect(() => {
@@ -83,13 +83,13 @@ export default function LoginPage() {
     setPassword('123456');
   };
 
-  const handleSocialLogin = useCallback((provider: 'google' | 'apple') => {
+  const handleSocialLogin = useCallback((provider: 'google') => {
     setSocialLoading(provider);
     setError('');
 
     setTimeout(() => {
       setSocialLoading(null);
-      setError(`Đăng nhập bằng ${provider === 'google' ? 'Google' : 'Apple'} đang được phát triển. Vui lòng đăng nhập bằng email.`);
+      setError('Đăng nhập bằng Google đang được phát triển. Vui lòng đăng nhập bằng email.');
     }, 1200);
   }, []);
 
@@ -292,21 +292,6 @@ export default function LoginPage() {
                 </svg>
               )}
               Tiếp tục với Google
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSocialLogin('apple')}
-              disabled={isLoading || socialLoading !== null}
-              className="w-full h-[50px] rounded-[14px] border border-[rgba(0,0,0,0.08)] flex items-center justify-center gap-3 text-[15px] font-medium text-[#111] hover:bg-[rgba(0,0,0,0.02)] hover:border-[rgba(0,0,0,0.12)] transition-all active:scale-[0.98] disabled:opacity-50"
-            >
-              {socialLoading === 'apple' ? (
-                <div className="w-5 h-5 border-2 border-[#8E8E93]/30 border-t-[#8E8E93] rounded-full animate-spin" />
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                  <path fill="#111" d="M17.05 20.28c-.98.95-2.05.82-3.08.38-1.07-.44-2.06-.48-3.1 0-1.3.63-1.98.48-2.74-.38C5.06 16.78 5.39 11.55 9 9.37c1.35-.85 2.66-.82 3.73.02.76.58 1.16.58 1.88 0 .97-.78 2.14-.86 3.3-.44 1.84.68 2.9 2.2 2.77 4.22-.14 1.7-1.08 2.65-2.63 3.11zM12.03 9.25c-.14-2.08 1.48-3.94 3.3-4.25.24 1.92-1.27 3.82-3.3 4.25z" />
-                </svg>
-              )}
-              Tiếp tục với Apple
             </button>
           </div>
 

@@ -70,6 +70,7 @@ export default function LandingPage() {
     if (!email.trim()) { setError('Vui lòng nhập email'); return; }
     if (!password.trim()) { setError('Vui lòng nhập mật khẩu'); return; }
     setLoading(true);
+    showToast('Đang đăng nhập...');
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(), password,
@@ -410,7 +411,10 @@ export default function LandingPage() {
 
             {/* ─── OAUTH: Google only ─── */}
             <div className="flex flex-col gap-[10px]">
-              <button onClick={handleGoogle} disabled={loading}
+              <button onClick={() => {
+                  showToast('↗️ Chuyển tới Google...');
+                  handleGoogle();
+                }} disabled={loading}
                 className="w-full py-[11.5px] rounded-[12px] text-[13px] font-bold flex items-center justify-center gap-[10px] cursor-pointer transition-colors disabled:opacity-50"
                 style={{ background: '#fff', border: '1.5px solid #EEEEF1', color: '#101010' }}>
                 <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
