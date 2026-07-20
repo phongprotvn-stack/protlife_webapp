@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
+import { loadSettingsFromServer } from '@/stores/settings-store';
 import { supabase } from '@/lib/supabase/client';
 
 export default function LandingPage() {
@@ -90,6 +91,7 @@ export default function LandingPage() {
           avatar: data.user.user_metadata?.avatar_url || '',
           role: 'admin',
         });
+        loadSettingsFromServer(data.user.id);
         router.push('/dashboard');
       }
     } catch {

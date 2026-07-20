@@ -5,7 +5,8 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LogIn, ShieldCheck, Sparkles } from 'lucide-react';
-import { useAuthStore, DEFAULT_ADMIN } from '@/stores/auth-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { loadSettingsFromServer } from '@/stores/settings-store';
 import { supabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -49,7 +50,6 @@ export default function LoginPage() {
       if (signInError) throw signInError;
 
       if (data.user) {
-        const isAdmin = data.user.email?.toLowerCase() === 'phongprot.vn@gmail.com';
         // Fetch real name from profiles table
         let realName = data.user.user_metadata?.name || '';
         try {
@@ -67,6 +67,7 @@ export default function LoginPage() {
           name: realName,
           role: 'admin',
         });
+        loadSettingsFromServer(data.user.id);
         router.push('/dashboard');
       }
     } catch (err: any) {
@@ -113,6 +114,7 @@ export default function LoginPage() {
           name: realName,
           role: 'admin',
         });
+        loadSettingsFromServer(u.id);
         router.push('/dashboard');
       }
     });
