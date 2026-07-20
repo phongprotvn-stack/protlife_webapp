@@ -13,13 +13,19 @@ export default function LandingPage() {
   const login = useAuthStore(s => s.login);
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
 
-  // ─── Session check ───
+  // ─── Session check (reactive — updated by AuthListener via auth-store) ───
   const [hasSession, setHasSession] = useState(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setHasSession(!!data.session);
     });
   }, []);
+  // Also re-check whenever auth-store changes (e.g. cross-tab sign-in)
+  useEffect(() => {
+    if (isLoggedIn) {
+      setHasSession(true);
+    }
+  }, [isLoggedIn]);
 
   // ─── Login method tab ───
   const [method, setMethod] = useState<'password' | 'magic'>('password');
