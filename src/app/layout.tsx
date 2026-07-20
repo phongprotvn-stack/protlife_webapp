@@ -27,24 +27,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const isAuthPage = AUTH_PAGES.includes(pathname);
 
-  // For auth pages, render standalone
-  if (isAuthPage) {
-    return (
-      <html lang="vi">
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-          <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-          <link rel="icon" href="/favicon.ico" />
-          <title>PROT LIFE</title>
-        </head>
-        <body>
-          {children}
-        </body>
-      </html>
-    );
-  }
-
   return (
     <html lang="vi">
       <head>
@@ -58,13 +40,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PWARegister />
         <Providers>
           <ThemeProvider />
-          <AuthGuard>
-            {isMobile ? (
-              <MobileLayout>{children}</MobileLayout>
-            ) : (
-              <DesktopLayout>{children}</DesktopLayout>
-            )}
-          </AuthGuard>
+          {isAuthPage ? (
+            children
+          ) : (
+            <AuthGuard>
+              {isMobile ? (
+                <MobileLayout>{children}</MobileLayout>
+              ) : (
+                <DesktopLayout>{children}</DesktopLayout>
+              )}
+            </AuthGuard>
+          )}
         </Providers>
       </body>
     </html>

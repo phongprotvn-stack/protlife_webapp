@@ -27,11 +27,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    if (!isLoggedIn) {
-      router.replace('/login');
-    } else {
+    if (isLoggedIn) {
       setChecking(false);
+      return;
     }
+
+    // isLoggedIn=false — could be a fresh tab where AuthListener hasn't
+    // finished checking the Supabase session yet. Wait before redirecting.
+    const timer = setTimeout(() => {
+      // Re-check the store (AuthListener may have updated it)
+      const stillLoggedIn = useAuthStore.getState().isLoggedIn;
+      if (!stillLoggedIn) {
+        router.replace('/login');
+      } else {
+        setChecking(false);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [isLoggedIn, router, hydrated]);
 
   // Load settings from Supabase when user logs in
