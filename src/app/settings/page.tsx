@@ -172,33 +172,8 @@ export default function SettingsPage() {
     setEditing(false);
   }, [editName, editPhone, editDob, editGender, editEmail, setSetting, authUser?.id]);
 
-  // ¤ Devices modal
-  const [showDevices, setShowDevices] = useState(false);
-  interface Device { id: string; name: string; icon: string; loc: string; last: string; method: string; cur: boolean; out: boolean; }
-  const [devices, setDevices] = useState<Device[]>([
-    { id:'d1', name:'iPhone 15 Pro · Safari', icon:'📱', loc:'TP. Hồ Chí Minh', last:'vừa xong', method:'Google', cur:true, out:false },
-    { id:'d2', name:'MacBook Air · Chrome', icon:'💻', loc:'TP. Hồ Chí Minh', last:'3 giờ trước', method:'Email', cur:false, out:false },
-    { id:'d3', name:'iPad · Safari', icon:'📱', loc:'Hà Nội', last:'2 ngày trước', method:'Magic Link', cur:false, out:false },
-    { id:'d4', name:'Windows PC · Edge', icon:'🖥️', loc:'Đà Nẵng', last:'5 ngày trước', method:'Google', cur:false, out:false },
-  ]);
-  const logoutDev = useCallback((id: string) => {
-    setDevices(d => d.map(x => x.id === id ? { ...x, out: true } : x));
-    toast('✅ Đã đăng xuất thiết bị');
-  }, []);
-  const logoutAllOthers = useCallback(() => {
-    setDevices(d => d.map(x => x.cur ? x : { ...x, out: true }));
-    toast('✅ Đã đăng xuất khỏi mọi thiết bị khác');
-  }, []);
-
-  // ¤ Google Sheets state
-  const [sheet, setSheet] = useState<SheetStatus>('linked');
-  const [showOAuth, setShowOAuth] = useState(false);
-  const [oauthStep, setOauthStep] = useState(1);
-
-  // ¤ Export modal
-  const [showExport, setShowExport] = useState(false);
-  const [exportStep, setExportStep] = useState<'form'|'preview'>('form');
-  const [exportFmt, setExportFmt] = useState('Word');
+  // ¤ Sheet UI state (visual placeholder — integration coming)
+  const [sheet, setSheet] = useState<SheetStatus>('unlinked');
 
   return (
     <>
@@ -290,7 +265,7 @@ export default function SettingsPage() {
             <div>
               <Card title="Bảo mật">
                 <Btn onClick={() => toast('🔐 Chức năng đổi mật khẩu đang phát triển')}>Đổi mật khẩu</Btn>
-                <Btn onClick={() => setShowDevices(true)}>📱 Quản lý thiết bị <span className="bg-[var(--color-primary)] text-white text-[10px] font-extrabold px-[7px] py-[1px] rounded-[20px] ml-1.5">{devices.filter(d => !d.out).length}</span></Btn>
+                <Btn onClick={() => toast('📱 Quản lý thiết bị đang phát triển')}>📱 Quản lý thiết bị</Btn>
                 <Btn danger onClick={() => { authLogout(); toast('🔒 Đã đăng xuất'); }}>Đăng xuất khỏi thiết bị này</Btn>
               </Card>
 
@@ -338,7 +313,7 @@ export default function SettingsPage() {
               <div>
                 <Card title="Xuất / nhập dữ liệu">
                   <Btn onClick={() => handleExportAll(stats)}>⬇️ Xuất toàn bộ dữ liệu (.json)</Btn>
-                  <Btn onClick={() => { setExportFmt('Word'); setExportStep('form'); setShowExport(true); }}>📄 Xuất báo cáo</Btn>
+                  <Btn onClick={() => toast('📄 Tính năng xuất báo cáo đang phát triển')}>📄 Xuất báo cáo</Btn>
                   <Btn onClick={() => toast('⬆️ Tính năng đang phát triển')}>⬆️ Nhập từ file (.json/.csv)</Btn>
                 </Card>
                 <Card title="Tích hợp Google">
@@ -369,7 +344,7 @@ export default function SettingsPage() {
                     <div className="text-[13px] font-bold">Chưa liên kết</div>
                     <div className="text-[11.5px] text-[#6B7280] mt-0.5">Cần cấp quyền Google để đồng bộ</div>
                   </div>
-                  <BtnP onClick={() => { setOauthStep(1); setShowOAuth(true); }} className="!w-auto px-4">🔗 Liên kết</BtnP>
+                  <BtnP onClick={() => toast('🔄 Đồng bộ Google Sheets đang phát triển')} className="!w-auto px-4">🔗 Liên kết</BtnP>
                 </div>
               )}
             </Card>
@@ -476,129 +451,6 @@ export default function SettingsPage() {
         {tab === 'backup' && <BackupTab />}
 
       </div>
-
-      {/* ─── MODALS ─── */}
-
-      {/* Devices */}
-      {showDevices && (
-        <Modal title="Quản lý thiết bị" onClose={() => setShowDevices(false)}>
-          <div className="text-[12px] text-[#6B7280] bg-[#FAFAFB] rounded-[12px] p-3 mb-4">Danh sách thiết bị đăng nhập — cần Auth Hook lưu vào bảng riêng để có dữ liệu thực tế.</div>
-          {devices.map(d => (
-            <div key={d.id} className={`flex items-center gap-3 py-[13px] border-b border-[#EDEDF1] transition-opacity ${d.out ? 'opacity-40' : ''}`}>
-              <div className={`w-[38px] h-[38px] rounded-[12px] flex items-center justify-center text-[17px] shrink-0 ${d.cur ? 'bg-[rgba(var(--color-primary-rgb),.08)]' : 'bg-[#F1F1F4]'}`}>{d.icon}</div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-bold flex items-center gap-1.5">
-                  {d.name}
-                  {d.cur && <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-[6px]" style={{background: 'rgba(var(--color-primary-rgb),.1)', color: 'var(--color-primary)'}}>Thiết bị này</span>}
-                </div>
-                <div className="text-[11.5px] text-[#6B7280] mt-0.5">{d.loc} · {d.last} · {d.method}</div>
-              </div>
-              {!d.cur && (d.out
-                ? <span className="text-[11px] font-bold text-[#6B7280]">Đã đăng xuất</span>
-                : <button onClick={() => logoutDev(d.id)} className="border border-[#EDEDF1] px-3 py-[7px] rounded-[10px] text-[11.5px] font-bold cursor-pointer hover:bg-[rgba(var(--color-primary-rgb),.06)]" style={{color: 'var(--color-primary)'}}>Đăng xuất</button>
-              )}
-            </div>
-          ))}
-          <Btn danger onClick={logoutAllOthers} className="mt-4">Đăng xuất tất cả thiết bị khác</Btn>
-        </Modal>
-      )}
-
-      {/* Export */}
-      {showExport && (
-        <Modal title="Xuất báo cáo" onClose={() => setShowExport(false)}>
-          {exportStep === 'form' ? (
-            <>
-              <div className="text-[12px] text-[#6B7280] mb-4">Chọn định dạng và xem trước bản in.</div>
-              <div className="mb-4">
-                <label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Định dạng</label>
-                <div className="flex gap-2">
-                  {['Word','Excel','PDF'].map(f => (
-                    <button key={f} onClick={() => setExportFmt(f)}
-                      className={`flex-1 py-3 rounded-[14px] text-[13px] font-bold cursor-pointer text-center transition-all ${
-                        exportFmt === f ? 'border-2 border-[var(--color-primary)] bg-[rgba(var(--color-primary-rgb),.05)]' : 'border border-[#EDEDF1] bg-white text-[#6B7280]'
-                      }`}
-                      style={exportFmt === f ? { color: 'var(--color-primary)' } : undefined}>
-                      {f === 'Word' ? '📝' : f === 'Excel' ? '📊' : '📕'} {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <BtnP onClick={() => setExportStep('preview')}>Xem trước bản in →</BtnP>
-            </>
-          ) : (
-            <>
-              <div className="flex gap-2 mb-4">
-                <button onClick={() => setExportStep('form')} className="border border-[#EDEDF1] px-3 py-1.5 rounded-[9px] text-[11.5px] font-bold cursor-pointer hover:bg-[#F5F5F7]">← Quay lại</button>
-                <button onClick={() => window.print()} className="border border-[#EDEDF1] px-3 py-1.5 rounded-[9px] text-[11.5px] font-bold cursor-pointer hover:bg-[#F5F5F7]">🖨️ In</button>
-                <button onClick={() => toast('⬇️ Đang tạo...')} className="py-1.5 px-4 rounded-[9px] text-[11.5px] font-bold text-white cursor-pointer"
-                  style={{background:'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)'}}>⬇️ Tải {exportFmt}</button>
-              </div>
-              <div className="bg-white border border-[#EDEDF1] rounded-[14px] p-7 max-h-[50vh] overflow-y-auto" style={{ fontFamily:"Georgia,'Times New Roman',serif", color:'#1a1a1a' }}>
-                <div className="flex justify-between mb-5" style={{fontFamily:'-apple-system,sans-serif'}}>
-                  <div className="flex items-center gap-2 font-extrabold text-[12px]">
-                    <div className="w-6 h-6 rounded-[9px] flex items-center justify-center text-white font-extrabold text-[11px]" style={{background:'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)'}}>P</div>
-                    <span>PROT LIFE</span>
-                  </div>
-                  <div className="text-[11px] text-[#888]">18/07/2026</div>
-                </div>
-                <h1 className="text-[22px] font-bold mb-1">Báo cáo Tổng quan</h1>
-                <div className="text-[12px] text-[#666] mb-5" style={{fontFamily:'-apple-system,sans-serif'}}>Toàn bộ thời gian</div>
-                <div className="grid grid-cols-4 gap-2.5 mb-[22px]">
-                  {[['128','Người thân & bạn bè'],['64','Sự kiện'],['842','Ký ức'],['37','Địa điểm']].map(([n,l]) => (
-                    <div key={l} className="text-center border border-[#eee] rounded-[8px] p-2.5">
-                      <div className="text-[19px] font-extrabold">{n}</div>
-                      <div className="text-[9.5px] text-[#777] mt-0.5">{l}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-[10px] text-[#999] text-center border-t border-[#eee] pt-2.5">Xuất bởi Prot Life · Trang 1/1</div>
-              </div>
-            </>
-          )}
-        </Modal>
-      )}
-
-      {/* OAuth mock */}
-      {showOAuth && (
-        <Modal onClose={() => { setShowOAuth(false); setOauthStep(1); }}>
-          {oauthStep === 1 && (
-            <div className="text-center">
-              <div className="w-11 h-11 rounded-full bg-[#4285F4] text-white font-extrabold text-[20px] flex items-center justify-center mx-auto mb-4">G</div>
-              <div className="text-[16px] font-bold mb-1">Chọn tài khoản</div>
-              <div className="text-[12px] text-[#6B7280] mb-4">để tiếp tục tới <strong>Prot Life</strong></div>
-              <div onClick={() => setOauthStep(2)} className="flex items-center gap-3 p-3 border border-[#EDEDF1] rounded-[12px] mb-2 cursor-pointer hover:bg-[#FAFAFB]">
-                <div className="w-[34px] h-[34px] rounded-full bg-[#4285F4] text-white font-bold text-[13px] flex items-center justify-center shrink-0">{authUser?.name?.[0] || 'P'}</div>
-                <div className="text-left"><div className="font-bold text-[13px]">{authUser?.name || 'Prot'}</div><div className="text-[11.5px] text-[#6B7280]">{userEmail}</div></div>
-              </div>
-            </div>
-          )}
-          {oauthStep === 2 && (
-            <div>
-              <div className="text-center mb-4">
-                <div className="w-11 h-11 rounded-full bg-[#101010] text-white font-extrabold text-[20px] flex items-center justify-center mx-auto">P</div>
-                <div className="text-[15px] font-bold mt-3">Prot Life muốn truy cập Google</div>
-                <div className="text-[11.5px] text-[#6B7280] mt-1">{userEmail}</div>
-              </div>
-              <div className="bg-[#FAFAFB] rounded-[14px] p-3.5 mb-3">
-                <div className="text-[12.5px] py-1">📄 Tạo và chỉnh sửa <strong>các file Google Sheets cụ thể</strong></div>
-                <div className="text-[12.5px] py-1 text-[#6B7280]">🚫 <strong>Không</strong> truy cập toàn bộ Drive</div>
-              </div>
-              <div className="flex gap-2.5">
-                <button onClick={() => { setShowOAuth(false); setOauthStep(1); }} className="flex-1 py-3 rounded-[12px] border-none text-[13px] font-bold bg-[#F1F1F4] text-[#6B7280] cursor-pointer">Từ chối</button>
-                <button onClick={() => { setOauthStep(3); setTimeout(() => { setShowOAuth(false); setOauthStep(1); setSheet('linked'); toast('✅ Đã liên kết Google Sheet'); }, 1500); }} className="flex-1 py-3 rounded-[12px] border-none text-[13px] font-bold text-white cursor-pointer"
-                  style={{background:'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)', boxShadow:'0 10px 22px rgba(214,0,50,.25)'}}>Cho phép</button>
-              </div>
-            </div>
-          )}
-          {oauthStep === 3 && (
-            <div className="text-center py-4">
-              <div className="w-14 h-14 rounded-full bg-[#10B981] text-white flex items-center justify-center mx-auto mb-4 text-[24px] font-bold">✓</div>
-              <div className="text-[15px] font-bold mb-1.5">Đã liên kết thành công</div>
-              <div className="text-[12px] text-[#6B7280]">Sheet sẵn sàng đồng bộ</div>
-            </div>
-          )}
-        </Modal>
-      )}
     </>
   );
 }
