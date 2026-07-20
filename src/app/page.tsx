@@ -13,19 +13,12 @@ export default function LandingPage() {
   const login = useAuthStore(s => s.login);
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
 
-  // ─── Session check (reactive — updated by AuthListener via auth-store) ───
-  const [hasSession, setHasSession] = useState(false);
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-    });
-  }, []);
-  // Also re-check whenever auth-store changes (e.g. cross-tab sign-in)
+  // ─── Session check + auto-redirect ───
   useEffect(() => {
     if (isLoggedIn) {
-      setHasSession(true);
+      router.replace('/dashboard');
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, router]);
 
   // ─── Login method tab ───
   const [method, setMethod] = useState<'password' | 'magic'>('password');
@@ -238,19 +231,6 @@ export default function LandingPage() {
               </div>
               <p className="text-[13px] text-[#9CA3AF]">Đăng nhập để tiếp tục</p>
             </div>
-
-            {/* Session banner (conditional) */}
-            {hasSession && (
-              <div className="mb-[26px] p-[14px_16px] rounded-[14px]"
-                style={{ background: '#EFF6FF', border: '1px solid #DBEAFE' }}>
-                <div className="text-[12px] font-bold text-[#2563EB] mb-[8px]">Bạn đã đăng nhập</div>
-                <button onClick={() => router.push('/dashboard')}
-                  className="w-full py-[11px] rounded-[10px] border-none text-[13.5px] font-bold text-white cursor-pointer flex items-center justify-center gap-[6px]"
-                  style={{ background: '#2563EB' }}>
-                  Vào Dashboard →
-                </button>
-              </div>
-            )}
 
             {/* Error */}
             {error && (
