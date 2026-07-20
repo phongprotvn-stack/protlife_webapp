@@ -29,21 +29,21 @@ function AuthListener() {
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('name')
+          .select('name, role')
           .eq('id', userId)
           .single();
         store.login({
           id: userId,
           email,
           name: profile?.name || metadataName || email.split('@')[0] || 'User',
-          role: 'admin',
+          role: profile?.role || 'viewer',
         });
       } catch {
         store.login({
           id: userId,
           email,
           name: metadataName || email.split('@')[0] || 'User',
-          role: 'admin',
+          role: 'viewer',
         });
       }
     };

@@ -1,160 +1,173 @@
-# Hermes Runbook 2 — Edge Function, Sao lưu, Google Sheets
+# Hermes Runbook 2 — Sửa lỗi role, Edge Function, Sao lưu, Google Sheets
 
-> Nối tiếp `hermes-runbook.md` (đã xong 9 bước). File này gồm Bước 10-16.
-> Cách dùng giống hệt file trước: mỗi lần dán đúng 1 khối "PASTE VÀO HERMES", làm xong tự kiểm tra rồi mới sang bước sau.
+> Nối tiếp `hermes-runbook.md` (Phần 1-9 đã xong, xác nhận qua review code thật ngày
+> hôm nay). File này gồm Phần 10-16, **đã cập nhật lại dựa trên code thật** — có 1 lỗi
+> mới phát hiện (Phần 10) cần sửa trước tiên.
 >
-> **Khác 1 điểm quan trọng so với file trước:** một số bước (13, 14) có phần việc
-> **chỉ cậu tự làm được, Hermes không làm thay được** — vì cần bấm chuột tạo tài khoản/lấy
-> API key trên trang web ngoài (Cloudflare, GitHub, Google Cloud Console). Những phần đó
-> được đánh dấu rõ **"🙋 CẬU TỰ LÀM"**, tách khỏi phần **"🤖 HERMES LÀM"**.
+> Cách dùng giống hệt các file trước: mỗi lần dán đúng 1 khối "PASTE VÀO HERMES", làm
+> xong tự kiểm tra rồi mới sang bước sau. Bước nào có phần **"🙋 CẬU TỰ LÀM"** thì làm
+> xong phần đó trước, KHÔNG để Hermes tự làm thay.
 
 ---
 
-## Bước 10 — Đồng bộ auth-store với session thật
+## Phần 10 — 🔴 SỬA LỖI: vai trò bị gán cứng `'admin'` cho mọi người
+
+**Bối cảnh:** Review code `src/components/providers.tsx` phát hiện `AuthListener` chỉ
+query cột `name` từ bảng `profiles`, không query `role`, nên gán cứng `role: 'admin'`
+cho mọi tài khoản đăng nhập — làm vô hiệu hoá toàn bộ hệ thống phân quyền vừa thống
+nhất ở Phần 2 (runbook trước).
 
 **PASTE VÀO HERMES:**
 ```
-Đọc src/stores/auth-store.ts và toàn bộ nơi đang gọi supabase.auth (src/app/page.tsx,
-src/app/login/page.tsx). Hiện tại auth-store tự quản lý trạng thái đăng nhập thủ công,
-CHƯA lắng nghe supabase.auth.onAuthStateChange().
+Trong src/components/providers.tsx, hàm syncSession() bên trong AuthListener đang
+query bảng profiles chỉ lấy cột 'name', và gán cứng role: 'admin' khi gọi store.login().
 
-Hãy thêm 1 listener onAuthStateChange (đặt ở nơi hợp lý nhất trong app, ví dụ 1
-AuthProvider bọc toàn app nếu đã có, hoặc tạo mới nếu chưa có) — khi Supabase báo
-SIGNED_IN/SIGNED_OUT/TOKEN_REFRESHED, cập nhật lại đúng state trong auth-store cho
-khớp, không để 2 nguồn trạng thái (Supabase thật và auth-store) lệch nhau.
+Hãy sửa:
+1. Query thêm cột 'role' cùng lúc với 'name' (select('name, role')).
+2. Gán role lấy từ dữ liệu thật trả về (profile?.role), KHÔNG hard-code 'admin' nữa.
+3. Nếu vì lý do nào đó không lấy được role (lỗi query, network...), mặc định fallback
+   về 'viewer' (an toàn hơn 'admin' rất nhiều — không nên mặc định quyền cao khi
+   không chắc chắn).
+4. Áp dụng sửa tương tự ở CẢ 2 chỗ gọi store.login() trong file (chỗ try và chỗ catch).
 
-Sau khi sửa xong, chạy npm run build kiểm tra không lỗi.
+Sau khi sửa, chạy npm run build kiểm tra không lỗi.
 ```
-✅ Kiểm tra: đăng nhập ở 1 tab, mở thêm tab thứ 2 cùng trình duyệt — tab 2 phải tự nhận trạng thái đã đăng nhập mà không cần F5.
+✅ Kiểm tra: vào Supabase Dashboard → Table Editor → bảng `profiles`, đổi tay cột `role` của tài khoản test thành `viewer`. Đăng xuất, đăng nhập lại — vào Tab Phân quyền phải thấy đúng vai trò `Chỉ xem`, KHÔNG còn là Admin. Xong thì đổi lại `role = 'admin'` cho tài khoản chính của cậu.
 
 ---
 
-## Bước 11 — Xây Edge Function `revoke-device-session`
+## Phần 11 — Chuẩn bị session_id thật + Postgres function revoke
 
-**🙋 CẬU TỰ LÀM trước (1 lần duy nhất, nếu máy chưa cài Supabase CLI):**
+**Bối cảnh:** Bảng `user_devices` hiện tại (file `src/lib/services/device-service.ts`)
+chỉ lưu `device_name`, `login_method`, KHÔNG lưu `session_id` thật — cần bổ sung để
+Phần 12 revoke đúng đúng phiên, không revoke nhầm.
+
+**PASTE VÀO HERMES:**
+```
+Đọc src/lib/services/device-service.ts hiện tại. Cần bổ sung lưu session_id thật:
+
+1. Tạo cho tôi 1 file migration SQL mới (đặt trong supabase/, đúng convention đặt tên
+   như các file migration cũ trong đó):
+   - ALTER TABLE user_devices ADD COLUMN IF NOT EXISTS session_id UUID;
+   - Tạo 1 Postgres function revoke_session(target_session_id UUID) chạy với quyền
+     SECURITY DEFINER, nội dung: DELETE FROM auth.sessions WHERE id = target_session_id;
+     (đây là cách đáng tin cậy hơn supabase.auth.admin.signOut() — API đó có báo cáo
+     lỗi thực tế không xoá được session trong database ở một số phiên bản).
+   - GRANT EXECUTE quyền gọi function này CHỈ cho role 'service_role' (không cho phép
+     người dùng thường tự gọi trực tiếp).
+   Chỉ tạo file SQL, CHƯA tự chạy — tôi sẽ tự chạy tay qua Supabase Dashboard.
+
+2. Sửa hàm recordDeviceLogin() trong device-service.ts: sau khi supabase.auth có
+   session, lấy session_id thật bằng cách decode JWT của access_token hiện tại
+   (payload JWT có sẵn field 'session_id' — dùng JSON.parse(atob(token.split('.')[1]))
+   để đọc, không cần cài thêm thư viện jwt-decode). Lưu giá trị này vào cột session_id
+   khi insert vào user_devices.
+```
+✅ Kiểm tra: chạy SQL migration trên Dashboard trước (`SELECT * FROM pg_proc WHERE proname = 'revoke_session';` phải trả về 1 dòng). Đăng nhập lại 1 lần, vào Table Editor xem bảng `user_devices`, dòng mới nhất phải có cột `session_id` không rỗng (dạng UUID).
+
+---
+
+## Phần 12 — Edge Function `revoke-device-session`
+
+**🙋 CẬU TỰ LÀM trước (nếu máy chưa cài Supabase CLI):**
 ```powershell
 npm install -g supabase
 supabase login
+supabase link
 ```
-Lệnh `login` sẽ mở trình duyệt để cậu đăng nhập — làm xong quay lại terminal là được.
 
 **🤖 PASTE VÀO HERMES:**
 ```
-Tạo 1 Supabase Edge Function mới tên revoke-device-session (dùng lệnh
-`supabase functions new revoke-device-session` nếu cần khởi tạo khung).
+Tạo Supabase Edge Function mới tên revoke-device-session
+(supabase functions new revoke-device-session).
 
-Nội dung function:
-1. Nhận session_id từ body request (JSON).
-2. Tạo Supabase client với Service Role Key — LƯU Ý: không cần tôi cung cấp key,
-   Supabase tự động cấp sẵn biến môi trường SUPABASE_SERVICE_ROLE_KEY bên trong mọi
-   Edge Function, chỉ cần đọc qua Deno.env.get('SUPABASE_SERVICE_ROLE_KEY').
-3. Gọi supabase.auth.admin.signOut(session_id) để vô hiệu hoá đúng phiên đó.
-4. Nếu thành công, xoá luôn dòng tương ứng trong bảng user_devices (theo session_id).
-5. Trả về JSON { success: true } hoặc lỗi rõ ràng nếu thất bại.
+Nội dung:
+1. Nhận session_id và device_row_id từ body request (JSON).
+2. Tạo Supabase client dùng Service Role Key — không cần tôi cung cấp key, Supabase
+   tự cấp sẵn biến môi trường SUPABASE_SERVICE_ROLE_KEY bên trong Edge Function, đọc
+   qua Deno.env.get('SUPABASE_SERVICE_ROLE_KEY').
+3. Gọi supabase.rpc('revoke_session', { target_session_id: session_id }) — hàm này
+   đã tạo ở Phần 11.
+4. Nếu thành công, xoá luôn dòng device_row_id tương ứng trong bảng user_devices.
+5. Trả về { success: true } hoặc lỗi rõ ràng.
 
-Sau khi viết xong code, chạy `supabase functions deploy revoke-device-session` để
-deploy lên Supabase thật, và báo cho tôi kết quả deploy.
+Deploy bằng supabase functions deploy revoke-device-session, báo kết quả deploy.
 ```
-✅ Kiểm tra: vào Supabase Dashboard → Edge Functions, phải thấy `revoke-device-session` xuất hiện, trạng thái "Deployed".
+✅ Kiểm tra: Supabase Dashboard → Edge Functions phải thấy `revoke-device-session`, trạng thái "Deployed".
 
 ---
 
-## Bước 12 — Nối nút "Đăng xuất" gọi Edge Function thật
+## Phần 13 — Nối nút "Đăng xuất" gọi Edge Function thật
 
 **PASTE VÀO HERMES:**
 ```
-Sửa nút "Đăng xuất" ở Tab Tài khoản → Quản lý thiết bị (đã nối bảng user_devices ở
-Bước 8): thay vì chỉ xoá row trực tiếp trong bảng như hiện tại, gọi:
-
-  const { error } = await supabase.functions.invoke('revoke-device-session', {
-    body: { session_id: device.session_id }
-  });
-
-Nếu thành công mới xoá khỏi UI/bảng, nếu lỗi thì hiện toast báo lỗi, không xoá.
+Sửa nút "Đăng xuất" ở Tab Tài khoản → Quản lý thiết bị (src/app/settings/page.tsx,
+đang gọi trực tiếp deleteDevice() từ device-service.ts): đổi sang gọi Edge Function
+qua supabase.functions.invoke('revoke-device-session', { body: { session_id, device_row_id } }).
+Nếu thành công mới cập nhật UI/xoá khỏi danh sách, nếu lỗi hiện toast báo lỗi.
 ```
-✅ Kiểm tra: đăng nhập bằng 2 trình duyệt khác nhau (VD Chrome + Edge) cùng 1 tài khoản, vào Quản lý thiết bị ở Chrome, bấm "Đăng xuất" cho dòng của Edge — quay sang tab Edge, thử F5, phải bị đá về trang đăng nhập thật.
+✅ Kiểm tra: đăng nhập 2 trình duyệt khác nhau cùng 1 tài khoản, ở trình duyệt A vào Quản lý thiết bị, bấm "Đăng xuất" cho dòng của trình duyệt B — quay sang B, F5, phải bị đá về `/login` thật (không chỉ biến mất khỏi danh sách ở A).
 
 ---
 
-## Bước 13 — Sao lưu 3-2-1: GitHub Actions + Cloudflare R2
-
-Đây là bước có nhiều việc **cậu phải tự bấm tay** trên các trang ngoài trước — Hermes không tạo tài khoản/lấy key hộ được.
+## Phần 14 — Sao lưu 3-2-1: GitHub Actions + Cloudflare R2
 
 **🙋 CẬU TỰ LÀM trước:**
-1. Tạo tài khoản Cloudflare (nếu chưa có) → vào R2 → tạo 1 bucket mới (VD `protlife-backup`).
-2. Cloudflare Dashboard → R2 → Manage API Tokens → tạo token có quyền đọc/ghi bucket vừa tạo → lưu lại `Access Key ID` và `Secret Access Key`.
-3. Vào GitHub repo của project → Settings → Secrets and variables → Actions → thêm 3 secret: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `SUPABASE_DB_URL` (connection string Postgres, lấy ở Supabase Dashboard → Settings → Database).
+1. Tạo tài khoản Cloudflare (nếu chưa có) → R2 → tạo bucket mới (VD `protlife-backup`).
+2. R2 → Manage API Tokens → tạo token đọc/ghi bucket vừa tạo → lưu `Access Key ID` + `Secret Access Key`.
+3. GitHub repo → Settings → Secrets and variables → Actions → thêm 3 secret: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `SUPABASE_DB_URL` (lấy ở Supabase Dashboard → Settings → Database → Connection string).
 
-**🤖 PASTE VÀO HERMES (sau khi 3 bước trên xong):**
+**🤖 PASTE VÀO HERMES:**
 ```
-Tạo 1 GitHub Actions workflow mới tại .github/workflows/backup-daily.yml, chạy theo
-lịch cron hằng ngày (03:00 UTC). Job này:
-1. Dùng pg_dump kết nối qua secret SUPABASE_DB_URL, dump toàn bộ database, nén gzip.
-2. Upload file dump nén lên Cloudflare R2 (dùng aws-cli với endpoint R2, đọc key từ
-   secret R2_ACCESS_KEY_ID và R2_SECRET_ACCESS_KEY), lưu vào đường dẫn
-   db-dumps/daily/YYYY-MM-DD.dump.gz trong bucket protlife-backup.
-Không cần tôi cung cấp secret gì thêm ngoài 3 cái đã thêm trong GitHub — workflow đọc
-qua ${{ secrets.TÊN_SECRET }} như chuẩn GitHub Actions.
-
-Chỉ tạo file workflow, CHƯA tự ý push/chạy — tôi sẽ tự kiểm tra rồi commit.
+Tạo GitHub Actions workflow mới tại .github/workflows/backup-daily.yml, chạy cron
+hằng ngày (03:00 UTC):
+1. pg_dump qua secret SUPABASE_DB_URL, nén gzip.
+2. Upload lên Cloudflare R2 (aws-cli với endpoint R2, đọc R2_ACCESS_KEY_ID/
+   R2_SECRET_ACCESS_KEY từ secrets) vào db-dumps/daily/YYYY-MM-DD.dump.gz trong
+   bucket protlife-backup.
+Chỉ tạo file workflow, CHƯA tự push/chạy.
 ```
-✅ Kiểm tra: đọc lại file `.github/workflows/backup-daily.yml`, commit + push, vào tab Actions trên GitHub, chạy thử thủ công 1 lần (nút "Run workflow"), xem log chạy có báo lỗi không, kiểm tra bucket R2 có file mới xuất hiện.
+✅ Kiểm tra: commit + push, vào tab Actions, chạy thử tay 1 lần ("Run workflow"), xem log không lỗi, kiểm tra bucket R2 có file mới.
 
 ---
 
-## Bước 14 — Google OAuth cho Google Sheets
+## Phần 15 — Google OAuth cho Google Sheets
 
 **🙋 CẬU TỰ LÀM trước:**
-1. Vào [Google Cloud Console](https://console.cloud.google.com) → tạo project mới (hoặc dùng project có sẵn).
-2. Bật **Google Sheets API** và **Google Drive API** (mục APIs & Services → Library).
-3. Vào **OAuth consent screen** → điền thông tin cơ bản (tên app "Prot Life", email liên hệ).
-4. Vào **Credentials** → Create Credentials → OAuth Client ID → loại "Web application" → thêm `Authorized redirect URI` trỏ về domain app của cậu (VD `https://protlife.vercel.app/api/auth/google/callback`).
-5. Lưu lại `Client ID` và `Client Secret`.
-6. Thêm 2 giá trị đó vào biến môi trường project (`.env.local` và trên Vercel → Settings → Environment Variables): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+1. [Google Cloud Console](https://console.cloud.google.com) → tạo/chọn project.
+2. Bật Google Sheets API + Google Drive API.
+3. OAuth consent screen → điền tên app "Prot Life" + email liên hệ.
+4. Credentials → Create OAuth Client ID → loại Web application → Authorized redirect URI trỏ về domain thật (VD `https://protlife.vercel.app/api/auth/google/callback`).
+5. Lưu `Client ID` + `Client Secret` vào `.env.local` và Vercel Environment Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
 
-**🤖 PASTE VÀO HERMES (sau khi có Client ID/Secret trong biến môi trường):**
+**🤖 PASTE VÀO HERMES:**
 ```
-Tôi đã có GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET trong biến môi trường. Hãy code
-luồng OAuth liên kết Google Sheets cho khối "Đồng bộ Google Sheets" ở Tab Dữ liệu
-(hiện đang mock, xem lại code cũ trong settings/page.tsx):
+Đã có GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET trong biến môi trường. Code luồng OAuth
+cho khối "Đồng bộ Google Sheets" ở Tab Dữ liệu (hiện type SheetStatus = 'linked'|
+'unlinked' đang hard-code, xem settings/page.tsx dòng ~19 và ~363):
 1. Nút "Liên kết với Google" điều hướng sang URL xác thực Google, scope
    'https://www.googleapis.com/auth/drive.file' (KHÔNG xin quyền rộng hơn).
-2. Sau khi Google redirect về, đổi authorization code lấy access token + refresh
-   token, lưu refresh token vào 1 bảng mới (tạo file migration SQL riêng, không tự
-   chạy) — KHÔNG lưu token vào localStorage hay bất kỳ chỗ nào trình duyệt đọc được.
-3. Dùng token đó gọi Google Sheets API tạo 1 Sheet mới tên "ProtLife_Data_Export",
-   cập nhật UI sang trạng thái "đã liên kết" thật.
+2. Sau redirect, đổi authorization code lấy access + refresh token. Tạo migration SQL
+   riêng cho bảng lưu refresh token (CHƯA tự chạy) — KHÔNG lưu token vào localStorage.
+3. Dùng token gọi Google Sheets API tạo Sheet mới "ProtLife_Data_Export", cập nhật UI
+   sang trạng thái đã liên kết thật (thay thế hard-code 'linked').
 ```
-✅ Kiểm tra: bấm "Liên kết với Google", phải thấy đúng màn hình xin quyền thật của Google (không phải mô phỏng), chọn tài khoản xong quay lại app phải thấy trạng thái "đã liên kết" với tên Sheet thật, mở thử link phải ra đúng Google Sheet vừa tạo.
+✅ Kiểm tra: bấm "Liên kết với Google" phải ra đúng màn hình xin quyền thật của Google, xong quay lại thấy tên Sheet thật, mở link ra đúng Sheet vừa tạo.
 
 ---
 
-## Bước 15 — Database Webhook → Edge Function thứ 2 (App → Sheet)
+## Phần 16 — Database Webhook → Edge Function #2 + Rà soát cuối
 
 **PASTE VÀO HERMES:**
 ```
-Tạo Edge Function thứ 2 tên sync-to-sheet:
-1. Nhận payload từ Supabase Database Webhook (table, type: INSERT/UPDATE/DELETE, record).
-2. Đọc refresh token đã lưu ở Bước 14, đổi lấy access token mới nếu cần.
-3. Gọi Google Sheets API ghi/cập nhật/xoá đúng dòng tương ứng trên Sheet đã liên kết.
-Deploy function này (supabase functions deploy sync-to-sheet).
-
-Sau đó hướng dẫn tôi từng bước để tự bật Database Webhook trên Supabase Dashboard cho
-3 bảng contacts, events, memories, trỏ webhook tới URL của Edge Function này — không
-cần tự động hoá bước bật webhook, chỉ hướng dẫn tôi làm tay vì đây là thao tác UI trên
-Dashboard.
+1. Tạo Edge Function thứ 2 tên sync-to-sheet: nhận payload Database Webhook (table,
+   type, record), đọc refresh token từ Phần 15, gọi Google Sheets API ghi/cập nhật/xoá
+   đúng dòng tương ứng. Deploy function này.
+2. Hướng dẫn tôi từng bước TỰ bật Database Webhook trên Supabase Dashboard cho 3 bảng
+   contacts, events, memories, trỏ tới URL Edge Function này (chỉ hướng dẫn, không tự
+   động hoá vì đây là thao tác UI).
+3. Sau khi xong, rà soát lại TOÀN BỘ Tab Cài đặt (cả 7 tab), liệt kê rõ file + dòng
+   code nếu còn bất kỳ phần nào là mock/hard-code chưa nối dữ liệu thật.
 ```
-✅ Kiểm tra: thêm 1 người thân mới trong app, mở Google Sheet lên xem có dòng mới xuất hiện trong vài giây không.
-
----
-
-## Bước 16 — Rà soát tổng thể lần cuối
-
-**PASTE VÀO HERMES:**
-```
-Rà soát lại toàn bộ Tab Cài đặt (Tài khoản, Dữ liệu, Riêng tư, Thông báo, Giao diện,
-Phân quyền, Sao lưu) và liệt kê: còn phần nào là mock/hard-code không đọc-ghi dữ liệu
-thật không? Với mỗi phần liệt kê, ghi rõ file và dòng code liên quan.
-```
-✅ Đây là điểm chốt — nếu danh sách trả về rỗng (không còn mock nào), toàn bộ trang Cài đặt đã hoạt động thật 100%. Nếu còn sót, xử lý riêng từng cái theo đúng nguyên tắc cũ (1 phần/1 lần, không gộp).
+✅ Đây là điểm chốt cuối — nếu danh sách mock trả về rỗng, toàn bộ trang Cài đặt đã hoạt động thật 100%.
 

@@ -53,20 +53,22 @@ export default function LoginPage() {
       if (data.user) {
         // Fetch real name from profiles table
         let realName = data.user.user_metadata?.name || '';
+        let userRole: 'public' | 'viewer' | 'contributor' | 'admin' | undefined;
         try {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('name')
+            .select('name, role')
             .eq('id', data.user.id)
             .single();
           if (profile?.name) realName = profile.name;
+          userRole = profile?.role;
         } catch { /* fallback */ }
         if (!realName) realName = data.user.email?.split('@')[0] || 'User';
         login({
           id: data.user.id,
           email: data.user.email || email,
           name: realName,
-          role: 'admin',
+          role: userRole || 'viewer',
         });
         loadSettingsFromServer(data.user.id);
         recordDeviceLogin(data.user.id, 'password');
@@ -101,20 +103,22 @@ export default function LoginPage() {
         const existingUser = useAuthStore.getState().user;
         // Fetch real name from profiles table
         let realName = existingUser?.name || u.user_metadata?.name || '';
+        let userRole: 'public' | 'viewer' | 'contributor' | 'admin' | undefined;
         try {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('name')
+            .select('name, role')
             .eq('id', u.id)
             .single();
           if (profile?.name) realName = profile.name;
+          userRole = profile?.role;
         } catch { /* fallback */ }
         if (!realName) realName = u.email?.split('@')[0] || 'User';
         login({
           id: u.id,
           email: u.email || '',
           name: realName,
-          role: 'admin',
+          role: userRole || 'viewer',
         });
         loadSettingsFromServer(u.id);
         recordDeviceLogin(u.id, 'session');

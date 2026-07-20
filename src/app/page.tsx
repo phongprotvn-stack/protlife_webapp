@@ -76,13 +76,15 @@ export default function LandingPage() {
       if (data.user) {
         // Fetch real name from profiles table
         let realName = data.user.user_metadata?.full_name || data.user.user_metadata?.name || '';
+        let userRole: 'public' | 'viewer' | 'contributor' | 'admin' | undefined;
         try {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('name')
+            .select('name, role')
             .eq('id', data.user.id)
             .single();
           if (profile?.name) realName = profile.name;
+          userRole = profile?.role;
         } catch { /* fallback to metadata */ }
         if (!realName) realName = data.user.email?.split('@')[0] || '';
         login({
@@ -90,7 +92,7 @@ export default function LandingPage() {
           email: data.user.email || email.trim(),
           name: realName,
           avatar: data.user.user_metadata?.avatar_url || '',
-          role: 'admin',
+          role: userRole || 'viewer',
         });
         loadSettingsFromServer(data.user.id);
         recordDeviceLogin(data.user.id, 'password');
