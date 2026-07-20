@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import { loadSettingsFromServer } from '@/stores/settings-store';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const userId = useAuthStore((s) => s.user?.id);
   const [hydrated, setHydrated] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -24,13 +26,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return; // still loading from localStorage
+    if (!hydrated) return;
     if (!isLoggedIn) {
       router.replace('/login');
     } else {
       setChecking(false);
     }
   }, [isLoggedIn, router, hydrated]);
+
+  // Load settings from Supabase when user logs in
+  useEffect(() => {
+    if (!checking && userId) {
+      loadSettingsFromServer(userId);
+    }
+  }, [checking, userId]);
 
   if (checking) {
     return (

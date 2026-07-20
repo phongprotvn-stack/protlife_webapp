@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabase } from '@/lib/supabase/client';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type Language = 'Tiếng Việt' | 'English';
@@ -124,6 +125,63 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
+
+// ─── Supabase sync ───
+
+let _serverHydrate = false; // prevents feedback loop when loading from server
+
+// Debounce helper
+function debounce<T extends (...args: any[]) => any>(fn: T, ms: number) {
+  let timer: ReturnType<typeof setTimeout>;
+  const debounced = (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+  debounced.cancel = () => clearTimeout(timer);
+  return debounced;
+}
+
+const debouncedUpsert = debounce(async (state: SettingsState) => {
+  if (_serverHydrate) return;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { set: _, reset: _r, ...settings } = state;
+  const { error } = await supabase.from('user_preferences').upsert({
+    user_id: user.id,
+    settings,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (error) {
+    console.warn('[settings-store] Upsert failed:', error.message);
+  }
+}, 800);
+
+// Subscribe: every store change → upsert to Supabase (debounced)
+useSettingsStore.subscribe((state) => {
+  if (!_serverHydrate) {
+    debouncedUpsert(state);
+  }
+});
+
+/**
+ * Load settings from Supabase user_preferences table.
+ * Call this when user logs in (from AuthProvider, layout, or login flow).
+ * If server data exists, it overwrites localStorage defaults.
+ */
+export async function loadSettingsFromServer(userId: string) {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('settings')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data?.settings) return; // no server data yet
+
+  _serverHydrate = true;
+  useSettingsStore.setState(data.settings as Partial<SettingsState>);
+  // Re-enable upsert after state settles
+  setTimeout(() => { _serverHydrate = false; }, 200);
+}
 
 // Helper: get CSS value based on settings
 export function fontSizeValue(index: number): string {
