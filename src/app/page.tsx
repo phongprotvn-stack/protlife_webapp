@@ -72,10 +72,21 @@ export default function LandingPage() {
         return;
       }
       if (data.user) {
+        // Fetch real name from profiles table
+        let realName = data.user.user_metadata?.full_name || data.user.user_metadata?.name || '';
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', data.user.id)
+            .single();
+          if (profile?.name) realName = profile.name;
+        } catch { /* fallback to metadata */ }
+        if (!realName) realName = data.user.email?.split('@')[0] || '';
         login({
           id: data.user.id,
           email: data.user.email || email.trim(),
-          name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || '',
+          name: realName,
           avatar: data.user.user_metadata?.avatar_url || '',
           role: 'admin',
         });

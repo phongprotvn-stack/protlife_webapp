@@ -50,10 +50,21 @@ export default function LoginPage() {
 
       if (data.user) {
         const isAdmin = data.user.email?.toLowerCase() === 'phongprot.vn@gmail.com';
+        // Fetch real name from profiles table
+        let realName = data.user.user_metadata?.name || '';
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', data.user.id)
+            .single();
+          if (profile?.name) realName = profile.name;
+        } catch { /* fallback */ }
+        if (!realName) realName = data.user.email?.split('@')[0] || 'User';
         login({
           id: data.user.id,
           email: data.user.email || email,
-          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
+          name: realName,
           role: 'admin',
         });
         router.push('/dashboard');
@@ -81,15 +92,25 @@ export default function LoginPage() {
 
   // Check if already authenticated with Supabase on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const u = session.user;
-        // Respect existing auth-store name (user may have changed it in Settings)
         const existingUser = useAuthStore.getState().user;
+        // Fetch real name from profiles table
+        let realName = existingUser?.name || u.user_metadata?.name || '';
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', u.id)
+            .single();
+          if (profile?.name) realName = profile.name;
+        } catch { /* fallback */ }
+        if (!realName) realName = u.email?.split('@')[0] || 'User';
         login({
           id: u.id,
           email: u.email || '',
-          name: existingUser?.name || u.user_metadata?.name || u.email?.split('@')[0] || 'User',
+          name: realName,
           role: 'admin',
         });
         router.push('/dashboard');
