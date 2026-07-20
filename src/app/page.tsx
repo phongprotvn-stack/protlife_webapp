@@ -75,7 +75,7 @@ export default function LandingPage() {
         login({
           id: data.user.id,
           email: data.user.email || email.trim(),
-          name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || '',
+          name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || '',
           avatar: data.user.user_metadata?.avatar_url || '',
           role: 'admin',
         });

@@ -6,7 +6,7 @@ export interface UserProfile {
   email: string;
   name: string;
   avatar?: string;
-  role: 'admin' | 'viewer' | 'contributor';
+  role: 'public' | 'viewer' | 'contributor' | 'admin';
 }
 
 interface AuthState {
@@ -29,10 +29,6 @@ export const useAuthStore = create<AuthState>()(
       isLoggedIn: false,
       user: null,
       login: (user) => {
-        // Force admin name
-        if (user.email?.toLowerCase() === 'phongprot.vn@gmail.com' && user.name !== 'Prot') {
-          user.name = 'Prot';
-        }
         set({ isLoggedIn: true, user });
       },
       logout: () => set({ isLoggedIn: false, user: null }),

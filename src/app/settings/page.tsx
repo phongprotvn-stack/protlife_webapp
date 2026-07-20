@@ -9,10 +9,11 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useSettingsStore, fontSizeValue } from '@/stores/settings-store';
 import type { SettingsState, ThemeMode } from '@/stores/settings-store';
 import { settingsService, AppDataStats } from '@/lib/services/settings-service';
+import { supabase } from '@/lib/supabase/client';
 
 // ─── Types ───
 type Tab = 'account' | 'data' | 'privacy' | 'notify' | 'appearance' | 'permissions' | 'backup';
-type RoleKey = 'admin' | 'member' | 'viewer' | 'guest';
+type RoleKey = 'public' | 'viewer' | 'contributor' | 'admin';
 type SheetStatus = 'linked' | 'unlinked';
 
 const TABS: { id: Tab; label: string; icon: typeof User }[] = [
@@ -148,11 +149,24 @@ export default function SettingsPage() {
   const [editGender, setEditGender] = useState(s.gender);
   const userEmail = authUser?.email || '';
 
-  const handleSaveProfile = useCallback(() => {
+  const handleSaveProfile = useCallback(async () => {
+    // Lưu vào Zustand/localStorage
     setSetting({ displayName: editName, phone: editPhone, dob: editDob, gender: editGender, displayEmail: editEmail });
+    // Đồng bộ lên Supabase
+    try {
+      const { error } = await supabase.from('profiles').update({ name: editName }).eq('id', authUser?.id);
+      if (error) throw error;
+      // Cập nhật luôn auth store để persist qua F5
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useAuthStore.getState().login({ ...currentUser, name: editName });
+      }
+      toast('✅ Đã lưu thông tin cá nhân');
+    } catch (e: any) {
+      toast('❌ Lỗi khi lưu lên server: ' + (e?.message || 'Không xác định'));
+    }
     setEditing(false);
-    toast('✅ Đã lưu thông tin cá nhân');
-  }, [editName, editPhone, editDob, editGender, editEmail, setSetting]);
+  }, [editName, editPhone, editDob, editGender, editEmail, setSetting, authUser?.id]);
 
   // ¤ Devices modal
   const [showDevices, setShowDevices] = useState(false);
@@ -223,7 +237,11 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <div className="font-bold text-[14px]">{authUser?.name || 'Chưa đặt tên'}</div>
-                  <div className="text-[12px] text-[#6B7280]">{authUser?.role === 'admin' ? 'Quản trị viên' : authUser?.role === 'viewer' ? 'Người xem' : 'Người đóng góp'}</div>
+                  <div className="text-[12px] text-[#6B7280]">
+                    {authUser?.role === 'admin' ? 'Admin' :
+                     authUser?.role === 'contributor' ? 'Người đóng góp' :
+                     authUser?.role === 'viewer' ? 'Chỉ xem' :
+                     authUser?.role === 'public' ? 'Khách công khai' : ''}</div>
                   <div className="text-[11px] text-[#9CA3AF] mt-0.5">{userEmail}</div>
                 </div>
               </div>
@@ -601,9 +619,9 @@ function DataStat({ label, value }: { label: string; value: string }) {
 function RolePill({ role, label }: { role: RoleKey; label: string }) {
   const map: Record<RoleKey, { bg: string; text: string }> = {
     admin: { bg: 'rgba(var(--color-primary-rgb),.1)', text: 'var(--color-primary)' },
-    member: { bg: 'rgba(139,92,246,.1)', text: '#8B5CF6' },
+    contributor: { bg: 'rgba(139,92,246,.1)', text: '#8B5CF6' },
     viewer: { bg: 'rgba(16,185,129,.1)', text: '#10B981' },
-    guest: { bg: '#F1F1F4', text: '#6B7280' },
+    public: { bg: '#F1F1F4', text: '#6B7280' },
   };
   return <span className="inline-block px-2.5 py-1 rounded-[8px] text-[11px] font-bold" style={{ background: map[role].bg, color: map[role].text }}>{label}</span>;
 }
@@ -622,9 +640,10 @@ function PermissionsTab() {
         <thead><tr className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-[.4px]"><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">Vai trò</th><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">Quyền</th><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">SL</th></tr></thead>
         <tbody>
           {[
-            { key:'admin' as RoleKey, label:'Admin', desc:'Toàn quyền', count:1 },
-            { key:'member' as RoleKey, label:'Member', desc:'Đóng góp', count:4 },
-            { key:'viewer' as RoleKey, label:'Viewer', desc:'Chỉ xem', count:2 },
+            { key:'admin' as RoleKey, label:'Admin', desc:'Toàn quyền quản lý', count:1 },
+            { key:'contributor' as RoleKey, label:'Người đóng góp', desc:'Được thêm/sửa dữ liệu, không xoá', count:4 },
+            { key:'viewer' as RoleKey, label:'Chỉ xem', desc:'Xem được, không chỉnh sửa', count:2 },
+            { key:'public' as RoleKey, label:'Khách công khai', desc:'Xem giới hạn qua link chia sẻ', count:0 },
           ].map(r => (
             <tr key={r.key} className="border-b border-[#EDEDF1] hover:bg-[#FAFAFB]">
               <td className="px-2 py-3"><RolePill role={r.key} label={r.label} /></td>

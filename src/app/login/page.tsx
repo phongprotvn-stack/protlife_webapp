@@ -53,7 +53,7 @@ export default function LoginPage() {
         login({
           id: data.user.id,
           email: data.user.email || email,
-          name: isAdmin ? 'Prot' : (data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'),
+          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
           role: 'admin',
         });
         router.push('/dashboard');
@@ -84,10 +84,12 @@ export default function LoginPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const u = session.user;
+        // Respect existing auth-store name (user may have changed it in Settings)
+        const existingUser = useAuthStore.getState().user;
         login({
           id: u.id,
           email: u.email || '',
-          name: (u.email?.toLowerCase() === 'phongprot.vn@gmail.com') ? 'Prot' : (u.user_metadata?.name || u.email?.split('@')[0] || 'User'),
+          name: existingUser?.name || u.user_metadata?.name || u.email?.split('@')[0] || 'User',
           role: 'admin',
         });
         router.push('/dashboard');
