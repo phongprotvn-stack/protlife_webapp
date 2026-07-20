@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LogIn, ShieldCheck, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { loadSettingsFromServer } from '@/stores/settings-store';
+import { recordDeviceLogin } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -68,6 +69,7 @@ export default function LoginPage() {
           role: 'admin',
         });
         loadSettingsFromServer(data.user.id);
+        recordDeviceLogin(data.user.id, 'password');
         router.push('/dashboard');
       }
     } catch (err: any) {
@@ -115,6 +117,7 @@ export default function LoginPage() {
           role: 'admin',
         });
         loadSettingsFromServer(u.id);
+        recordDeviceLogin(u.id, 'session');
         router.push('/dashboard');
       }
     });

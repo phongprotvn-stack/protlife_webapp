@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
 import { loadSettingsFromServer } from '@/stores/settings-store';
+import { recordDeviceLogin } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
 
 export default function LandingPage() {
@@ -92,6 +93,7 @@ export default function LandingPage() {
           role: 'admin',
         });
         loadSettingsFromServer(data.user.id);
+        recordDeviceLogin(data.user.id, 'password');
         router.push('/dashboard');
       }
     } catch {

@@ -9,6 +9,8 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useSettingsStore, fontSizeValue } from '@/stores/settings-store';
 import type { SettingsState, ThemeMode } from '@/stores/settings-store';
 import { settingsService, AppDataStats } from '@/lib/services/settings-service';
+import { getUserDevices, deleteDevice, deleteOtherDevices, getCurrentDeviceId, formatDeviceName, getDeviceIcon } from '@/lib/services/device-service';
+import type { UserDevice } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
 
 // ─── Types ───
@@ -175,6 +177,36 @@ export default function SettingsPage() {
   // ¤ Sheet UI state (visual placeholder — integration coming)
   const [sheet, setSheet] = useState<SheetStatus>('unlinked');
 
+  // ¤ Device management
+  const [showDevices, setShowDevices] = useState(false);
+  const [devices, setDevices] = useState<UserDevice[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const loadDevices = useCallback(async () => {
+    if (!authUser?.id) return;
+    setDevicesLoading(true);
+    try {
+      const list = await getUserDevices();
+      setDevices(list);
+    } catch { /* silent */ }
+    setDevicesLoading(false);
+  }, [authUser?.id]);
+  const handleDeleteDevice = useCallback(async (deviceId: string) => {
+    try {
+      await deleteDevice(deviceId);
+      setDevices(d => d.filter(x => x.id !== deviceId));
+      toast('✅ Đã đăng xuất thiết bị');
+    } catch { toast('❌ Lỗi khi đăng xuất thiết bị'); }
+  }, []);
+  const handleDeleteOtherDevices = useCallback(async () => {
+    const curId = getCurrentDeviceId();
+    if (!curId) { toast('❌ Không xác định được thiết bị hiện tại'); return; }
+    try {
+      await deleteOtherDevices(curId);
+      setDevices(d => d.filter(x => x.id === curId));
+      toast('✅ Đã đăng xuất khỏi mọi thiết bị khác');
+    } catch { toast('❌ Lỗi khi đăng xuất'); }
+  }, []);
+
   return (
     <>
       {/* Toast */}
@@ -265,7 +297,7 @@ export default function SettingsPage() {
             <div>
               <Card title="Bảo mật">
                 <Btn onClick={() => toast('🔐 Chức năng đổi mật khẩu đang phát triển')}>Đổi mật khẩu</Btn>
-                <Btn onClick={() => toast('📱 Quản lý thiết bị đang phát triển')}>📱 Quản lý thiết bị</Btn>
+                <Btn onClick={() => { setShowDevices(true); loadDevices(); }}>📱 Quản lý thiết bị</Btn>
                 <Btn danger onClick={() => { authLogout(); toast('🔒 Đã đăng xuất'); }}>Đăng xuất khỏi thiết bị này</Btn>
               </Card>
 
@@ -451,6 +483,48 @@ export default function SettingsPage() {
         {tab === 'backup' && <BackupTab />}
 
       </div>
+
+      {/* ─── DEVICE MODAL ─── */}
+      {showDevices && (
+        <Modal title="Quản lý thiết bị" onClose={() => setShowDevices(false)}>
+          {devicesLoading ? (
+            <div className="text-[13px] text-[#6B7280] py-4 text-center">Đang tải...</div>
+          ) : devices.length === 0 ? (
+            <div className="text-[13px] text-[#6B7280] py-4 text-center">Chưa có thiết bị nào được ghi nhận.</div>
+          ) : (
+            <>
+              {devices.map(d => {
+                const isCurrent = d.id === getCurrentDeviceId();
+                return (
+                  <div key={d.id} className={`flex items-center gap-3 py-[13px] border-b border-[#EDEDF1] ${isCurrent ? '' : ''}`}>
+                    <div className={`w-[38px] h-[38px] rounded-[12px] flex items-center justify-center text-[17px] shrink-0 ${isCurrent ? 'bg-[rgba(var(--color-primary-rgb),.08)]' : 'bg-[#F1F1F4]'}`}>
+                      {getDeviceIcon(d.device_name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold flex items-center gap-1.5">
+                        {formatDeviceName(d.device_name)}
+                        {isCurrent && <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-[6px]" style={{background: 'rgba(var(--color-primary-rgb),.1)', color: 'var(--color-primary)'}}>Thiết bị này</span>}
+                      </div>
+                      <div className="text-[11.5px] text-[#6B7280] mt-0.5">
+                        {d.login_method === 'password' ? 'Mật khẩu' : d.login_method === 'session' ? 'Phiên' : d.login_method} · {new Date(d.last_active).toLocaleString('vi-VN')}
+                      </div>
+                    </div>
+                    {!isCurrent && (
+                      <button onClick={() => handleDeleteDevice(d.id)} className="border border-[#EDEDF1] px-3 py-[7px] rounded-[10px] text-[11.5px] font-bold cursor-pointer hover:bg-[rgba(var(--color-primary-rgb),.06)]" style={{color: 'var(--color-primary)'}}>Đăng xuất</button>
+                    )}
+                    {isCurrent && (
+                      <span className="text-[11px] text-[#6B7280] font-bold">Đang dùng</span>
+                    )}
+                  </div>
+                );
+              })}
+              {devices.length > 1 && (
+                <Btn danger onClick={handleDeleteOtherDevices} className="mt-4">Đăng xuất tất cả thiết bị khác</Btn>
+              )}
+            </>
+          )}
+        </Modal>
+      )}
     </>
   );
 }
