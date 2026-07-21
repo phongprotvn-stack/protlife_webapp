@@ -9,35 +9,36 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate secrets
+      - name: Validate password secret
         env:
-          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -z "$DB_URL" ]; then
-            echo "::error::SUPABASE_DB_URL secret is empty. Add it in GitHub → Settings → Secrets and variables → Actions"
+          if [ -z "$DB_PASSWORD" ]; then
+            echo "::error::SUPABASE_DB_PASSWORD secret is empty. Add it in GitHub → Settings → Secrets and variables → Actions"
             exit 1
           fi
-          echo "✓ SUPABASE_DB_URL is set"
+          echo "✓ SUPABASE_DB_PASSWORD is set (${#DB_PASSWORD} chars)"
 
-      - name: Debug DB_URL shape (safe, no password exposed)
-        env:
-          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      - name: Test network connectivity to pooler
         run: |
-          echo "First 15 chars: ${DB_URL:0:15}"
-          echo "Total length: ${#DB_URL}"
-          echo "Contains 'postgresql://': $(echo "$DB_URL" | grep -c 'postgresql://' || echo 0)"
-          echo "Contains '@': $(echo "$DB_URL" | grep -c '@' || echo 0)"
+          set -euo pipefail
+          echo "=== DNS resolution ==="
+          getent hosts aws-0-ap-southeast-1.pooler.supabase.com || echo "DNS FAILED"
+          echo ""
+          echo "=== TCP connectivity (port 5432) ==="
+          timeout 5 bash -c "echo > /dev/tcp/aws-0-ap-southeast-1.pooler.supabase.com/5432" && echo "TCP OK" || echo "TCP FAILED"
 
       - name: Dump PostgreSQL database
         env:
-          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGHOST: aws-0-ap-southeast-1.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.hwgrdhnsuvohgtcuemag
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGDATABASE: postgres
         run: |
           set -euo pipefail
-          pg_dump "$DB_URL" \
-            --no-owner \
-            --no-acl \
-            | gzip > protlife-$(date -u +%F).dump.gz
+          pg_dump --no-owner --no-acl | gzip > protlife-$(date -u +%F).dump.gz
 
       - name: Install aws-cli for B2
         run: |
