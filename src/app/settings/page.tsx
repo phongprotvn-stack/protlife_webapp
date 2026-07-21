@@ -16,7 +16,6 @@ import { supabase } from '@/lib/supabase/client';
 // ─── Types ───
 type Tab = 'account' | 'data' | 'privacy' | 'notify' | 'appearance' | 'permissions' | 'backup';
 type RoleKey = 'public' | 'viewer' | 'contributor' | 'admin';
-type SheetStatus = 'linked' | 'unlinked';
 
 const TABS: { id: Tab; label: string; icon: typeof User }[] = [
   { id:'account', label:'Tài khoản', icon: User },
@@ -175,8 +174,34 @@ export default function SettingsPage() {
     setEditing(false);
   }, [editName, editPhone, editDob, editGender, editEmail, setSetting, authUser?.id]);
 
-  // ¤ Sheet UI state (visual placeholder — integration coming)
-  const [sheet, setSheet] = useState<SheetStatus>('unlinked');
+  // ¤ Google Sheets
+  const [googleLinked, setGoogleLinked] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(true);
+  const [googleSheetUrl, setGoogleSheetUrl] = useState<string | null>(null);
+
+  // Check OAuth result from URL params + fetch status
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gResult = params.get('google');
+    if (gResult === 'linked') {
+      // Clean URL
+      window.history.replaceState({}, '', '/settings');
+      toast('✅ Đã liên kết Google Sheets thành công!');
+      setGoogleLinked(true);
+    } else if (gResult === 'denied') {
+      window.history.replaceState({}, '', '/settings');
+      toast('ℹ️ Bạn đã huỷ cấp quyền Google.');
+    } else if (gResult === 'error') {
+      window.history.replaceState({}, '', '/settings');
+      const reason = params.get('reason') || 'unknown';
+      toast('❌ Lỗi liên kết Google: ' + ({ config:'Thiếu cấu hình', state:'Lỗi bảo mật', token:'Không nhận được token', db:'Lỗi lưu dữ liệu', network:'Lỗi mạng' }[reason] || reason));
+    }
+    // Fetch current link status
+    fetch('/api/auth/google/status').then(r => r.json()).then(d => {
+      setGoogleLinked(d.linked);
+      if (d.sheetUrl) setGoogleSheetUrl(d.sheetUrl);
+    }).catch(() => {}).finally(() => setGoogleLoading(false));
+  }, []);
 
   // ¤ Device management
   const [showDevices, setShowDevices] = useState(false);
@@ -374,14 +399,16 @@ export default function SettingsPage() {
             <Card>
               <div className="text-[14.5px] font-extrabold mb-[12px] flex items-center gap-2">🔄 Đồng bộ Google Sheets</div>
               <div className="text-[12px] text-[#6B7280] mb-4 leading-relaxed">Mọi thay đổi trong app tự động đẩy sang Google Sheet — sửa trong Sheet <strong>chưa</strong> tự động đẩy ngược lại app.</div>
-              {sheet === 'linked' ? (
+              {googleLoading ? (
+                <div className="text-[13px] text-[#6B7280] py-2">Đang kiểm tra...</div>
+              ) : googleLinked ? (
                 <div className="flex items-center gap-3 py-2.5">
                   <div className="w-9 h-9 rounded-[11px] flex items-center justify-center text-white font-extrabold text-[15px] shrink-0" style={{background:'#0F9D58'}}>📊</div>
                   <div className="flex-1">
                     <div className="text-[13px] font-bold">ProtLife_Data_Export.xlsx</div>
-                    <div className="text-[11.5px] text-[#6B7280] mt-0.5">Đã liên kết · Đồng bộ gần nhất: 4 phút trước</div>
+                    <div className="text-[11.5px] text-[#6B7280] mt-0.5">Đã liên kết{googleSheetUrl ? ' · ' : ''}{googleSheetUrl && <a href={googleSheetUrl} target="_blank" rel="noopener noreferrer" className="underline" style={{color:'var(--color-primary)'}}>Mở Sheet</a>}</div>
                   </div>
-                  <button onClick={() => setSheet('unlinked')} className="border border-[rgba(var(--color-primary-rgb),.25)] px-3 py-1.5 rounded-[9px] text-[11.5px] font-bold" style={{color: 'var(--color-primary)'}}>Ngắt kết nối</button>
+                  <button onClick={() => { setGoogleLinked(false); toast('🔄 Chức năng ngắt kết nối sẽ hoàn thiện sau'); }} className="border border-[rgba(var(--color-primary-rgb),.25)] px-3 py-1.5 rounded-[9px] text-[11.5px] font-bold" style={{color: 'var(--color-primary)'}}>Ngắt kết nối</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 py-2.5">
@@ -390,7 +417,7 @@ export default function SettingsPage() {
                     <div className="text-[13px] font-bold">Chưa liên kết</div>
                     <div className="text-[11.5px] text-[#6B7280] mt-0.5">Cần cấp quyền Google để đồng bộ</div>
                   </div>
-                  <BtnP onClick={() => toast('🔄 Đồng bộ Google Sheets đang phát triển')} className="!w-auto px-4">🔗 Liên kết</BtnP>
+                  <BtnP onClick={() => { window.location.href = '/api/auth/google'; }} className="!w-auto px-4">🔗 Liên kết</BtnP>
                 </div>
               )}
             </Card>
