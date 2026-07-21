@@ -10,17 +10,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "jsr:@supabase/server";
 
 export default {
-  fetch: withSupabase({ auth: ["secret"] }, async (req: Request, ctx) => {
+  fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req: Request, ctx) => {
     try {
       const { session_id, device_row_id } = await req.json();
 
       // ─── Validate input ────────────────────────────────────────
-      if (!session_id || typeof session_id !== "string") {
-        return Response.json(
-          { success: false, error: "Missing or invalid session_id" },
-          { status: 400 }
-        );
-      }
       if (!device_row_id || typeof device_row_id !== "string") {
         return Response.json(
           { success: false, error: "Missing or invalid device_row_id" },
@@ -28,19 +22,21 @@ export default {
         );
       }
 
-      // ─── Revoke Supabase auth session ──────────────────────────
-      const { error: rpcError } = await ctx.supabaseAdmin.rpc(
-        "revoke_session",
-        { target_session_id: session_id }
-      );
-
-      if (rpcError) {
-        console.error("revoke_session RPC failed:", rpcError);
-        return Response.json(
-          { success: false, error: `Failed to revoke session: ${rpcError.message}` },
-          { status: 500 }
+      // ─── Revoke Supabase auth session (if session_id provided) ──
+      if (session_id && typeof session_id === "string") {
+        const { error: rpcError } = await ctx.supabaseAdmin.rpc(
+          "revoke_session",
+          { target_session_id: session_id }
         );
+        if (rpcError) {
+          console.error("revoke_session RPC failed:", rpcError);
+          return Response.json(
+            { success: false, error: `Failed to revoke session: ${rpcError.message}` },
+            { status: 500 }
+          );
+        }
       }
+      // If no session_id (old records), skip revocation and just delete the record
 
       // ─── Delete device record ─────────────────────────────────
       const { error: deleteError } = await ctx.supabaseAdmin

@@ -193,13 +193,17 @@ export default function SettingsPage() {
   }, [authUser?.id]);
   const handleDeleteDevice = useCallback(async (deviceId: string, sessionId: string | null) => {
     try {
+      // If no session_id (old records before Part 11), call edge function anyway
+      // The edge function handles null session_id by deleting device record directly
       const { error } = await supabase.functions.invoke('revoke-device-session', {
         body: { session_id: sessionId, device_row_id: deviceId }
       });
-      if (error) throw error;
+      if (error) throw new Error(typeof error === 'string' ? error : error.message || 'Lỗi từ máy chủ');
       setDevices(d => d.filter(x => x.id !== deviceId));
       toast('✅ Đã đăng xuất thiết bị');
-    } catch { toast('❌ Lỗi khi đăng xuất thiết bị'); }
+    } catch (e: any) {
+      toast('❌ ' + (e?.message || 'Lỗi khi đăng xuất thiết bị'));
+    }
   }, []);
   const handleDeleteOtherDevices = useCallback(async () => {
     const curId = getCurrentDeviceId();
