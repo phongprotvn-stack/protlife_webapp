@@ -126,6 +126,7 @@ export default function SettingsPage() {
   // ¤ Auth (real user data)
   const authUser = useAuthStore(s => s.user);
   const authLogout = useAuthStore(s => s.logout);
+  const setSigningOut = useAuthStore(s => s.setSigningOut);
 
   // ¤ Settings store (persisted to localStorage — will sync to DB later)
   const s = useSettingsStore();
@@ -298,7 +299,13 @@ export default function SettingsPage() {
               <Card title="Bảo mật">
                 <Btn onClick={() => toast('🔐 Chức năng đổi mật khẩu đang phát triển')}>Đổi mật khẩu</Btn>
                 <Btn onClick={() => { setShowDevices(true); loadDevices(); }}>📱 Quản lý thiết bị</Btn>
-                <Btn danger onClick={() => { authLogout(); toast('🔒 Đã đăng xuất'); }}>Đăng xuất khỏi thiết bị này</Btn>
+                <Btn danger onClick={async () => {
+                  setSigningOut(true);
+                  await supabase.auth.signOut().catch(() => {});
+                  authLogout();
+                  toast('🔒 Đã đăng xuất');
+                  window.location.href = '/login';
+                }}>Đăng xuất khỏi thiết bị này</Btn>
               </Card>
 
               <Card title="Ngôn ngữ">

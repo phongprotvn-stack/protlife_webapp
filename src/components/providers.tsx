@@ -23,9 +23,10 @@ function AuthListener() {
     if (initialized.current) return;
     initialized.current = true;
 
-    // Helper: fetch profile name and update store
+    // Helper: fetch profile name/role and update store
     const syncSession = async (userId: string, email: string, metadataName?: string) => {
       const store = useAuthStore.getState();
+      if (store.isSigningOut) return; // don't re-sync while sign-out is in progress
       try {
         const { data: profile } = await supabase
           .from('profiles')

@@ -16,19 +16,20 @@ const DEVICE_ID_KEY = 'protlife-device-id';
  * Record a successful login by inserting into user_devices table.
  * Stores the new device record's ID in localStorage for "current device" detection.
  */
-export async function recordDeviceLogin(userId: string, method: string): Promise<void> {
+export async function recordDeviceLogin(userId: string, method: string, sessionId?: string | null): Promise<void> {
   try {
     const deviceName = navigator.userAgent;
-    // Get session_id from Supabase session's access token JWT
-    let sessionId: string | null = null;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        sessionId = payload?.session_id || null;
-      }
-    } catch { /* non-critical */ }
+    // If caller didn't provide sessionId, try to extract from current session
+    if (sessionId === undefined) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          sessionId = payload?.session_id || null;
+        }
+      } catch { /* non-critical */ }
+    }
     const { data, error } = await supabase
       .from('user_devices')
       .insert({

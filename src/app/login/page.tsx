@@ -64,6 +64,15 @@ export default function LoginPage() {
           userRole = profile?.role;
         } catch { /* fallback */ }
         if (!realName) realName = data.user.email?.split('@')[0] || 'User';
+        // Extract session_id from sign-in response
+        let sid: string | null = null;
+        try {
+          const tok = (data as any).session?.access_token;
+          if (tok) {
+            const b64 = tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            sid = JSON.parse(atob(b64))?.session_id || null;
+          }
+        } catch { /* non-critical */ }
         login({
           id: data.user.id,
           email: data.user.email || email,
@@ -71,7 +80,7 @@ export default function LoginPage() {
           role: userRole || 'viewer',
         });
         loadSettingsFromServer(data.user.id);
-        recordDeviceLogin(data.user.id, 'password');
+        recordDeviceLogin(data.user.id, 'password', sid);
         router.push('/dashboard');
       }
     } catch (err: any) {
@@ -114,6 +123,15 @@ export default function LoginPage() {
           userRole = profile?.role;
         } catch { /* fallback */ }
         if (!realName) realName = u.email?.split('@')[0] || 'User';
+        // Extract session_id from existing session
+        let sessionSid: string | null = null;
+        try {
+          const tok = session.access_token;
+          if (tok) {
+            const b64 = tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            sessionSid = JSON.parse(atob(b64))?.session_id || null;
+          }
+        } catch { /* non-critical */ }
         login({
           id: u.id,
           email: u.email || '',
@@ -121,7 +139,7 @@ export default function LoginPage() {
           role: userRole || 'viewer',
         });
         loadSettingsFromServer(u.id);
-        recordDeviceLogin(u.id, 'session');
+        recordDeviceLogin(u.id, 'session', sessionSid);
         router.push('/dashboard');
       }
     });

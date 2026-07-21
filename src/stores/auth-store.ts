@@ -12,8 +12,10 @@ export interface UserProfile {
 interface AuthState {
   isLoggedIn: boolean;
   user: UserProfile | null;
+  isSigningOut: boolean;
   login: (user: UserProfile) => void;
   logout: () => void;
+  setSigningOut: (v: boolean) => void;
 }
 
 const DEFAULT_ADMIN: UserProfile = {
@@ -28,10 +30,12 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       isLoggedIn: false,
       user: null,
+      isSigningOut: false,
       login: (user) => {
         set({ isLoggedIn: true, user });
       },
-      logout: () => set({ isLoggedIn: false, user: null }),
+      logout: () => set({ isLoggedIn: false, user: null, isSigningOut: false }),
+      setSigningOut: (v) => set({ isSigningOut: v }),
     }),
     {
       name: 'protlife-auth',
