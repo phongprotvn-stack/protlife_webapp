@@ -29,6 +29,17 @@ jobs:
           echo "=== TCP connectivity (port 5432) ==="
           timeout 5 bash -c "echo > /dev/tcp/aws-0-ap-southeast-1.pooler.supabase.com/5432" && echo "TCP OK" || echo "TCP FAILED"
 
+      - name: Install PostgreSQL 17 client tools
+        run: |
+          set -euo pipefail
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo ""
+          echo "=== pg_dump version ==="
+          pg_dump --version
+
       - name: Dump PostgreSQL database
         env:
           PGHOST: aws-0-ap-southeast-1.pooler.supabase.com
