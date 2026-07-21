@@ -70,16 +70,27 @@ jobs:
         run: |
           set -euo pipefail
 
+          DUMP_FILE="protlife-$(date -u +%F).dump.gz"
+
+          # Verify file exists before upload
+          if [ ! -f "$DUMP_FILE" ]; then
+            echo "::error::Dump file '$DUMP_FILE' not found in $(pwd)"
+            ls -la
+            exit 1
+          fi
+          echo "✓ File exists: $DUMP_FILE ($(stat -c%s "$DUMP_FILE") bytes)"
+
           # Auto-prepend https:// if scheme is missing
           case "$B2_ENDPOINT_RAW" in
             http://*|https://*) B2_ENDPOINT="$B2_ENDPOINT_RAW" ;;
             *) B2_ENDPOINT="https://$B2_ENDPOINT_RAW" ;;
           esac
+          echo "✓ Endpoint: $B2_ENDPOINT"
 
-          # Extract region from B2 S3 endpoint (format: https://s3.<region>.backblazeb2.com)
-          B2_REGION=$(echo "$B2_ENDPOINT" | sed -E 's|https://s3\.([^.]+)\..*|\1|')
-
-          aws s3 cp protlife-$(date -u +%F).dump.gz \
+          aws s3 cp "$DUMP_FILE" \
             s3://protlife-backup/db-dumps/daily/$(date -u +%F).dump.gz \
             --endpoint-url "$B2_ENDPOINT" \
-            --region "$B2_REGION"
+            --no-progress \
+            --only-show-errors
+
+          echo "✓ Upload complete"
