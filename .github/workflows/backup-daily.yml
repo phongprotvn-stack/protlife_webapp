@@ -20,6 +20,15 @@ jobs:
           fi
           echo "✓ SUPABASE_DB_URL is set"
 
+      - name: Debug DB_URL shape (safe, no password exposed)
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "First 15 chars: ${DB_URL:0:15}"
+          echo "Total length: ${#DB_URL}"
+          echo "Contains 'postgresql://': $(echo "$DB_URL" | grep -c 'postgresql://' || echo 0)"
+          echo "Contains '@': $(echo "$DB_URL" | grep -c '@' || echo 0)"
+
       - name: Dump PostgreSQL database
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
