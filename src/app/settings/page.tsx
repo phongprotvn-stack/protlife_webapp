@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useSettingsStore, fontSizeValue } from '@/stores/settings-store';
 import type { SettingsState, ThemeMode } from '@/stores/settings-store';
 import { settingsService, AppDataStats } from '@/lib/services/settings-service';
-import { getUserDevices, deleteDevice, deleteOtherDevices, getCurrentDeviceId, formatDeviceName, getDeviceIcon } from '@/lib/services/device-service';
+import { getUserDevices, deleteOtherDevices, getCurrentDeviceId, formatDeviceName, getDeviceIcon } from '@/lib/services/device-service';
 import type { UserDevice } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
 
@@ -191,9 +191,12 @@ export default function SettingsPage() {
     } catch { /* silent */ }
     setDevicesLoading(false);
   }, [authUser?.id]);
-  const handleDeleteDevice = useCallback(async (deviceId: string) => {
+  const handleDeleteDevice = useCallback(async (deviceId: string, sessionId: string | null) => {
     try {
-      await deleteDevice(deviceId);
+      const { error } = await supabase.functions.invoke('revoke-device-session', {
+        body: { session_id: sessionId, device_row_id: deviceId }
+      });
+      if (error) throw error;
       setDevices(d => d.filter(x => x.id !== deviceId));
       toast('✅ Đã đăng xuất thiết bị');
     } catch { toast('❌ Lỗi khi đăng xuất thiết bị'); }
@@ -517,7 +520,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     {!isCurrent && (
-                      <button onClick={() => handleDeleteDevice(d.id)} className="border border-[#EDEDF1] px-3 py-[7px] rounded-[10px] text-[11.5px] font-bold cursor-pointer hover:bg-[rgba(var(--color-primary-rgb),.06)]" style={{color: 'var(--color-primary)'}}>Đăng xuất</button>
+                      <button onClick={() => handleDeleteDevice(d.id, d.session_id)} className="border border-[#EDEDF1] px-3 py-[7px] rounded-[10px] text-[11.5px] font-bold cursor-pointer hover:bg-[rgba(var(--color-primary-rgb),.06)]" style={{color: 'var(--color-primary)'}}>Đăng xuất</button>
                     )}
                     {isCurrent && (
                       <span className="text-[11px] text-[#6B7280] font-bold">Đang dùng</span>
