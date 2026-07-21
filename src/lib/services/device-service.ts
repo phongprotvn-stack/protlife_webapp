@@ -104,18 +104,23 @@ export function formatDeviceName(ua: string): string {
   let os = '';
   let browser = '';
 
-  if (ua.includes('Windows')) os = 'Windows';
-  else if (ua.includes('Mac OS X') || ua.includes('Macintosh')) os = 'macOS';
-  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  // OS detection: check mobile/tablet strings BEFORE desktop ones
+  // (iPhone User-Agent also contains "like Mac OS X")
+  if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
   else if (ua.includes('Android')) os = 'Android';
+  else if (ua.includes('Windows')) os = 'Windows';
+  else if (ua.includes('Mac OS X') || ua.includes('Macintosh')) os = 'macOS';
   else if (ua.includes('Linux')) os = 'Linux';
   else os = 'Unknown';
 
+  // Browser detection: check "pretend-Chrome" browsers BEFORE Chrome itself
+  // (Edg/Edge/OPR/Opera all contain "Chrome" in their User-Agent)
   if (ua.includes('Edg/') || ua.includes('Edge/')) browser = 'Edge';
-  else if (ua.includes('Chrome/')) browser = 'Chrome';
-  else if (ua.includes('Firefox/')) browser = 'Firefox';
-  else if (ua.includes('Safari/')) browser = 'Safari';
   else if (ua.includes('OPR/') || ua.includes('Opera/')) browser = 'Opera';
+  else if (ua.includes('Firefox/')) browser = 'Firefox';
+  else if (ua.includes('Chrome/')) browser = 'Chrome';
+  // Safari check — only if NOT Chrome (iOS Safari doesn't include "Chrome")
+  else if (ua.includes('Safari/')) browser = 'Safari';
   else browser = 'Unknown';
 
   // Determine device type
