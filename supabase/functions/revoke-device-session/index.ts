@@ -7,58 +7,84 @@
 // 4. Returns { success: true } or error message
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "jsr:@supabase/server";
+import { createClient } from "jsr:@supabase/supabase-js";
 
-export default {
-  fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req: Request, ctx) => {
-    try {
-      const { session_id, device_row_id } = await req.json();
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-      // ─── Validate input ────────────────────────────────────────
-      if (!device_row_id || typeof device_row_id !== "string") {
-        return Response.json(
-          { success: false, error: "Missing or invalid device_row_id" },
-          { status: 400 }
-        );
-      }
+function response(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
-      // ─── Revoke Supabase auth session (if session_id provided) ──
-      if (session_id && typeof session_id === "string") {
-        const { error: rpcError } = await ctx.supabaseAdmin.rpc(
-          "revoke_session",
-          { target_session_id: session_id }
-        );
-        if (rpcError) {
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  try {
+    const { session_id, device_row_id } = await req.json();
+
+    // ─── Validate input ────────────────────────────────────────
+    if (!device_row_id || typeof device_row_id !== "string") {
+      return response(
+        { success: false, error: "Missing or invalid device_row_id" },
+        400
+      );
+    }
+
+    // Create admin client using service role key
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // ─── Revoke Supabase auth session (if session_id provided) ──
+    if (session_id && typeof session_id === "string") {
+      const { error: rpcError } = await supabaseAdmin.rpc(
+        "revoke_session",
+        { target_session_id: session_id }
+      );
+      if (rpcError) {
+        // "Session not found" means already invalid — that's fine, keep going
+        if (rpcError.message?.includes("Session not found")) {
+          console.log("Session already invalid, skipping revocation:", session_id);
+        } else {
           console.error("revoke_session RPC failed:", rpcError);
-          return Response.json(
+          return response(
             { success: false, error: `Failed to revoke session: ${rpcError.message}` },
-            { status: 500 }
+            500
           );
         }
       }
-      // If no session_id (old records), skip revocation and just delete the record
+    }
 
-      // ─── Delete device record ─────────────────────────────────
-      const { error: deleteError } = await ctx.supabaseAdmin
-        .from("user_devices")
-        .delete()
-        .eq("id", device_row_id);
+    // ─── Delete device record ─────────────────────────────────
+    const { error: deleteError } = await supabaseAdmin
+      .from("user_devices")
+      .delete()
+      .eq("id", device_row_id);
 
-      if (deleteError) {
-        console.error("Failed to delete device record:", deleteError);
-        return Response.json(
-          { success: false, error: `Failed to delete device record: ${deleteError.message}` },
-          { status: 500 }
-        );
-      }
-
-      return Response.json({ success: true });
-    } catch (err) {
-      console.error("revoke-device-session error:", err);
-      return Response.json(
-        { success: false, error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 }
+    if (deleteError) {
+      console.error("Failed to delete device record:", deleteError);
+      return response(
+        { success: false, error: `Failed to delete device record: ${deleteError.message}` },
+        500
       );
     }
-  }),
-};
+
+    return response({ success: true });
+  } catch (err) {
+    console.error("revoke-device-session error:", err);
+    return response(
+      { success: false, error: err instanceof Error ? err.message : "Unknown error" },
+      500
+    );
+  }
+});

@@ -535,6 +535,7 @@ export default function SettingsPage() {
               {devices.length > 1 && (
                 <Btn danger onClick={handleDeleteOtherDevices} className="mt-4">Đăng xuất tất cả thiết bị khác</Btn>
               )}
+              <p className="text-[10.5px] text-[#6B7280] mt-3 leading-relaxed">Có thể mất tới 15 phút để có hiệu lực trên thiết bị kia.</p>
             </>
           )}
         </Modal>
