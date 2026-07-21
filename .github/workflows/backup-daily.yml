@@ -90,7 +90,9 @@ jobs:
 
           # Extract region from B2 S3 endpoint (format: https://s3.<region>.backblazeb2.com)
           B2_REGION=$(echo "$B2_ENDPOINT" | sed -E 's|https://s3\.([^.]+)\..*|\1|')
-          [ -n "$B2_REGION" ] && export AWS_DEFAULT_REGION="$B2_REGION"
+          # Fallback region if extraction fails
+          [ -z "$B2_REGION" ] && B2_REGION="us-east-1"
+          export AWS_DEFAULT_REGION="$B2_REGION"
 
           aws s3 cp "$DUMP_FILE" \
             s3://protlife-backup/db-dumps/daily/$(date -u +%F).dump.gz \
