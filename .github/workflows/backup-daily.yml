@@ -1,0 +1,36 @@
+name: Daily Database Backup
+
+on:
+  schedule:
+    - cron: "0 3 * * *"    # 03:00 UTC daily
+  workflow_dispatch:        # manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump PostgreSQL database
+        run: |
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
+            --no-owner \
+            --no-acl \
+            | gzip > protlife-$(date -u +%F).dump.gz
+
+      - name: Install aws-cli for B2
+        run: |
+          curl -sL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          sudo /tmp/aws/install --update
+
+      - name: Upload to Backblaze B2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+        run: |
+          # Extract region from B2 S3 endpoint (format: https://s3.<region>.backblazeb2.com)
+          B2_REGION=$(echo "$B2_ENDPOINT" | sed -E 's|https://s3\.([^.]+)\..*|\1|')
+          aws s3 cp protlife-$(date -u +%F).dump.gz \
+            s3://protlife-backup/db-dumps/daily/$(date -u +%F).dump.gz \
+            --endpoint-url "$B2_ENDPOINT" \
+            --region "$B2_REGION"
