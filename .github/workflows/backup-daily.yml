@@ -9,9 +9,21 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Dump PostgreSQL database
+      - name: Validate secrets
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
+          if [ -z "$DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret is empty. Add it in GitHub → Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "✓ SUPABASE_DB_URL is set"
+
+      - name: Dump PostgreSQL database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          pg_dump "$DB_URL" \
             --no-owner \
             --no-acl \
             | gzip > protlife-$(date -u +%F).dump.gz
@@ -26,10 +38,17 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+          B2_ENDPOINT_RAW: ${{ secrets.B2_ENDPOINT }}
         run: |
+          # Auto-prepend https:// if scheme is missing
+          case "$B2_ENDPOINT_RAW" in
+            http://*|https://*) B2_ENDPOINT="$B2_ENDPOINT_RAW" ;;
+            *) B2_ENDPOINT="https://$B2_ENDPOINT_RAW" ;;
+          esac
+
           # Extract region from B2 S3 endpoint (format: https://s3.<region>.backblazeb2.com)
           B2_REGION=$(echo "$B2_ENDPOINT" | sed -E 's|https://s3\.([^.]+)\..*|\1|')
+
           aws s3 cp protlife-$(date -u +%F).dump.gz \
             s3://protlife-backup/db-dumps/daily/$(date -u +%F).dump.gz \
             --endpoint-url "$B2_ENDPOINT" \
