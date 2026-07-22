@@ -600,6 +600,26 @@ function RolePill({ role, label }: { role: RoleKey; label: string }) {
 
 // ─── Permissions Tab ───
 function PermissionsTab() {
+  const [roleCounts, setRoleCounts] = useState<Record<RoleKey, number>>({
+    admin: 0, contributor: 0, viewer: 0, public: 0,
+  });
+  const [loadingRoles, setLoadingRoles] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('profiles').select('role');
+      if (cancelled) return;
+      const counts: Record<RoleKey, number> = { admin: 0, contributor: 0, viewer: 0, public: 0 };
+      (data || []).forEach(p => {
+        const r = p.role as RoleKey;
+        if (r in counts) counts[r]++;
+      });
+      setRoleCounts(counts);
+    })().catch(() => {}).finally(() => { if (!cancelled) setLoadingRoles(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   const PERM_LABELS: [string, string][] = [
     ['view','Xem dữ liệu'], ['add','Thêm mới'], ['edit','Sửa'], ['del','Xoá'],
     ['import','Import'], ['export','Export'], ['ai','AI Insight'],
@@ -612,15 +632,15 @@ function PermissionsTab() {
         <thead><tr className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-[.4px]"><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">Vai trò</th><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">Quyền</th><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">SL</th></tr></thead>
         <tbody>
           {[
-            { key:'admin' as RoleKey, label:'Admin', desc:'Toàn quyền quản lý', count:1 },
-            { key:'contributor' as RoleKey, label:'Người đóng góp', desc:'Được thêm/sửa dữ liệu, không xoá', count:4 },
-            { key:'viewer' as RoleKey, label:'Chỉ xem', desc:'Xem được, không chỉnh sửa', count:2 },
-            { key:'public' as RoleKey, label:'Khách công khai', desc:'Xem giới hạn qua link chia sẻ', count:0 },
+            { key:'admin' as RoleKey, label:'Admin', desc:'Toàn quyền quản lý', count: roleCounts.admin },
+            { key:'contributor' as RoleKey, label:'Người đóng góp', desc:'Được thêm/sửa dữ liệu, không xoá', count: roleCounts.contributor },
+            { key:'viewer' as RoleKey, label:'Chỉ xem', desc:'Xem được, không chỉnh sửa', count: roleCounts.viewer },
+            { key:'public' as RoleKey, label:'Khách công khai', desc:'Xem giới hạn qua link chia sẻ', count: roleCounts.public },
           ].map(r => (
             <tr key={r.key} className="border-b border-[#EDEDF1] hover:bg-[#FAFAFB]">
               <td className="px-2 py-3"><RolePill role={r.key} label={r.label} /></td>
               <td className="px-2 py-3 text-[12px] text-[#6B7280]">{r.desc}</td>
-              <td className="px-2 py-3 text-[12.5px]">{r.count}</td>
+              <td className="px-2 py-3 text-[12.5px]">{loadingRoles ? '...' : r.count}</td>
             </tr>
           ))}
         </tbody>
