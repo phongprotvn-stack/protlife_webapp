@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import {
-  Check, X, Sun, Moon, Monitor,
+  Check, X, Sun, Moon, Monitor, Eye, EyeOff,
   User, Shield, Bell, Palette, Database, Users, Calendar, BookHeart, MapPin,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
@@ -65,23 +65,22 @@ function ToggleRow({ title, desc, checked, onChange, disabled }: { title: string
   );
 }
 
-function Btn({ children, onClick, danger, className = '' }: { children: React.ReactNode; onClick?: () => void; danger?: boolean; className?: string }) {
+function Btn({ children, onClick, danger, className = '', disabled = false }: { children: React.ReactNode; onClick?: () => void; danger?: boolean; className?: string; disabled?: boolean }) {
   return (
-    <button onClick={onClick}
-      className={`w-full border py-3 px-4 rounded-[12px] text-[13px] font-bold cursor-pointer text-center hover:bg-[#F5F5F7] transition-colors mb-[9px] ${className}`}
-      style={{ borderColor: danger ? 'rgba(var(--color-primary-rgb),.25)' : '#EDEDF1', color: danger ? 'var(--color-primary)' : '#101010' }}>
-      {children}
-    </button>
+    <button onClick={onClick} disabled={disabled}
+      className={`w-full px-4 py-[11px] rounded-[11px] text-[13px] font-bold text-center transition-all duration-150 ${
+        danger ? 'text-[#E6002D] hover:bg-[rgba(230,0,45,.06)]' : 'text-[#6B7280] hover:bg-[#F1F1F4]'
+      } ${disabled ? 'opacity-50 pointer-events-none' : ''} ${className}`}
+    >{children}</button>
   );
 }
 
-function BtnP({ children, onClick, className = '' }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+function BtnP({ children, onClick, className = '', disabled = false }: { children: React.ReactNode; onClick?: () => void; className?: string; disabled?: boolean }) {
   return (
-    <button onClick={onClick}
-      className={`w-full py-3 rounded-[12px] border-none text-[13px] font-bold text-white cursor-pointer active:scale-[.98] transition-transform ${className}`}
-      style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)', boxShadow: '0 10px 22px rgba(214,0,50,.25)' }}>
-      {children}
-    </button>
+    <button onClick={onClick} disabled={disabled}
+      className={`w-full px-4 py-[11px] rounded-[11px] text-[13px] font-bold text-center transition-all duration-150 text-white ${disabled ? 'opacity-50 pointer-events-none' : ''} ${className}`}
+      style={{ background: 'var(--color-primary)' }}
+    >{children}</button>
   );
 }
 
@@ -240,6 +239,40 @@ export default function SettingsPage() {
     } catch { toast('❌ Lỗi khi đăng xuất'); }
   }, []);
 
+  // ¤ Change password
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  const [changeError, setChangeError] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = useCallback(async () => {
+    setChangeError('');
+    if (newPassword.length < 6) {
+      setChangeError('Mật khẩu phải có ít nhất 6 ký tự');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangeError('Mật khẩu nhập lại không khớp');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast('✅ Đã đổi mật khẩu');
+      setShowChangePassword(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (e: any) {
+      setChangeError(e?.message || 'Lỗi khi đổi mật khẩu');
+    } finally {
+      setChangingPassword(false);
+    }
+  }, [newPassword, confirmPassword]);
+
   return (
     <>
       {/* Toast */}
@@ -329,7 +362,7 @@ export default function SettingsPage() {
 
             <div>
               <Card title="Bảo mật">
-                <Btn onClick={() => toast('🔐 Chức năng đổi mật khẩu đang phát triển')}>Đổi mật khẩu</Btn>
+                <Btn onClick={() => setShowChangePassword(true)}>Đổi mật khẩu</Btn>
                 <Btn onClick={() => { setShowDevices(true); loadDevices(); }}>📱 Quản lý thiết bị</Btn>
                 <Btn danger onClick={async () => {
                   setSigningOut(true);
@@ -524,6 +557,65 @@ export default function SettingsPage() {
         {tab === 'backup' && <BackupTab />}
 
       </div>
+
+      {/* ─── CHANGE PASSWORD MODAL ─── */}
+      {showChangePassword && (
+        <Modal title="Đổi mật khẩu" onClose={() => { setShowChangePassword(false); setChangeError(''); setNewPassword(''); setConfirmPassword(''); }}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Mật khẩu mới</label>
+              <div className="relative">
+                <input
+                  type={showNewPwd ? 'text' : 'password'}
+                  className="w-full px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)] focus:bg-white transition-colors pr-10"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPwd(!showNewPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
+                >
+                  {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Nhập lại mật khẩu mới</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPwd ? 'text' : 'password'}
+                  className="w-full px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)] focus:bg-white transition-colors pr-10"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
+                >
+                  {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {changeError && (
+              <div className="text-[12px] text-[#E6002D] bg-[rgba(230,0,45,.06)] rounded-[10px] px-3 py-2">{changeError}</div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Btn onClick={() => { setShowChangePassword(false); setChangeError(''); setNewPassword(''); setConfirmPassword(''); }}>Huỷ</Btn>
+              <BtnP onClick={handleChangePassword} disabled={changingPassword}>
+                {changingPassword ? 'Đang đổi...' : 'Đổi mật khẩu'}
+              </BtnP>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* ─── DEVICE MODAL ─── */}
       {showDevices && (
