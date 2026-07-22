@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { memoryService } from '@/lib/services/memory-service';
 import type { MoodEmoji } from '@/types/database';
 import { Image as ImageIcon } from 'lucide-react';
@@ -27,6 +27,13 @@ interface MemoryFormFieldsProps {
   showTitleField?: boolean;
 }
 
+// ── Speech Recognition ──
+const SpeechRecognitionCtor =
+  (typeof window !== 'undefined' && (window as any).SpeechRecognition) ||
+  (typeof window !== 'undefined' && (window as any).webkitSpeechRecognition) ||
+  null;
+const speechSupported = !!SpeechRecognitionCtor;
+
 export default function MemoryFormFields({
   eventId,
   initialTitle = '',
@@ -44,6 +51,70 @@ export default function MemoryFormFields({
   const [image, setImage] = useState(initialImage);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const contentRef = useRef(content);
+  contentRef.current = content;
+
+  // ── Voice recording ──
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch {}
+      }
+    };
+  }, []);
+
+  const toggleRecording = useCallback(() => {
+    if (!speechSupported) return;
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = 'vi-VN';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript + ' ';
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+      // Append final results to content; interim is shown but not committed yet
+      if (finalTranscript) {
+        setContent((prev) => prev + finalTranscript);
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsRecording(false);
+      const el = document.getElementById('voice-toast');
+      if (el) {
+        el.textContent = 'Không nghe rõ, thử lại hoặc gõ tay';
+        el.classList.add('show');
+        clearTimeout((el as any)._vt);
+        (el as any)._vt = setTimeout(() => el.classList.remove('show'), 2500);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+  }, [isRecording]);
 
   const handleSave = useCallback(async () => {
     if (showTitleField && !title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
@@ -78,6 +149,12 @@ export default function MemoryFormFields({
 
   return (
     <>
+      {/* Voice toast */}
+      <div id="voice-toast"
+        className="fixed top-5 left-1/2 -translate-x-1/2 -translate-y-5 scale-90 bg-black/85 backdrop-blur-xl text-white px-[22px] py-3 rounded-[26px] text-[13px] font-semibold z-[100] opacity-0 pointer-events-none shadow-[0_16px_40px_rgba(0,0,0,.25)] transition-all duration-[400ms]"
+        style={{ transitionTimingFunction: 'cubic-bezier(.34,1.4,.64,1)' }} />
+      <style>{`#voice-toast.show{opacity:1;transform:translateX(-50%)translateY(0)scale(1)}`}</style>
+
       {/* Mood emoji picker */}
       <div className="mb-3">
         <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1.5">Cảm xúc</p>
@@ -106,7 +183,26 @@ export default function MemoryFormFields({
 
       {/* Content */}
       <div className="mb-3">
-        <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1">Nội dung</p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px]">Nội dung</p>
+          {speechSupported && (
+            <button
+              type="button"
+              onClick={toggleRecording}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-[6px] text-[10px] font-medium transition-all ${
+                isRecording
+                  ? 'text-[#E6002D] bg-[rgba(230,0,45,0.08)] animate-pulse'
+                  : 'text-[#6B7280] hover:bg-[rgba(0,0,0,0.04)]'
+              }`}
+              title={isRecording ? 'Dừng ghi âm' : 'Ghi âm giọng nói'}
+            >
+              <span className={`text-[13px] ${isRecording ? 'inline-block' : ''}`}>
+                {isRecording ? '🔴' : '🎙️'}
+              </span>
+              {isRecording ? 'Đang nghe...' : 'Ghi âm'}
+            </button>
+          )}
+        </div>
         <textarea value={content} onChange={(e) => setContent(e.target.value)}
           className="input-glass text-[12px] min-h-[60px] w-full" rows={3}
           placeholder="Hãy viết về ký ức này..." />
