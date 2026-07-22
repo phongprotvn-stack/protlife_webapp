@@ -441,7 +441,17 @@ export default function SettingsPage() {
                     <div className="text-[13px] font-bold">ProtLife_Data_Export.xlsx</div>
                     <div className="text-[11.5px] text-[#6B7280] mt-0.5">Đã liên kết{googleSheetUrl ? ' · ' : ''}{googleSheetUrl && <a href={googleSheetUrl} target="_blank" rel="noopener noreferrer" className="underline" style={{color:'var(--color-primary)'}}>Mở Sheet</a>}</div>
                   </div>
-                  <button onClick={() => { setGoogleLinked(false); toast('🔄 Chức năng ngắt kết nối sẽ hoàn thiện sau'); }} className="border border-[rgba(var(--color-primary-rgb),.25)] px-3 py-1.5 rounded-[9px] text-[11.5px] font-bold" style={{color: 'var(--color-primary)'}}>Ngắt kết nối</button>
+                  <button onClick={async () => {
+                    try {
+                      const res = await fetch('/api/auth/google/unlink', { method: 'POST' });
+                      if (!res.ok) throw new Error();
+                      setGoogleLinked(false);
+                      setGoogleSheetUrl(null);
+                      toast('🔌 Đã ngắt liên kết Google Sheet');
+                    } catch {
+                      toast('❌ Lỗi khi ngắt kết nối');
+                    }
+                  }} className="border border-[rgba(var(--color-primary-rgb),.25)] px-3 py-1.5 rounded-[9px] text-[11.5px] font-bold" style={{color: 'var(--color-primary)'}}>Ngắt kết nối</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 py-2.5">
