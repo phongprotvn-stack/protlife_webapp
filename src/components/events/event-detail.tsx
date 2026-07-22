@@ -13,6 +13,7 @@ import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { formatVND, parseVND } from '@/lib/utils';
 import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus, BookHeart } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import MemoryFormFields from '@/components/memories/memory-form-fields';
 
 interface Props { eventId: string | null; onClose: () => void; panelMode?: boolean; }
 
@@ -325,7 +326,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                   </button>
                 )}
 
-                {/* Memory form (inline) */}
+                {/* Memory form (inline) — dùng component chung */}
                 {(memoryOpen || memoryMsg) && (
                   <div className="mt-3 p-3 rounded-[10px] bg-white border border-[rgba(0,0,0,0.06)]">
                     {memoryMsg ? (
@@ -334,44 +335,24 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                         <button onClick={() => setMemoryMsg('')} className="mt-1 text-[10px] text-[#8E8E93]">Đóng</button>
                       </div>
                     ) : (
-                      <>
-                        {/* Mood emoji picker */}
-                        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1.5">Cảm xúc</p>
-                        <div className="flex gap-1.5 mb-3">
-                          {MOOD_EMOJIS.map((item) => (
-                            <button key={item.emoji} onClick={() => setMemoryForm((f) => ({ ...f, MoodEmoji: item.emoji }))}
-                              className={`w-[34px] h-[34px] rounded-full flex items-center justify-center text-[16px] transition-all ${
-                                memoryForm.MoodEmoji === item.emoji ? 'bg-[#E6002D]/10 ring-2 ring-[#E6002D] scale-110' : 'hover:bg-[rgba(0,0,0,0.04)]'
-                              }`}>
-                              {item.emoji}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Content */}
-                        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Ghi chép ký ức</p>
-                        <textarea value={memoryForm.Content}
-                          onChange={(e) => setMemoryForm((f) => ({ ...f, Content: e.target.value }))}
-                          className="input-glass text-[12px] min-h-[60px] w-full mb-3" rows={2}
-                          placeholder="Điều gì làm sự kiện này đáng nhớ..." />
-
-                        {/* Image URL */}
-                        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Ảnh (tuỳ chọn)</p>
-                        <input value={memoryForm.Image}
-                          onChange={(e) => setMemoryForm((f) => ({ ...f, Image: e.target.value }))}
-                          className="input-glass text-[12px] w-full mb-3"
-                          placeholder="https://... (tối đa 1 ảnh)" />
-
-                        {/* Actions */}
-                        <div className="flex gap-2">
-                          <button onClick={() => { setMemoryOpen(false); setMemoryMsg(''); }}
-                            className="flex-1 py-2 rounded-[8px] text-[11px] font-medium bg-[rgba(0,0,0,0.04)] text-[#5F6368]">Huỷ</button>
-                          <button onClick={saveMemory} disabled={memorySaving || !memoryForm.Content.trim()}
-                            className="flex-1 py-2 rounded-[8px] text-[11px] font-medium text-white bg-[#FF2D55] disabled:opacity-50">
-                            {memorySaving ? '...' : (existingMemory ? 'Cập nhật' : '💾 Lưu')}
-                          </button>
-                        </div>
-                      </>
+                      <MemoryFormFields
+                        eventId={event?.EventID}
+                        initialTitle={event?.Title || ''}
+                        existingMemoryId={existingMemory?.MemoryID || undefined}
+                        initialContent={existingMemory?.Content || ''}
+                        initialMoodEmoji={(existingMemory?.MoodEmoji as MoodEmoji) || ''}
+                        initialImage={existingMemory?.Image || ''}
+                        showTitleField={false}
+                        onSaved={async (memoryId) => {
+                          const mem = await memoryService.getById(memoryId);
+                          if (mem) setExistingMemory(mem);
+                          else setExistingMemory(null);
+                          setMemoryMsg(existingMemory ? '✅ Đã cập nhật ký ức' : '✅ Đã lưu vào Ký ức');
+                          setMemoryOpen(false);
+                          triggerRefresh();
+                        }}
+                        onCancel={() => { setMemoryOpen(false); setMemoryMsg(''); }}
+                      />
                     )}
                   </div>
                 )}
