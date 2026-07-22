@@ -3,8 +3,19 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { memoryService } from '@/lib/services/memory-service';
 import type { MoodEmoji } from '@/types/database';
-import { Image as ImageIcon, Upload, Link2 } from 'lucide-react';
+import { Image as ImageIcon, Upload, Link2, Paperclip, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+
+// ── Types ──
+interface AttachedFile {
+  id: string;
+  file: File;
+  name: string;
+  size: number;
+  type: string;
+  uploaded: boolean;
+  url?: string;
+}
 
 const MOOD_EMOJIS: { emoji: MoodEmoji; label: string }[] = [
   { emoji: '😊', label: 'Vui vẻ' },
@@ -67,6 +78,9 @@ export default function MemoryFormFields({
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<AttachedFile[]>([]);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const contentRef = useRef(content);
   contentRef.current = content;
@@ -197,6 +211,99 @@ export default function MemoryFormFields({
     }
   }, [compressImage]);
 
+  // ── Attachments ──
+  const handleAttachPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const MAX_FILES = 5;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const existing = attachments.length;
+
+    const valid = files.filter(f => f.size <= MAX_SIZE);
+    const oversized = files.filter(f => f.size > MAX_SIZE);
+
+    if (oversized.length > 0) {
+      showToast(`❌ ${oversized.length} file > 10MB bị bỏ qua`);
+    }
+
+    const remaining = MAX_FILES - existing;
+    const toAdd = valid.slice(0, remaining).map(f => ({
+      id: `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      file: f,
+      name: f.name,
+      size: f.size,
+      type: f.type || 'application/octet-stream',
+      uploaded: false,
+    }));
+
+    if (valid.length > remaining) {
+      showToast(`⚠️ Tối đa ${MAX_FILES} file, đã chọn ${toAdd.length}`);
+    }
+
+    setAttachments(prev => [...prev, ...toAdd]);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+  }, [attachments.length]);
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  }, []);
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function fileIcon(type: string): string {
+    if (/pdf/.test(type)) return '📄';
+    if (/word|document/.test(type)) return '📄';
+    if (/text|rtf/.test(type)) return '📝';
+    return '📦';
+  }
+
+  async function uploadAttachments(memoryId: string): Promise<void> {
+    const pending = attachments.filter(a => !a.uploaded);
+    if (pending.length === 0) return;
+
+    setAttachmentUploading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || 'anonymous';
+
+    for (const att of pending) {
+      try {
+        const ext = att.name.split('.').pop() || 'bin';
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+        const filePath = `${userId}/${fileName}`;
+        const { error: upErr } = await supabase.storage
+          .from('memory-attachments')
+          .upload(filePath, att.file, { upsert: false });
+        if (upErr) throw upErr;
+        const { data: { publicUrl } } = supabase.storage
+          .from('memory-attachments')
+          .getPublicUrl(filePath);
+
+        const fileId = crypto.randomUUID?.() || `${Date.now()}${Math.random().toString(36).substring(2, 8)}`;
+        const { error: insErr } = await supabase
+          .from('files')
+          .insert({
+            FileID: fileId,
+            Name: att.name,
+            Url: publicUrl,
+            Type: att.type,
+            Size: att.size,
+            EntityID: memoryId,
+            EntityType: 'Memory',
+          });
+        if (insErr) throw insErr;
+
+        setAttachments(prev => prev.map(a => a.id === att.id ? { ...a, uploaded: true, url: publicUrl } : a));
+      } catch (err: any) {
+        console.error('Upload attachment failed:', att.name, err);
+        showToast(`❌ Lỗi tải ${att.name}`);
+      }
+    }
+    setAttachmentUploading(false);
+  }
+
   const handleSave = useCallback(async () => {
     if (showTitleField && !title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
     setSaving(true); setError('');
@@ -209,6 +316,7 @@ export default function MemoryFormFields({
           Image: image.trim() || null,
           Mood: null,
         });
+        await uploadAttachments(updated.MemoryID);
         onSaved(updated.MemoryID);
       } else {
         const mem = await memoryService.create({
@@ -219,6 +327,7 @@ export default function MemoryFormFields({
           Image: image.trim() || null,
           Mood: null,
         });
+        await uploadAttachments(mem.MemoryID);
         onSaved(mem.MemoryID);
       }
     } catch (e: any) {
@@ -369,6 +478,57 @@ export default function MemoryFormFields({
             <img src={image} alt="preview" className="w-full h-[100px] object-cover"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
+        )}
+      </div>
+
+      {/* Attachments */}
+      <div className="mb-3">
+        <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1.5">
+          Đính kèm tài liệu <span className="text-[8px] text-[#8E8E93] normal-case">(tuỳ chọn — tối đa 5 file, mỗi file ≤ 10MB)</span>
+        </p>
+
+        <input
+          ref={attachmentInputRef}
+          type="file"
+          multiple
+          accept=".doc,.docx,.txt,.pdf,.rtf"
+          className="hidden"
+          onChange={handleAttachPick}
+        />
+
+        {/* Drop zone */}
+        <div
+          onClick={() => attachmentInputRef.current?.click()}
+          className="border-2 border-dashed rounded-[10px] p-3 text-center cursor-pointer transition-all border-[#EDEDF1] hover:border-[#D1D1D6] hover:bg-[rgba(0,0,0,0.02)]"
+        >
+          <Paperclip size={16} className="mx-auto mb-1 opacity-40" />
+          <div className="text-[11px] text-[#6B7280]">📎 Chọn file — .docx, .txt, .pdf</div>
+        </div>
+
+        {/* File chips */}
+        {attachments.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1">
+            {attachments.map((att) => (
+              <div key={att.id}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] bg-[#F2F2F7] text-[11px]"
+              >
+                <span className="text-[14px]">{fileIcon(att.type)}</span>
+                <span className="flex-1 truncate text-[#1C1C1E]">{att.name}</span>
+                <span className="text-[#8E8E93] whitespace-nowrap">{formatSize(att.size)}</span>
+                {att.uploaded && <span className="text-[10px] text-[#34C759]">✓</span>}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); removeAttachment(att.id); }}
+                  className="text-[#8E8E93] hover:text-[#E6002D] transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {attachmentUploading && (
+          <div className="text-[10px] text-[#6B7280] mt-1">⏳ Đang tải file lên...</div>
         )}
       </div>
 
