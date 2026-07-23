@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
@@ -11,7 +11,7 @@ import type { Contact } from '@/types/database';
 import type { EventParticipant } from '@/lib/services/participant-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { formatVND, parseVND } from '@/lib/utils';
-import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus, BookHeart } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus, BookHeart, Navigation } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import MemoryFormFields from '@/components/memories/memory-form-fields';
 
@@ -43,8 +43,10 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
   const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [form, setForm] = useState({
     Title:'', EventType:'', LifeStage:'', StartDate:'', EndDate:'', Place:'', Maplink:'',
-    Mood:'', Importance:'', Cost:0, Notes:'',
+    Mood:'', Importance:'', Cost:0, Notes:'', Lat: null as number | null, Lng: null as number | null,
   });
+  const [geocodeStatus, setGeocodeStatus] = useState<'idle'|'loading'|'done'|'fail'>('idle');
+  const lastGeocodeTime = useRef(0);
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<{ContactID:string;ContactName:string}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +79,9 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
           Title:data.Title, EventType:data.EventType, LifeStage:data.LifeStage||'',
           StartDate:data.StartDate, EndDate:data.EndDate||'', Place:data.Place||'', Maplink:data.Maplink||'',
           Mood:data.Mood||'', Importance:data.Importance||'Medium', Cost:data.Cost||0, Notes:data.Notes||'',
+          Lat: data.Lat || null, Lng: data.Lng || null,
         });
+        setGeocodeStatus(data.Lat && data.Lng ? 'done' : 'idle');
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -94,7 +98,8 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
         Title:form.Title.trim(), EventType:form.EventType as any,
         LifeStage:form.LifeStage?form.LifeStage as any:undefined,
         StartDate:form.StartDate, EndDate:form.EndDate||undefined, Place:form.Place||undefined,
-        Maplink:form.Maplink||undefined, Mood:form.Mood?form.Mood as any:undefined,
+        Maplink:form.Maplink||undefined, Lat: form.Lat, Lng: form.Lng,
+        Mood:form.Mood?form.Mood as any:undefined,
         Importance:form.Importance as any, Cost:form.Cost, Notes:form.Notes||undefined,
       });
       await participantService.setParticipants(event.EventID, selectedParticipants.map(p => p.ContactID));
@@ -125,6 +130,34 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     if (!eventId) return;
     try { await eventService.delete(eventId); triggerRefresh(); onClose(); }
     catch(e:any) { setError(e.message||'Lỗi khi xoá'); }
+  };
+
+  const handleGeocode = async () => {
+    if (!form.Place.trim()) return;
+    const now = Date.now();
+    const elapsed = now - lastGeocodeTime.current;
+    if (elapsed < 1000) {
+      await new Promise((r) => setTimeout(r, 1000 - elapsed));
+    }
+    setGeocodeStatus('loading');
+    lastGeocodeTime.current = Date.now();
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.Place.trim())}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'ProtLife/1.0 (personal life app)' } }
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        setForm((f) => ({ ...f, Lat: lat, Lng: lng }));
+        setGeocodeStatus('done');
+      } else {
+        setGeocodeStatus('fail');
+      }
+    } catch {
+      setGeocodeStatus('fail');
+    }
   };
 
   // ── Memory Journal handlers ──
@@ -379,7 +412,31 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                 </FieldEdit>
               </div>
               <FieldEdit label="Địa điểm">
-                <input value={form.Place} onChange={(e)=>setForm((f)=>({...f,Place:e.target.value}))} className="input-glass text-[13px]" placeholder="VD: 123 Đường..."/>
+                <div className="flex items-center gap-2">
+                  <input value={form.Place} onChange={(e)=>setForm((f)=>({...f,Place:e.target.value}))} className="flex-1 input-glass text-[13px]" placeholder="VD: 123 Đường..."/>
+                  <button type="button" onClick={handleGeocode}
+                    disabled={geocodeStatus === 'loading'}
+                    className="shrink-0 px-2.5 h-[30px] rounded-[8px] text-[11px] font-medium flex items-center gap-1 border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)] disabled:opacity-50 transition-all">
+                    {geocodeStatus === 'loading' ? (
+                      <span className="w-3.5 h-3.5 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" />
+                    ) : geocodeStatus === 'done' ? (
+                      <span className="text-[#34C759]">✅</span>
+                    ) : geocodeStatus === 'fail' ? (
+                      <span className="text-[#E6002D]">⚠️</span>
+                    ) : (
+                      <Navigation size={13} />
+                    )}
+                    <span>
+                      {geocodeStatus === 'loading' ? 'Đang xác định...'
+                      : geocodeStatus === 'done' ? 'Đã có toạ độ'
+                      : geocodeStatus === 'fail' ? 'Không tìm thấy'
+                      : '📍 Lấy toạ độ'}
+                    </span>
+                  </button>
+                </div>
+                {form.Lat && form.Lng && (
+                  <div className="text-[10px] text-[#34C759] font-medium mt-1">✅ {form.Lat.toFixed(4)}, {form.Lng.toFixed(4)}</div>
+                )}
               </FieldEdit>
               <FieldEdit label="Google Maps Link">
                 <input value={form.Maplink} onChange={(e)=>setForm((f)=>({...f,Maplink:e.target.value}))} className="input-glass text-[13px]" placeholder="https://maps.google.com/..."/>
