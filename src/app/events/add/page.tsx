@@ -3,21 +3,35 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { eventService } from '@/lib/services/event-service';
+import { organizationService } from '@/lib/services/organization-service';
 import { participantService } from '@/lib/services/participant-service';
 import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import type { Contact } from '@/types/database';
-import { ArrowLeft, MapPin, X, Search, Plus, Globe } from 'lucide-react';
+import { ArrowLeft, MapPin, X, Search, Plus, Globe, Navigation } from 'lucide-react';
 import { formatVND, parseVND } from '@/lib/utils';
 
 const EVENT_TYPES = ['Meeting','Birthday','Travel','Work','Sport','Hospital','Meal','Call','Shopping','Study','Party','Date','Entertainment','Other'] as const;
 const MOODS = ['Happy','Normal','Sad','Excited','Tired','Angry','Thoughtful','Loved'] as const;
 const IMPORTANCE = ['Lowest','Low','Medium','High','Highest'] as const;
+const MAX_GEOCODE_RATE = 1000; // min 1s between Nominatim calls
 
 interface LocationItem {
   id: string;
   place: string;
   maplink: string;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+async function geocodeAddress(address: string) {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+    { headers: { 'User-Agent': 'ProtLife/1.0 (personal life app)' } }
+  );
+  const data = await res.json();
+  if (data.length === 0) return null;
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
 }
 
 export default function AddEventPage() {
@@ -25,6 +39,8 @@ export default function AddEventPage() {
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [geocoding, setGeocoding] = useState<Record<string, 'idle' | 'loading' | 'done' | 'fail'>>({});
+  const lastGeocodeTime = useRef(0);
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -109,15 +125,46 @@ export default function AddEventPage() {
     }));
   };
 
+  const handleGeocode = async (locId: string) => {
+    const loc = locations.find((l) => l.id === locId);
+    if (!loc || !loc.place.trim()) return;
+
+    // Rate limit: 1 req/s
+    const now = Date.now();
+    const elapsed = now - lastGeocodeTime.current;
+    if (elapsed < MAX_GEOCODE_RATE) {
+      await new Promise((r) => setTimeout(r, MAX_GEOCODE_RATE - elapsed));
+    }
+
+    setGeocoding((prev) => ({ ...prev, [locId]: 'loading' }));
+    lastGeocodeTime.current = Date.now();
+    try {
+      const result = await geocodeAddress(loc.place.trim());
+      if (result) {
+        setLocations((prev) => prev.map((l) =>
+          l.id === locId ? { ...l, lat: result.lat, lng: result.lng } : l
+        ));
+        setGeocoding((prev) => ({ ...prev, [locId]: 'done' }));
+      } else {
+        setGeocoding((prev) => ({ ...prev, [locId]: 'fail' }));
+      }
+    } catch {
+      setGeocoding((prev) => ({ ...prev, [locId]: 'fail' }));
+    }
+  };
+
   const handleSave = async () => {
     if (!form.Title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
     setSaving(true); setError('');
     try {
+      const activeLocs = locations.filter(l => l.place.trim());
       const newEvent = await eventService.create({
         Title:form.Title.trim(), EventType:form.EventType as any,
         StartDate:form.StartDate, EndDate:form.EndDate||undefined,
-        Place: locations.filter(l => l.place.trim()).map(l => l.place.trim()).join('; '),
-        Maplink: locations.filter(l => l.maplink.trim()).map(l => l.maplink.trim()).join('; '),
+        Place: activeLocs.map(l => l.place.trim()).join('; '),
+        Maplink: activeLocs.map(l => l.maplink.trim()).join('; '),
+        Lat: activeLocs[0]?.lat || undefined,
+        Lng: activeLocs[0]?.lng || undefined,
         Mood:form.Mood as any||undefined, Importance:form.Importance as any,
         Cost:form.Cost, Notes:form.Notes||undefined,
       });
@@ -141,8 +188,8 @@ export default function AddEventPage() {
       <div className="flex items-center gap-2 mb-5">
         <button onClick={()=>router.back()} className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"><ArrowLeft size={18}/></button>
         <div>
-          <h1 className="text-[18px] font-bold text-[#111]">Thêm sự kiện mới</h1>
-          <p className="text-[11px] text-[#8E8E93]">Nhập thông tin sự kiện mới</p>
+          <h1 className="text-[18px] font-bold text-[#111]\">Thêm sự kiện mới</h1>
+          <p className="text-[11px] text-[#8E8E93]\">Nhập thông tin sự kiện mới</p>
         </div>
       </div>
 
@@ -193,6 +240,26 @@ export default function AddEventPage() {
                 <MapPin size={14} className="text-[#FF9500] shrink-0"/>
                 <input value={loc.place} onChange={(e) => updateLocation(loc.id, 'place', e.target.value)}
                   className="flex-1 input-glass text-[13px]" placeholder="VD: Hà Nội, quán cafe..."/>
+                {/* Geocode button */}
+                <button type="button" onClick={() => handleGeocode(loc.id)}
+                  disabled={geocoding[loc.id] === 'loading'}
+                  className="shrink-0 px-2.5 h-[30px] rounded-[8px] text-[11px] font-medium flex items-center gap-1 border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)] disabled:opacity-50 transition-all">
+                  {geocoding[loc.id] === 'loading' ? (
+                    <span className="w-3.5 h-3.5 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" />
+                  ) : geocoding[loc.id] === 'done' ? (
+                    <span className="text-[#34C759]">✅</span>
+                  ) : geocoding[loc.id] === 'fail' ? (
+                    <span className="text-[#E6002D]">⚠️</span>
+                  ) : (
+                    <Navigation size={13} />
+                  )}
+                  <span>
+                    {geocoding[loc.id] === 'loading' ? 'Đang xác định...'
+                    : geocoding[loc.id] === 'done' ? 'Đã có toạ độ'
+                    : geocoding[loc.id] === 'fail' ? 'Không tìm thấy'
+                    : '📍 Lấy toạ độ'}
+                  </span>
+                </button>
               </div>
               <div className="flex items-center gap-2">
                 <Globe size={14} className="text-[#007AFF] shrink-0"/>
@@ -203,6 +270,9 @@ export default function AddEventPage() {
                     className="text-[10px] font-medium text-[#007AFF] hover:underline shrink-0">Map</a>
                 )}
               </div>
+              {loc.lat && loc.lng && (
+                <div className="text-[10px] text-[#34C759] font-medium">✅ {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</div>
+              )}
             </div>
           ))}
           <button type="button" onClick={addLocation}
@@ -268,7 +338,6 @@ export default function AddEventPage() {
               <div className="relative">
                 <input type="text" value={form.Cost ? formatVND(form.Cost) : ''}
                   onChange={(e)=>{
-                    // Only allow digits and known separators
                     const raw = e.target.value.replace(/[^0-9.,]/g, '');
                     setForm((f)=>({...f,Cost: parseVND(raw)}));
                   }}

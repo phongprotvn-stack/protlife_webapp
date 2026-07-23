@@ -73,6 +73,8 @@ export interface EventItem {
   EndDate: string | null;
   Place: string | null;
   Maplink: string | null;
+  Lat: number | null;
+  Lng: number | null;
   Mood: Mood | null;
   Importance: Importance;
   ParticipantCount: number;
@@ -92,6 +94,8 @@ export interface EventFormData {
   EndDate?: string | null;
   Place?: string | null;
   Maplink?: string | null;
+  Lat?: number | null;
+  Lng?: number | null;
   Mood?: Mood | null;
   Importance?: Importance;
   ParticipantCount?: number;

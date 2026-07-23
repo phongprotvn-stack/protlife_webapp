@@ -6,6 +6,8 @@ export interface Organization {
   Email: string;
   Phone: string;
   Address: string;
+  Lat?: number | null;
+  Lng?: number | null;
 }
 
 export interface OrganizationFormData {
@@ -14,6 +16,8 @@ export interface OrganizationFormData {
   Email?: string;
   Phone?: string;
   Address?: string;
+  Lat?: number | null;
+  Lng?: number | null;
 }
 
 function getOrganizations(): Organization[] {
