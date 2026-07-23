@@ -168,7 +168,7 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
               <>
                 <Calendar size={12} className="text-[#FF9500]" />
                 <span className="text-[11px] text-[#8E8E93]">
-                  {memory.MemoryDate ? formatDate(memory.MemoryDate, 'ddmmyyyy') + ' · Tạo: ' : ''}{formatDate(memory.CreatedDate, 'ddmmyyyy')}
+                  {formatDate(memory.MemoryDate || memory.CreatedDate, 'ddmmyyyy')}
                 </span>
                 {memory.Mood && <span className="text-[11px] text-[#8E8E93]">· {memory.Mood}</span>}
               </>
