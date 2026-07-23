@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<title>Bản đồ — Prot Life</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.25);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    --prot-red: #E6002D;
+    --prot-red-light: rgba(230, 0, 45, 0.1);
+    --font-system: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+    --radius-ios: 14px;
+    --radius-glass: 28px;
+    --radius-card: 20px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:var(--font-system);}
+  html,body{height:100%;}
+  body{ overflow:hidden; color:#111; }
+
+  #map{ position:absolute; inset:0; z-index:0; filter:saturate(0.85) brightness(1.02); }
+  .leaflet-control-attribution{ font-size:9px; opacity:.6; }
+
+  /* ===== TOP FLOATING BAR ===== */
+  .top-bar{
+    position:absolute; top:16px; left:16px; right:16px; z-index:10;
+    display:flex; gap:10px; align-items:center;
+  }
+  .glass-card{
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-glass);
+    box-shadow: var(--glass-shadow);
+  }
+  .search-box{
+    flex:1; display:flex; align-items:center; gap:8px; padding:11px 16px;
+    border-radius: var(--radius-ios);
+  }
+  .search-box input{ border:none; outline:none; background:transparent; font-size:14px; flex:1; color:#111; }
+  .search-box input::placeholder{ color:#8E8E93; }
+  .icon-btn{
+    width:42px; height:42px; border-radius:14px; border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .icon-btn:active{ transform:scale(.94); }
+
+  /* ===== FILTER PILLS ===== */
+  .filter-row{
+    position:absolute; top:70px; left:16px; right:16px; z-index:10;
+    display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;
+  }
+  .filter-row::-webkit-scrollbar{ display:none; }
+  .filter-pill{
+    flex-shrink:0; padding:8px 15px; border-radius:20px; border:none; cursor:pointer;
+    font-size:12.5px; font-weight:600; white-space:nowrap;
+    background: var(--glass-bg); backdrop-filter: blur(20px); box-shadow: var(--glass-shadow);
+    color:#6B7280; display:flex; align-items:center; gap:5px;
+  }
+  .filter-pill.active{ background: linear-gradient(135deg, #E6002D 0%, #FF1A4A 100%); color:#fff; box-shadow:0 4px 16px rgba(230,0,45,.35); }
+
+  /* ===== MAP PIN MARKERS ===== */
+  .map-pin{
+    width:34px; height:34px; border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+    display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,.25);
+    border:2.5px solid #fff; cursor:pointer;
+  }
+  .map-pin span{ transform:rotate(45deg); font-size:15px; }
+  .map-pin.event{ background:linear-gradient(135deg,#E6002D,#FF1A4A); }
+  .map-pin.org{ background:linear-gradient(135deg,#007AFF,#3395FF); }
+  .map-pin.home{ background:linear-gradient(135deg,#34C759,#4CD965); }
+
+  /* ===== BOTTOM SHEET (place detail) ===== */
+  .sheet-overlay{
+    position:absolute; inset:0; z-index:19; background:rgba(0,0,0,0); pointer-events:none; transition:background .25s ease;
+  }
+  .sheet-overlay.show{ background:rgba(0,0,0,.15); pointer-events:auto; }
+  .bottom-sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:20;
+    border-radius:28px 28px 0 0; padding:14px 20px 24px;
+    transform:translateY(110%); transition:transform .32s cubic-bezier(0.16,1,0.3,1);
+    max-width:480px; margin:0 auto;
+  }
+  .bottom-sheet.show{ transform:translateY(0); }
+  .sheet-handle{ width:36px; height:4px; background:rgba(0,0,0,.15); border-radius:3px; margin:0 auto 14px; }
+  .sheet-top{ display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+  .sheet-icon{
+    width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; flex-shrink:0; color:#fff;
+  }
+  .sheet-icon.event{ background:linear-gradient(135deg,#E6002D,#FF1A4A); }
+  .sheet-icon.org{ background:linear-gradient(135deg,#007AFF,#3395FF); }
+  .sheet-title{ font-size:16px; font-weight:700; color:#111; }
+  .sheet-meta{ font-size:12.5px; color:#8E8E93; margin-top:2px; line-height:1.5; }
+  .sheet-tag{ display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:8px; background:var(--prot-red-light); color:var(--prot-red); margin-top:6px; }
+  .sheet-actions{ display:flex; gap:10px; margin-top:16px; }
+  .sheet-btn{
+    flex:1; padding:12px; border-radius:var(--radius-ios); border:none; font-size:13px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .sheet-btn.primary{ background:linear-gradient(135deg,#E6002D,#FF1A4A); color:#fff; box-shadow:0 4px 16px rgba(230,0,45,.3); }
+  .sheet-btn.secondary{ background:rgba(0,0,0,.05); color:#111; }
+
+  /* ===== SIDE LIST PANEL (desktop) ===== */
+  .side-panel{
+    position:absolute; top:132px; left:16px; bottom:16px; width:320px; z-index:9;
+    border-radius:var(--radius-glass); padding:14px; overflow-y:auto; display:none;
+  }
+  @media (min-width:860px){ .side-panel{ display:block; } .bottom-sheet{ left:auto; right:16px; bottom:16px; width:360px; border-radius:24px; } }
+  .place-item{
+    display:flex; gap:11px; padding:11px; border-radius:16px; cursor:pointer; margin-bottom:4px; align-items:center;
+    transition:background .15s ease;
+  }
+  .place-item:hover, .place-item.selected{ background:rgba(230,0,45,.06); }
+  .place-item .pi-icon{ width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:15px; color:#fff; flex-shrink:0; }
+  .pi-title{ font-size:13px; font-weight:700; color:#111; }
+  .pi-meta{ font-size:11px; color:#8E8E93; margin-top:1px; }
+
+  .fab-locate{
+    position:absolute; bottom:24px; right:16px; z-index:10;
+    width:48px; height:48px; border-radius:50%; border:none; cursor:pointer;
+    background:#fff; box-shadow:0 6px 20px rgba(0,0,0,.15);
+    display:flex; align-items:center; justify-content:center; font-size:18px;
+  }
+  @media (min-width:860px){ .fab-locate{ right:392px; } }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="top-bar">
+  <div class="glass-card search-box">
+    <span style="color:#8E8E93;">🔍</span>
+    <input type="text" placeholder="Tìm địa điểm, sự kiện, tổ chức..." />
+  </div>
+  <button class="icon-btn glass-card" title="Bộ lọc" style="color:#111;">⚙️</button>
+</div>
+
+<div class="filter-row">
+  <button class="filter-pill active" data-filter="all">🗺️ Tất cả <span id="countAll"></span></button>
+  <button class="filter-pill" data-filter="event">📅 Sự kiện</button>
+  <button class="filter-pill" data-filter="org">🏢 Tổ chức</button>
+  <button class="filter-pill" data-filter="recent">🕐 Gần đây</button>
+</div>
+
+<div class="glass-card side-panel" id="sidePanel"></div>
+
+<button class="fab-locate" id="locateBtn" title="Vị trí của tôi">📍</button>
+
+<div class="sheet-overlay" id="sheetOverlay"></div>
+<div class="glass-card bottom-sheet" id="bottomSheet"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // ─── Dữ liệu mẫu — mô phỏng địa điểm suy ra từ Sự kiện + Tổ chức đã có ───
+  const PLACES = [
+    { id:1, type:'event', title:'Cafe', meta:'Lado Cafe · Xuân Đỉnh, Hà Nội', date:'18/07/2026', lat:21.0500, lng:105.7900, people:['GD Linh Con'] },
+    { id:2, type:'event', title:'Ăn tối', meta:'Hàng Bò Nầm Nướng · Ba Đình', date:'16/07/2026', lat:21.0333, lng:105.8296, people:[] },
+    { id:3, type:'event', title:'Dạy Pickleball', meta:'Khu TT Đầm Chuối · Cầu Giấy', date:'18/07/2026', lat:21.0378, lng:105.7830, people:[] },
+    { id:4, type:'event', title:'Cắt tóc', meta:'Hair Salon Kim Loan · Giảng Võ', date:'13/07/2026', lat:21.0295, lng:105.8180, people:[] },
+    { id:5, type:'org', title:'VCB Sở Giao Dịch', meta:'Ngân hàng Vietcombank', date:null, lat:21.0245, lng:105.8412, people:['VCB E. Thái SGD'] },
+    { id:6, type:'org', title:'Trường Đại học Bách Khoa', meta:'Cơ sở đào tạo', date:null, lat:21.0055, lng:105.8430, people:['9A Dương Dê', '9A Trường Trâu'] },
+    { id:7, type:'event', title:'Nhậu đêm', meta:'Gà Yến Thoa · Tây Sơn', date:'11/07/2026', lat:21.0125, lng:105.8226, people:[] },
+  ];
+  const ICONS = { event:'📅', org:'🏢' };
+
+  document.getElementById('countAll').textContent = '(' + PLACES.length + ')';
+
+  const map = L.map('map', { zoomControl:false, attributionControl:true }).setView([21.028, 105.804], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  L.control.zoom({ position:'bottomleft' }).addTo(map);
+
+  const markers = {};
+  function makeIcon(type){
+    return L.divIcon({
+      className:'', html:`<div class="map-pin ${type}"><span>${ICONS[type]}</span></div>`,
+      iconSize:[34,34], iconAnchor:[17,32]
+    });
+  }
+  PLACES.forEach(p => {
+    const m = L.marker([p.lat, p.lng], { icon: makeIcon(p.type) }).addTo(map);
+    m.on('click', () => openSheet(p.id));
+    markers[p.id] = m;
+  });
+
+  function renderSidePanel(filter){
+    const panel = document.getElementById('sidePanel');
+    const list = PLACES.filter(p => filter==='all' || (filter==='recent' ? true : p.type===filter));
+    panel.innerHTML = `<div style="font-size:13px;font-weight:800;color:#111;padding:4px 8px 10px;">📍 ${list.length} địa điểm</div>` +
+      list.map(p => `
+        <div class="place-item" data-id="${p.id}" onclick="openSheet(${p.id})">
+          <div class="pi-icon" style="background:${p.type==='event' ? 'linear-gradient(135deg,#E6002D,#FF1A4A)' : 'linear-gradient(135deg,#007AFF,#3395FF)'};">${ICONS[p.type]}</div>
+          <div>
+            <div class="pi-title">${p.title}</div>
+            <div class="pi-meta">${p.meta}</div>
+          </div>
+        </div>
+      `).join('');
+  }
+  renderSidePanel('all');
+
+  document.querySelectorAll('.filter-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const f = btn.dataset.filter;
+      renderSidePanel(f);
+      Object.entries(markers).forEach(([id, m]) => {
+        const p = PLACES.find(x => x.id == id);
+        const visible = f==='all' || f==='recent' || p.type===f;
+        map.hasLayer(m) === visible ? null : (visible ? m.addTo(map) : map.removeLayer(m));
+      });
+    });
+  });
+
+  function openSheet(id){
+    const p = PLACES.find(x => x.id === id);
+    const sheet = document.getElementById('bottomSheet');
+    sheet.innerHTML = `
+      <div class="sheet-handle"></div>
+      <div class="sheet-top">
+        <div class="sheet-icon ${p.type}">${ICONS[p.type]}</div>
+        <div>
+          <div class="sheet-title">${p.title}</div>
+          <div class="sheet-meta">📍 ${p.meta}${p.date ? ' · ' + p.date : ''}</div>
+          ${p.people.length ? `<div class="sheet-tag">👤 ${p.people.join(', ')}</div>` : ''}
+        </div>
+      </div>
+      <div class="sheet-actions">
+        <button class="sheet-btn secondary" onclick="closeSheet()">Đóng</button>
+        <button class="sheet-btn primary" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}','_blank')">🧭 Chỉ đường</button>
+      </div>
+    `;
+    sheet.classList.add('show');
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.querySelectorAll('.place-item').forEach(el => el.classList.toggle('selected', el.dataset.id == id));
+    map.flyTo([p.lat, p.lng], 15, { duration:0.6 });
+  }
+  function closeSheet(){
+    document.getElementById('bottomSheet').classList.remove('show');
+    document.getElementById('sheetOverlay').classList.remove('show');
+  }
+  document.getElementById('sheetOverlay').addEventListener('click', closeSheet);
+
+  document.getElementById('locateBtn').addEventListener('click', () => {
+    map.flyTo([21.028, 105.804], 13, { duration:0.6 });
+  });
+</script>
+</body>
+</html>
