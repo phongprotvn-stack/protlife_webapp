@@ -73,10 +73,11 @@ export default function ExportModal({ onClose }: ExportModalProps) {
           data = (all as any[]).map(e => ({
             Loại: 'Sự kiện',
             Tên: e.Title || e.Name,
-            Ngày: e.StartDate || '',
+            'Ngày bắt đầu': e.StartDate || '',
+            'Ngày kết thúc': e.EndDate || '',
             'Loại sự kiện': e.EventType || '',
-            'Địa điểm': e.Location || '',
-            'Ngân sách': e.Budget || '',
+            'Địa điểm': e.Place || e.Location || '',
+            'Ngân sách': e.Cost || e.Budget || '',
             'Ghi chú': e.Notes || '',
           }));
         } else if (s === 'memories') {
@@ -86,14 +87,14 @@ export default function ExportModal({ onClose }: ExportModalProps) {
             'Tiêu đề': m.Title,
             'Nội dung': m.Content || '',
             'Cảm xúc': m.MoodEmoji || '',
-            'Ngày': m.CreatedDate ? new Date(m.CreatedDate).toLocaleDateString('vi-VN') : '',
+            'Ngày tạo': m.CreatedDate ? new Date(m.CreatedDate).toLocaleDateString('vi-VN') : '',
           }));
         }
 
         // Apply date filter if set
         if (dateFrom || dateTo) {
           data = data.filter(row => {
-            const dateStr = row.Ngày || row['Ngày sinh'] || '';
+            const dateStr = row['Ngày bắt đầu'] || row.Ngày || row['Ngày sinh'] || row['Ngày tạo'] || '';
             if (!dateStr) return false;
             const d = new Date(dateStr);
             if (isNaN(d.getTime())) return true;
@@ -174,24 +175,46 @@ export default function ExportModal({ onClose }: ExportModalProps) {
         const blob = await Packer.toBlob(doc);
         saveAs(blob, `protlife_export_${new Date().toISOString().split('T')[0]}.docx`);
       } else if (format === 'pdf') {
-        const pdf = new jsPDF('l', 'mm', 'a4');
-        const pageWidth = pdf.internal.pageSize.getWidth();
+        // Use html2canvas for proper Vietnamese rendering
+        const hiddenDiv = document.createElement('div');
+        hiddenDiv.style.cssText = 'position:fixed;left:-9999px;top:0;width:1024px;background:#fff;font-family:system-ui,-apple-system,sans-serif;padding:40px;z-index:9999';
+        hiddenDiv.innerHTML = `
+          <div style="text-align:center;margin-bottom:24px">
+            <div style="font-size:20px;font-weight:700;color:#111">Báo cáo PROT LIFE</div>
+            <div style="font-size:12px;color:#6B7280;margin-top:4px">Xuất ngày: ${new Date().toLocaleDateString('vi-VN')}</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead>
+              <tr style="background:#E6002D;color:#fff">
+                ${cols.map(col => `<th style="padding:6px 8px;text-align:left;font-weight:600;border:1px solid #ddd">${col}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(row => `<tr style="border-bottom:1px solid #eee">${cols.map(col => `<td style="padding:5px 8px;border:1px solid #ddd;color:#111">${String(row[col] || '')}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+          <div style="text-align:right;font-size:10px;color:#9CA3AF;margin-top:12px">Tổng: ${rows.length} dòng</div>
+        `;
+        document.body.appendChild(hiddenDiv);
 
-        pdf.setFontSize(16);
-        pdf.text('Báo cáo PROT LIFE', pageWidth / 2, 20, { align: 'center' });
-        pdf.setFontSize(10);
-        pdf.text(`Xuất ngày: ${new Date().toLocaleDateString('vi-VN')}`, pageWidth / 2, 27, { align: 'center' });
+        try {
+          const canvas = await html2canvas(hiddenDiv, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            windowWidth: 1024,
+          });
 
-        const tableData = rows.map(row => cols.map(col => String(row[col] || '')));
-        autoTable(pdf, {
-          head: [cols],
-          body: tableData,
-          startY: 33,
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: [230, 0, 45] },
-        });
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          const pdf = new jsPDF('l', 'mm', 'a4');
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-        pdf.save(`protlife_export_${new Date().toISOString().split('T')[0]}.pdf`);
+          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+          pdf.save(`protlife_export_${new Date().toISOString().split('T')[0]}.pdf`);
+        } finally {
+          document.body.removeChild(hiddenDiv);
+        }
       }
 
       toast('✅ Đã tải file xuống');
