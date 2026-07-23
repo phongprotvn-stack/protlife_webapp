@@ -12,6 +12,8 @@ import { settingsService, AppDataStats } from '@/lib/services/settings-service';
 import { getUserDevices, deleteOtherDevices, getCurrentDeviceId, formatDeviceName, getDeviceIcon } from '@/lib/services/device-service';
 import type { UserDevice } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
+import ExportModal from '@/components/settings/export-modal';
+import ImportModal from '@/components/settings/import-modal';
 
 // ─── Types ───
 type Tab = 'account' | 'data' | 'privacy' | 'notify' | 'appearance' | 'permissions' | 'backup';
@@ -241,6 +243,8 @@ export default function SettingsPage() {
 
   // ¤ Change password
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPwd, setShowNewPwd] = useState(false);
@@ -417,8 +421,8 @@ export default function SettingsPage() {
               <div>
                 <Card title="Xuất / nhập dữ liệu">
                   <Btn onClick={() => handleExportAll(stats)}>⬇️ Xuất toàn bộ dữ liệu (.json)</Btn>
-                  <Btn onClick={() => toast('📄 Tính năng xuất báo cáo đang phát triển')}>📄 Xuất báo cáo</Btn>
-                  <Btn onClick={() => toast('⬆️ Tính năng đang phát triển')}>⬆️ Nhập từ file (.json/.csv)</Btn>
+                  <Btn onClick={() => setShowExportModal(true)}>📄 Xuất báo cáo</Btn>
+                  <Btn onClick={() => setShowImportModal(true)}>⬆️ Nhập từ file (.json/.csv)</Btn>
                 </Card>
                 <Card title="Tích hợp Google">
                   <ToggleRow title="Google Calendar" desc="Đồng bộ sự kiện" checked={s.googleCalendar} onChange={v => setSetting({ googleCalendar: v })} />
@@ -669,6 +673,10 @@ export default function SettingsPage() {
           )}
         </Modal>
       )}
+
+      {/* Export/Import Modals */}
+      {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
+      {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} />}
     </>
   );
 }
