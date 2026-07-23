@@ -45,7 +45,7 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
   const router = useRouter();
   const [memory, setMemory] = useState<Memory | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [form, setForm] = useState({ Title: '', Content: '', Mood: '' as Mood | '', MoodEmoji: '' as MoodEmoji | '' });
+  const [form, setForm] = useState({ Title: '', Content: '', Mood: '' as Mood | '', MoodEmoji: '' as MoodEmoji | '', MemoryDate: '' });
   const selectMemory = useAppStore((s) => s.selectMemory);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,7 +55,7 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
     memoryService.getById(memoryId).then((m) => {
       setMemory(m);
       if (m) {
-        setForm({ Title: m.Title, Content: m.Content || '', Mood: m.Mood || '', MoodEmoji: m.MoodEmoji || '' });
+        setForm({ Title: m.Title, Content: m.Content || '', Mood: m.Mood || '', MoodEmoji: m.MoodEmoji || '', MemoryDate: m.MemoryDate || m.CreatedDate?.split('T')[0] || '' });
         setEditMode(false);
       }
     });
@@ -70,6 +70,7 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
         Content: form.Content || null,
         Mood: form.Mood || null,
         MoodEmoji: form.MoodEmoji || null,
+        MemoryDate: form.MemoryDate || null,
       });
       const updated = await memoryService.getById(memory.MemoryID);
       setMemory(updated);
@@ -92,12 +93,10 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
         <>
           {/* Edit / Delete buttons */}
           <div className="flex items-center justify-end gap-1 mb-2">
-            {!panelMode && (
-              <button onClick={() => setEditMode(!editMode)}
-                className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)]">
-                <Edit3 size={14} className="text-[#8E8E93]" />
-              </button>
-            )}
+            <button onClick={() => setEditMode(!editMode)}
+              className={`w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] ${editMode ? 'bg-[rgba(230,0,45,0.08)]' : ''}`}>
+              <Edit3 size={14} className={editMode ? 'text-[#E6002D]' : 'text-[#8E8E93]'} />
+            </button>
             <button onClick={() => setConfirmDelete(true)}
               className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)]">
               <Trash2 size={14} className="text-[#E6002D]" />
@@ -158,11 +157,22 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
 
           {/* Date */}
           <div className="flex items-center justify-center gap-1.5 mt-2 mb-3">
-            <Calendar size={12} className="text-[#FF9500]" />
-            <span className="text-[11px] text-[#8E8E93]">
-              {memory.MemoryDate ? formatDate(memory.MemoryDate, 'ddmmyyyy') + ' · Tạo: ' : ''}{formatDate(memory.CreatedDate, 'ddmmyyyy')}
-            </span>
-            {memory.Mood && <span className="text-[11px] text-[#8E8E93]">· {memory.Mood}</span>}
+            {editMode ? (
+              <div className="flex items-center gap-2">
+                <Calendar size={12} className="text-[#FF9500]" />
+                <input type="date" value={form.MemoryDate}
+                  onChange={(e) => setForm((f) => ({ ...f, MemoryDate: e.target.value }))}
+                  className="input-glass text-[12px] w-[160px] text-center" />
+              </div>
+            ) : (
+              <>
+                <Calendar size={12} className="text-[#FF9500]" />
+                <span className="text-[11px] text-[#8E8E93]">
+                  {memory.MemoryDate ? formatDate(memory.MemoryDate, 'ddmmyyyy') + ' · Tạo: ' : ''}{formatDate(memory.CreatedDate, 'ddmmyyyy')}
+                </span>
+                {memory.Mood && <span className="text-[11px] text-[#8E8E93]">· {memory.Mood}</span>}
+              </>
+            )}
           </div>
 
           {/* Image */}

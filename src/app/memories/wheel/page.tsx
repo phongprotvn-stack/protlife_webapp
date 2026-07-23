@@ -496,7 +496,7 @@ export default function MemoryWheelPage() {
             <div className="flex items-center gap-1.5">
               <Calendar size={12} className="text-[#8E8E93]" />
               <span className="text-[11px] text-[#8E8E93]">
-                {new Date(activeMemory.EventDate || activeMemory.CreatedDate).toLocaleDateString('vi-VN', {
+                {new Date(activeMemory.MemoryDate || activeMemory.EventDate || activeMemory.CreatedDate).toLocaleDateString('vi-VN', {
                   day: '2-digit', month: '2-digit', year: 'numeric',
                 })}
               </span>
