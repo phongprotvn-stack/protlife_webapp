@@ -59,8 +59,8 @@ export default function MemoryWheelPage() {
     try {
       const data = await memoryService.getAllWithEvent();
       setMemories(data.sort((a, b) => {
-        const aDate = a.MemoryDate || a.CreatedDate;
-        const bDate = b.MemoryDate || b.CreatedDate;
+        const aDate = a.MemoryDate || a.EventDate || a.CreatedDate;
+        const bDate = b.MemoryDate || b.EventDate || b.CreatedDate;
         return new Date(aDate).getTime() - new Date(bDate).getTime();
       }));
     } catch (e: any) {
@@ -455,7 +455,7 @@ export default function MemoryWheelPage() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-bold tracking-[1px] uppercase"
                 style={{ color: moodColor(activeMemory.MoodEmoji) }}>
-                {relativeTime(activeMemory.MemoryDate || activeMemory.CreatedDate)}
+                {relativeTime(activeMemory.MemoryDate || activeMemory.EventDate || activeMemory.CreatedDate)}
               </div>
               <div className="text-[17px] font-extrabold text-[#101010] mt-0.5 tracking-[-0.2px] leading-tight">
                 {activeMemory.Title}
@@ -496,7 +496,7 @@ export default function MemoryWheelPage() {
             <div className="flex items-center gap-1.5">
               <Calendar size={12} className="text-[#8E8E93]" />
               <span className="text-[11px] text-[#8E8E93]">
-                {new Date(activeMemory.MemoryDate || activeMemory.CreatedDate).toLocaleDateString('vi-VN', {
+                {new Date(activeMemory.MemoryDate || activeMemory.EventDate || activeMemory.CreatedDate).toLocaleDateString('vi-VN', {
                   day: '2-digit', month: '2-digit', year: 'numeric',
                 })}
               </span>
