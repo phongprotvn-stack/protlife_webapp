@@ -36,7 +36,9 @@ export default function MapPage() {
     if (!user?.id) return;
     const loadPlaces = async () => {
       try {
+        console.log('[map] Loading events...');
         const events = await eventService.getAll();
+        console.log('[map] Events loaded:', events.length);
         const eventPlaces: MapPlace[] = events
           .filter((e) => e.Lat && e.Lng && e.Place)
           .map((e) => ({
@@ -48,6 +50,7 @@ export default function MapPage() {
             lat: Number(e.Lat),
             lng: Number(e.Lng),
           }));
+        console.log('[map] Event places with coords:', eventPlaces.length);
 
         const orgs = await organizationService.getAll();
         const orgPlaces: MapPlace[] = orgs
@@ -61,10 +64,12 @@ export default function MapPage() {
             lat: Number(o.Lat),
             lng: Number(o.Lng),
           }));
+        console.log('[map] Org places with coords:', orgPlaces.length);
+        console.log('[map] Total places:', eventPlaces.length + orgPlaces.length);
 
         setPlaces([...eventPlaces, ...orgPlaces]);
       } catch (e) {
-        console.error('Failed to load map data', e);
+        console.error('[map] Failed to load map data', e);
       }
     };
     loadPlaces();
@@ -218,6 +223,19 @@ export default function MapPage() {
           </button>
         ))}
       </div>
+
+      {/* No data hint */}
+      {leafletReady && places.length === 0 && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <div className="bg-white/80 backdrop-blur-xl rounded-[20px] px-6 py-5 text-center shadow-lg max-w-[260px]">
+            <div className="text-[32px] mb-2">🗺️</div>
+            <p className="text-[14px] font-semibold text-[#111]">Chưa có địa điểm</p>
+            <p className="text-[11px] text-[#6B7280] mt-1 leading-relaxed">
+              Thêm toạ độ cho sự kiện hoặc tổ chức bằng nút "📍 Lấy toạ độ" trong form sửa.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Desktop side panel */}
       <div className="hidden xl:block absolute top-[130px] left-4 bottom-4 w-[320px] z-10 bg-white/72 backdrop-blur-xl border border-white/25 shadow-[0_8px_32px_rgba(0,0,0,0.08)] rounded-[28px] overflow-y-auto p-3.5">
