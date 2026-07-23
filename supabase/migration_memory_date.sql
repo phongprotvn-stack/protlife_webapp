@@ -1,6 +1,7 @@
 -- Thêm cột MemoryDate vào bảng memories
--- Ngày ký ức (ngày sự việc xảy ra), độc lập với CreatedDate (ngày tạo)
--- Nếu NULL, fallback về CreatedDate
+-- Dùng để lưu ngày sự kiện cho ký ức độc lập (không liên kết sự kiện)
+-- Nếu ký ức có EventID, ưu tiên dùng EventDate (StartDate của sự kiện)
+-- Nếu NULL và không có EventID, fallback về CreatedDate
 
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS "MemoryDate" DATE;
 

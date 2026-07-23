@@ -37,8 +37,8 @@ export default function MemoriesPage() {
     try {
       const data = await memoryService.getAllWithEvent();
       data.sort((a, b) => {
-        const aDate = a.MemoryDate || a.EventDate || a.CreatedDate;
-        const bDate = b.MemoryDate || b.EventDate || b.CreatedDate;
+        const aDate = a.EventDate || a.MemoryDate || a.CreatedDate;
+        const bDate = b.EventDate || b.MemoryDate || b.CreatedDate;
         return new Date(aDate).getTime() - new Date(bDate).getTime();
       });
       setMemories(data);
@@ -204,7 +204,7 @@ export default function MemoriesPage() {
 // ─── Memory Card Components ───
 
 function MemoryCardMobile({ memory, onClick }: { memory: MemoryWithEvent; onClick: () => void }) {
-  const displayDate = memory.MemoryDate || memory.EventDate || memory.CreatedDate;
+  const displayDate = memory.EventDate || memory.MemoryDate || memory.CreatedDate;
   const moodColor = (emoji?: string | null): string => {
     const colors: Record<string, string> = { '😊': '#FF9500', '😢': '#5856D6', '🤩': '#FF2D55', '😌': '#34C759', '😤': '#E6002D', '😴': '#8E8E93' };
     return colors[emoji || ''] || '#8E8E93';
@@ -251,7 +251,7 @@ function MemoryCardMobile({ memory, onClick }: { memory: MemoryWithEvent; onClic
 }
 
 function MemoryCardDesktop({ memory, index, onClick }: { memory: MemoryWithEvent; index: number; onClick: () => void }) {
-  const displayDate = memory.MemoryDate || memory.EventDate || memory.CreatedDate;
+  const displayDate = memory.EventDate || memory.MemoryDate || memory.CreatedDate;
   const moodColor = (emoji?: string | null): string => {
     const colors: Record<string, string> = { '😊': '#FF9500', '😢': '#5856D6', '🤩': '#FF2D55', '😌': '#34C759', '😤': '#E6002D', '😴': '#8E8E93' };
     return colors[emoji || ''] || '#8E8E93';

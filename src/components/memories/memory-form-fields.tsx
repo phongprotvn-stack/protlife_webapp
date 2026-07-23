@@ -376,9 +376,9 @@ export default function MemoryFormFields({
         </div>
       )}
 
-      {/* Memory Date */}
+      {/* Event Date */}
       <div className="mb-3">
-        <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1">Ngày ký ức</p>
+        <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1">Ngày sự kiện</p>
         <input type="date" value={memoryDate} onChange={(e) => setMemoryDate(e.target.value)}
           className="input-glass text-[12px] w-full" />
       </div>
