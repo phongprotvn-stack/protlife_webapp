@@ -33,6 +33,7 @@ interface MemoryFormFieldsProps {
   initialContent?: string;
   initialMoodEmoji?: MoodEmoji | '';
   initialImage?: string;
+  initialMemoryDate?: string;
   onSaved: (memoryId: string) => void;
   onCancel: () => void;
   /** Show title field? Set false to rely on initialTitle only */
@@ -63,6 +64,7 @@ export default function MemoryFormFields({
   initialContent = '',
   initialMoodEmoji = '',
   initialImage = '',
+  initialMemoryDate,
   onSaved,
   onCancel,
   showTitleField = true,
@@ -70,6 +72,7 @@ export default function MemoryFormFields({
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
   const [moodEmoji, setMoodEmoji] = useState<MoodEmoji | ''>(initialMoodEmoji);
+  const [memoryDate, setMemoryDate] = useState(initialMemoryDate || new Date().toISOString().split('T')[0]);
   const [image, setImage] = useState(initialImage);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -314,6 +317,7 @@ export default function MemoryFormFields({
           Content: content.trim() || null,
           MoodEmoji: moodEmoji || null,
           Image: image.trim() || null,
+          MemoryDate: memoryDate,
           Mood: null,
         });
         await uploadAttachments(updated.MemoryID);
@@ -325,6 +329,7 @@ export default function MemoryFormFields({
           Content: content.trim() || null,
           MoodEmoji: moodEmoji || null,
           Image: image.trim() || null,
+          MemoryDate: memoryDate,
           Mood: null,
         });
         await uploadAttachments(mem.MemoryID);
@@ -370,6 +375,13 @@ export default function MemoryFormFields({
             className="input-glass text-[13px] font-semibold w-full" placeholder="Tên ký ức..." />
         </div>
       )}
+
+      {/* Memory Date */}
+      <div className="mb-3">
+        <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1">Ngày ký ức</p>
+        <input type="date" value={memoryDate} onChange={(e) => setMemoryDate(e.target.value)}
+          className="input-glass text-[12px] w-full" />
+      </div>
 
       {/* Content */}
       <div className="mb-3">

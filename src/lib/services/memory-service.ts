@@ -41,6 +41,7 @@ export const memoryService = {
       Image: m.Image,
       Mood: m.Mood,
       MoodEmoji: m.MoodEmoji,
+      MemoryDate: m.MemoryDate || null,
       CreatedDate: m.CreatedDate,
       UpdatedDate: m.UpdatedDate,
       user_id: m.user_id,
@@ -83,6 +84,7 @@ export const memoryService = {
       Image: data.Image || null,
       Mood: data.Mood || null,
       MoodEmoji: data.MoodEmoji || null,
+      MemoryDate: data.MemoryDate || new Date().toISOString().split('T')[0],
       CreatedDate: now,
       UpdatedDate: now,
     };
@@ -102,6 +104,7 @@ export const memoryService = {
     if (data.Image !== undefined) updates.Image = data.Image;
     if (data.Mood !== undefined) updates.Mood = data.Mood;
     if (data.MoodEmoji !== undefined) updates.MoodEmoji = data.MoodEmoji;
+    if (data.MemoryDate !== undefined) updates.MemoryDate = data.MemoryDate;
     if (data.EventID !== undefined) updates.EventID = data.EventID;
 
     const { data: result, error } = await supabase

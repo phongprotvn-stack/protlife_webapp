@@ -59,8 +59,8 @@ export default function MemoryWheelPage() {
     try {
       const data = await memoryService.getAllWithEvent();
       setMemories(data.sort((a, b) => {
-        const aDate = a.EventDate || a.CreatedDate;
-        const bDate = b.EventDate || b.CreatedDate;
+        const aDate = a.MemoryDate || a.EventDate || a.CreatedDate;
+        const bDate = b.MemoryDate || b.EventDate || b.CreatedDate;
         return new Date(aDate).getTime() - new Date(bDate).getTime();
       }));
     } catch (e: any) {
@@ -455,7 +455,7 @@ export default function MemoryWheelPage() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-bold tracking-[1px] uppercase"
                 style={{ color: moodColor(activeMemory.MoodEmoji) }}>
-                {relativeTime(activeMemory.EventDate || activeMemory.CreatedDate)}
+                {relativeTime(activeMemory.MemoryDate || activeMemory.EventDate || activeMemory.CreatedDate)}
               </div>
               <div className="text-[17px] font-extrabold text-[#101010] mt-0.5 tracking-[-0.2px] leading-tight">
                 {activeMemory.Title}

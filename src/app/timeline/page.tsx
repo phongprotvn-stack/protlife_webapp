@@ -148,10 +148,10 @@ export default function TimelinePage() {
       eventId: e.EventID,
     }));
 
-    // Convert memories to MemoryItems (always past) — use EventDate if linked
+    // Convert memories to MemoryItems (always past) — use MemoryDate, else EventDate, else CreatedDate
     const pastMemories: MemoryItem[] = memories.map(m => {
       const moodIcon = memoryIcon(m.MoodEmoji);
-      const dateLabel = m.EventDate || m.CreatedDate;
+      const dateLabel = m.MemoryDate || m.EventDate || m.CreatedDate;
       return {
         icon: moodIcon,
         title: m.Title,

@@ -110,6 +110,7 @@ export interface Memory {
   Image: string | null;
   Mood: Mood | null;
   MoodEmoji: MoodEmoji | null;
+  MemoryDate: string | null;
   CreatedDate: string;
   UpdatedDate: string;
   user_id?: string;
@@ -121,6 +122,7 @@ export interface MemoryFormData {
   Image?: string | null;
   Mood?: Mood | null;
   MoodEmoji?: MoodEmoji | null;
+  MemoryDate?: string | null;
   EventID?: string | null;
 }
 
