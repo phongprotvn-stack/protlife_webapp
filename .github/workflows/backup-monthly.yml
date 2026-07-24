@@ -23,7 +23,6 @@ jobs:
       - name: Validate Google Drive secrets
         env:
           RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
-          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           set -euo pipefail
           if [ -z "$RCLONE_CONF" ]; then
@@ -31,11 +30,6 @@ jobs:
             exit 1
           fi
           echo "✓ RCLONE_CONF is set (${#RCLONE_CONF} chars)"
-          if [ -z "$FOLDER_ID" ]; then
-            echo "::error::GDRIVE_FOLDER_ID secret is empty. Create a Drive folder and copy its ID."
-            exit 1
-          fi
-          echo "✓ GDRIVE_FOLDER_ID is set"
 
       - name: Test network connectivity to pooler
         run: |
@@ -125,7 +119,6 @@ jobs:
       - name: Upload to Google Drive
         env:
           RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
-          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           set -euo pipefail
 
@@ -134,7 +127,7 @@ jobs:
           echo "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
 
           # Upload the monthly dump
-          rclone copy protlife-$(date -u +%Y-%m).dump.gz "gdrive:$FOLDER_ID"
+          rclone copy protlife-$(date -u +%Y-%m).dump.gz "gdrive:ProtLife Backups/"
 
           echo "✓ Upload to Google Drive complete"
 
@@ -145,7 +138,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APPLICATION_KEY }}
           B2_ENDPOINT_RAW: ${{ secrets.B2_ENDPOINT }}
           RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
-          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           set -euo pipefail
 
@@ -164,4 +156,4 @@ jobs:
           echo "=== Google Drive ==="
           mkdir -p ~/.config/rclone
           echo "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
-          rclone ls "gdrive:$FOLDER_ID" 2>&1
+          rclone ls "gdrive:ProtLife Backups/" 2>&1
