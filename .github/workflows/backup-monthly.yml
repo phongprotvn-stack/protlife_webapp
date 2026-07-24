@@ -1,0 +1,169 @@
+name: Monthly Snapshot
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"    # 03:00 UTC, ngày 1 mỗi tháng
+  workflow_dispatch:         # manual trigger
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate password secret
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DB_PASSWORD" ]; then
+            echo "::error::SUPABASE_DB_PASSWORD secret is empty. Add it in GitHub → Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "✓ SUPABASE_DB_PASSWORD is set (${#DB_PASSWORD} chars)"
+
+      - name: Validate Google Drive secrets
+        env:
+          SA_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SA_JSON" ]; then
+            echo "::error::GOOGLE_SERVICE_ACCOUNT_JSON secret is empty. Create a Service Account and add its JSON key."
+            exit 1
+          fi
+          echo "✓ GOOGLE_SERVICE_ACCOUNT_JSON is set (${#SA_JSON} chars)"
+          if [ -z "$FOLDER_ID" ]; then
+            echo "::error::GDRIVE_FOLDER_ID secret is empty. Share a Drive folder with the SA and add its ID."
+            exit 1
+          fi
+          echo "✓ GDRIVE_FOLDER_ID is set"
+
+      - name: Test network connectivity to pooler
+        run: |
+          set -euo pipefail
+          echo "=== DNS resolution ==="
+          getent hosts aws-0-ap-southeast-1.pooler.supabase.com || echo "DNS FAILED"
+          echo ""
+          echo "=== TCP connectivity (port 5432) ==="
+          timeout 5 bash -c "echo > /dev/tcp/aws-0-ap-southeast-1.pooler.supabase.com/5432" && echo "TCP OK" || echo "TCP FAILED"
+
+      - name: Install PostgreSQL 17 client tools
+        run: |
+          set -euo pipefail
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo ""
+          echo "=== pg_dump version ==="
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Dump PostgreSQL database
+        env:
+          PGHOST: aws-0-ap-southeast-1.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.hwgrdhnsuvohgtcuemag
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGDATABASE: postgres
+        run: |
+          set -euo pipefail
+          /usr/lib/postgresql/17/bin/pg_dump --no-owner --no-acl | gzip > protlife-$(date -u +%Y-%m).dump.gz
+          echo "=== File info ==="
+          ls -la protlife-*.dump.gz
+          FILESIZE=$(stat -c%s protlife-$(date -u +%Y-%m).dump.gz)
+          echo "File size: $FILESIZE bytes"
+
+      - name: Install aws-cli for B2
+        run: |
+          set -euo pipefail
+          curl -sL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          sudo /tmp/aws/install --update
+
+      - name: Upload to Backblaze B2 (monthly)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          B2_ENDPOINT_RAW: ${{ secrets.B2_ENDPOINT }}
+        run: |
+          set -euo pipefail
+
+          DUMP_FILE="protlife-$(date -u +%Y-%m).dump.gz"
+
+          # Verify file exists before upload
+          if [ ! -f "$DUMP_FILE" ]; then
+            echo "::error::Dump file '$DUMP_FILE' not found in $(pwd)"
+            ls -la
+            exit 1
+          fi
+          echo "✓ File exists: $DUMP_FILE ($(stat -c%s "$DUMP_FILE") bytes)"
+
+          # Auto-prepend https:// if scheme is missing
+          case "$B2_ENDPOINT_RAW" in
+            http://*|https://*) B2_ENDPOINT="$B2_ENDPOINT_RAW" ;;
+            *) B2_ENDPOINT="https://$B2_ENDPOINT_RAW" ;;
+          esac
+          echo "✓ Endpoint: $B2_ENDPOINT"
+
+          # Extract region from B2 S3 endpoint
+          B2_REGION=$(echo "$B2_ENDPOINT" | sed -E 's|https://s3\\.([^.]+)\\..*|\1|')
+          [ -z "$B2_REGION" ] && B2_REGION="us-east-1"
+          export AWS_DEFAULT_REGION="$B2_REGION"
+
+          aws s3 cp "$DUMP_FILE" \
+            s3://protlife-backup/db-dumps/monthly/$(date -u +%Y-%m).dump.gz \
+            --endpoint-url "$B2_ENDPOINT" \
+            --region "$B2_REGION" \
+            --no-progress \
+            --only-show-errors
+
+          echo "✓ Upload to B2 complete"
+
+      - name: Install rclone
+        run: curl https://rclone.org/install.sh | sudo bash
+
+      - name: Upload to Google Drive
+        env:
+          SA_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          set -euo pipefail
+
+          echo "$SA_JSON" > /tmp/sa.json
+
+          # Configure rclone with the service account JSON
+          rclone config create gdrive drive \
+            service_account_file /tmp/sa.json \
+            --non-interactive
+
+          # Upload the monthly dump
+          rclone copy protlife-$(date -u +%Y-%m).dump.gz "gdrive:$FOLDER_ID"
+
+          # Clean up
+          rm /tmp/sa.json
+
+          echo "✓ Upload to Google Drive complete"
+
+      - name: Verify uploads
+        continue-on-error: true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_ENDPOINT_RAW: ${{ secrets.B2_ENDPOINT }}
+        run: |
+          set -euo pipefail
+
+          echo "=== B2 (monthly) ==="
+          case "$B2_ENDPOINT_RAW" in
+            http://*|https://*) B2_ENDPOINT="$B2_ENDPOINT_RAW" ;;
+            *) B2_ENDPOINT="https://$B2_ENDPOINT_RAW" ;;
+          esac
+          B2_REGION=$(echo "$B2_ENDPOINT" | sed -E 's|https://s3\\.([^.]+)\\..*|\1|')
+          export AWS_DEFAULT_REGION="$B2_REGION"
+          aws s3 ls s3://protlife-backup/db-dumps/monthly/ \
+            --endpoint-url "$B2_ENDPOINT" \
+            --region "$B2_REGION" 2>&1
+
+          echo ""
+          echo "=== Google Drive ==="
+          echo "Mở https://drive.google.com/drive/folders/$FOLDER_ID để kiểm tra thủ công"

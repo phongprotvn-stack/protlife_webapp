@@ -1,0 +1,55 @@
+name: Copy January Snapshot to Yearly
+
+on:
+  workflow_dispatch:
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+      B2_ENDPOINT_RAW: ${{ secrets.B2_ENDPOINT }}
+    steps:
+      - name: Setup endpoint
+        run: |
+          case "$B2_ENDPOINT_RAW" in
+            http://*|https://*) echo "ENDPOINT=$B2_ENDPOINT_RAW" >> $GITHUB_ENV ;;
+            *) echo "ENDPOINT=https://$B2_ENDPOINT_RAW" >> $GITHUB_ENV ;;
+          esac
+
+      - name: Install aws-cli
+        run: |
+          curl -sL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          sudo /tmp/aws/install --update
+
+      - name: List monthly files
+        run: |
+          aws s3 ls s3://protlife-backup/db-dumps/monthly/ \
+            --endpoint-url "$ENDPOINT"
+
+      - name: Copy if January exists
+        run: |
+          YEAR=$(date -u +%Y)
+          FILE="db-dumps/monthly/${YEAR}-01.dump.gz"
+          DEST="db-dumps/yearly/${YEAR}-01.dump.gz"
+
+          echo "Looking for: $FILE"
+
+          if aws s3 ls "s3://protlife-backup/$FILE" --endpoint-url "$ENDPOINT" 2>&1; then
+            echo "Found! Copying to $DEST..."
+            aws s3 cp "s3://protlife-backup/$FILE" "s3://protlife-backup/$DEST" \
+              --endpoint-url "$ENDPOINT" --no-progress --only-show-errors
+            echo "✓ Copied to yearly/"
+          else
+            echo "No January snapshot found. Nothing to copy."
+          fi
+
+      - name: Verify
+        run: |
+          echo "=== Monthly ==="
+          aws s3 ls s3://protlife-backup/db-dumps/monthly/ --endpoint-url "$ENDPOINT"
+          echo ""
+          echo "=== Yearly ==="
+          aws s3 ls s3://protlife-backup/db-dumps/yearly/ --endpoint-url "$ENDPOINT"
