@@ -22,17 +22,17 @@ jobs:
 
       - name: Validate Google Drive secrets
         env:
-          SA_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
           FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           set -euo pipefail
-          if [ -z "$SA_JSON" ]; then
-            echo "::error::GOOGLE_SERVICE_ACCOUNT_JSON secret is empty. Create a Service Account and add its JSON key."
+          if [ -z "$RCLONE_CONF" ]; then
+            echo "::error::RCLONE_CONF secret is empty. Run 'rclone config' locally and paste the config content."
             exit 1
           fi
-          echo "✓ GOOGLE_SERVICE_ACCOUNT_JSON is set (${#SA_JSON} chars)"
+          echo "✓ RCLONE_CONF is set (${#RCLONE_CONF} chars)"
           if [ -z "$FOLDER_ID" ]; then
-            echo "::error::GDRIVE_FOLDER_ID secret is empty. Share a Drive folder with the SA and add its ID."
+            echo "::error::GDRIVE_FOLDER_ID secret is empty. Create a Drive folder and copy its ID."
             exit 1
           fi
           echo "✓ GDRIVE_FOLDER_ID is set"
@@ -124,23 +124,17 @@ jobs:
 
       - name: Upload to Google Drive
         env:
-          SA_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
           FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           set -euo pipefail
 
-          echo "$SA_JSON" > /tmp/sa.json
-
-          # Configure rclone with the service account JSON
-          rclone config create gdrive drive \
-            service_account_file /tmp/sa.json \
-            --non-interactive
+          # Write rclone config
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
 
           # Upload the monthly dump
           rclone copy protlife-$(date -u +%Y-%m).dump.gz "gdrive:$FOLDER_ID"
-
-          # Clean up
-          rm /tmp/sa.json
 
           echo "✓ Upload to Google Drive complete"
 
@@ -150,6 +144,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APPLICATION_KEY }}
           B2_ENDPOINT_RAW: ${{ secrets.B2_ENDPOINT }}
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           set -euo pipefail
 
@@ -166,4 +162,6 @@ jobs:
 
           echo ""
           echo "=== Google Drive ==="
-          echo "Mở https://drive.google.com/drive/folders/$FOLDER_ID để kiểm tra thủ công"
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+          rclone ls "gdrive:$FOLDER_ID" 2>&1
