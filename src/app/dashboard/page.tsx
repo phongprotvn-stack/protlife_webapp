@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, Calendar, Heart, TrendingUp, Clock, MapPin,
   Target, PieChart, RefreshCw, Gift, Coffee,
-  BookHeart, FileText, Building2, AlertTriangle, Bell, ArrowUpDown
+  BookHeart, FileText, Building2, AlertTriangle, Bell
 } from 'lucide-react';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
+import { memoryService } from '@/lib/services/memory-service';
+import { goalService } from '@/lib/services/goal-service';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRouter } from 'next/navigation';
@@ -27,8 +29,10 @@ export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [memoryCount, setMemoryCount] = useState(0);
+  const [goalCount, setGoalCount] = useState(0);
   const [reconnectSuggestions, setReconnectSuggestions] = useState<ReconnectSuggestion[]>([]);
-  const [sortAsc, setSortAsc] = useState(true); // true: ít→nhiều, false: nhiều→ít
+  const [sortAsc, setSortAsc] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -37,8 +41,13 @@ export default function DashboardPage() {
   const loadData = async () => {
     setIsLoading(true); setError('');
     try {
-      const [c, e] = await Promise.all([contactService.getAll(), eventService.getAll()]);
-      setContacts(c); setEvents(e);
+      const [c, e, mc, gc] = await Promise.all([
+        contactService.getAll(),
+        eventService.getAll(),
+        memoryService.count(),
+        goalService.getAll(),
+      ]);
+      setContacts(c); setEvents(e); setMemoryCount(mc); setGoalCount(gc.length);
       await computeReconnectSuggestions(c, e);
     } catch (err: any) { setError(err.message || 'Không thể tải dữ liệu'); }
     finally { setIsLoading(false); }
@@ -109,9 +118,30 @@ export default function DashboardPage() {
   const statsCards = [
     { id: 'contacts', label: 'Quan hệ', value: contacts.length, icon: Users, color: '#E6002D', href: '/contacts' },
     { id: 'events', label: 'Sự kiện', value: events.length, icon: Calendar, color: '#007AFF', href: '/events' },
-    { id: 'memories', label: 'Ký ức', value: '0', icon: BookHeart, color: '#FF4D6A', href: '/memories' },
+    { id: 'memories', label: 'Ký ức', value: memoryCount, icon: BookHeart, color: '#FF4D6A', href: '/memories' },
     { id: 'places', label: 'Địa điểm', value: new Set(events.filter(e => e.Place).map(e => e.Place)).size, icon: MapPin, color: '#34C759', href: '/map' },
   ];
+
+  // ─── Life Score (same formula as Statistics page) ───
+  const lifeScore = useMemo(() => {
+    const contactScores = contacts.map(c => c.RelationshipScore || 0);
+    const avgRelScore = contactScores.length > 0
+      ? Math.round(contactScores.reduce((a, b) => a + b, 0) / contactScores.length * 10)
+      : 0;
+    const activityScore = Math.min(events.length * 2, 100);
+    const memScore = Math.min(memoryCount * 5, 100);
+    const socialScore = Math.min(contacts.length * 2, 100);
+    const goalSc = Math.min(goalCount * 25, 100);
+    return Math.round(avgRelScore * 0.30 + activityScore * 0.25 + memScore * 0.20 + socialScore * 0.15 + goalSc * 0.10);
+  }, [contacts, events, memoryCount, goalCount]);
+
+  const lifeSubScores = useMemo(() => [
+    { label: 'Quan hệ', score: contacts.length > 0 ? Math.round(contacts.reduce((s, c) => s + (c.RelationshipScore || 0), 0) / contacts.length * 10) : 0, max: 100, color: '#E6002D' },
+    { label: 'Hoạt động', score: Math.min(events.length * 2, 100), max: 100, color: '#0EA5E9' },
+    { label: 'Ký ức', score: Math.min(memoryCount * 5, 100), max: 100, color: '#8B5CF6' },
+    { label: 'Kết nối', score: Math.min(contacts.length * 2, 100), max: 100, color: '#F59E0B' },
+    { label: 'Mục tiêu', score: Math.min(goalCount * 25, 100), max: 100, color: '#10B981' },
+  ], [contacts, events.length, memoryCount, goalCount]);
 
   const favoriteContacts = contacts.filter(c => c.IsFavorite).slice(0, 6);
 
@@ -132,16 +162,24 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.StartDate).getTime() - new Date(a.StartDate).getTime())
     .slice(0, 5);
 
+  // ─── Relationship stats (dynamic, same as Statistics page) ───
   const relationshipMap: Record<string, { label: string; color: string; count: number }> = {
     Family: { label: 'Gia đình', color: '#E6002D', count: 0 },
     Relative: { label: 'Họ hàng', color: '#FF4D6A', count: 0 },
     Friend: { label: 'Bạn bè', color: '#007AFF', count: 0 },
     Colleague: { label: 'Đồng nghiệp', color: '#FF9500', count: 0 },
+    Neighbor: { label: 'Hàng xóm', color: '#34C759', count: 0 },
+    Teacher: { label: 'Thầy cô', color: '#5856D6', count: 0 },
+    Partner: { label: 'Đối tác', color: '#AF52DE', count: 0 },
     Other: { label: 'Khác', color: '#8E8E93', count: 0 },
   };
-  contacts.forEach((c) => { const key = relationshipMap[c.Relationship] ? c.Relationship : 'Other'; relationshipMap[key].count++; });
+  contacts.forEach((c) => {
+    const key = c.Relationship && relationshipMap[c.Relationship] ? c.Relationship : 'Other';
+    relationshipMap[key].count++;
+  });
+  const relStatsAll = Object.values(relationshipMap).filter(r => r.count > 0).sort((a, b) => b.count - a.count);
   const totalRel = contacts.length || 1;
-  const relationshipStats = Object.values(relationshipMap).map(r => ({ ...r, pct: Math.round((r.count / totalRel) * 100) }));
+  const relationshipStats = relStatsAll.map(r => ({ ...r, pct: Math.round((r.count / totalRel) * 100) }));
 
   const monthNames = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
   const totalBirthdays = contacts.filter(c => c.Birthday).length;
@@ -294,26 +332,27 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Relationship Stats */}
+        {/* Relationship Stats */}  
         <div className="bg-white rounded-[16px] p-4 shadow-sm border border-[rgba(0,0,0,0.04)]">
           <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5 mb-3">
             <PieChart size={14} className="text-[#E6002D]"/> Quan hệ
           </h2>
-          {contacts.length === 0 ? (
+          {relationshipStats.length === 0 ? (
             <p className="text-[12px] text-[#8E8E93] text-center py-4">Chưa có dữ liệu</p>
           ) : (
-            <div className="space-y-2">
-              {relationshipStats.filter(r => r.count > 0).sort((a, b) => b.count - a.count).map(r => (
-                <div key={r.label}>
-                  <div className="flex items-center justify-between text-[11px] mb-0.5">
-                    <span className="text-[#111] font-medium">{r.label}</span>
-                    <span className="text-[#8E8E93]">{r.count}</span>
+            <div className="flex items-start gap-3">
+              <div className="shrink-0">
+                <DonutChart data={relationshipStats} size={110} innerRadius={30} />
+              </div>
+              <div className="flex-1 space-y-1.5 min-w-0">
+                {relationshipStats.map(r => (
+                  <div key={r.label} className="flex items-center gap-2 text-[10.5px]">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+                    <span className="text-[#5F6368] flex-1 truncate">{r.label}</span>
+                    <span className="font-semibold text-[#111]">{r.count}</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-[rgba(0,0,0,0.04)] overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${r.pct}%`, backgroundColor: r.color }}/>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -451,10 +490,26 @@ export default function DashboardPage() {
           {/* Life Score */}
           <div className="bg-white rounded-[14px] p-4 border border-[rgba(0,0,0,0.04)] shadow-sm text-center">
             <h2 className="text-[14px] font-semibold text-[#111] flex items-center justify-center gap-1.5 mb-2">
-              <TrendingUp size={14} className="text-[#E6002D]"/> Life Score
+              <Heart size={14} className="text-[#E6002D]" fill="#E6002D"/> Life Score
             </h2>
-            <div className="text-[42px] font-bold text-[#111]">{contacts.length + events.length}</div>
-            <p className="text-[11px] text-[#8E8E93]">{contacts.length} quan hệ · {events.length} sự kiện</p>
+            <div className="text-[42px] font-bold tracking-[-1.5px] transition-colors"
+              style={{ color: lifeScore >= 70 ? '#10B981' : lifeScore >= 40 ? '#F59E0B' : '#EF4444' }}>
+              {lifeScore}
+            </div>
+            <p className="text-[11px] text-[#8E8E93] mb-2">{contacts.length} quan hệ · {events.length} sự kiện</p>
+            <div className="space-y-1.5">
+              {lifeSubScores.map(s => (
+                <div key={s.label} className="text-left">
+                  <div className="flex items-center justify-between text-[10px] mb-0.5">
+                    <span className="text-[#5F6368]">{s.label}</span>
+                    <span className="font-semibold" style={{ color: s.color }}>{s.score}</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-[rgba(0,0,0,0.04)] overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(s.score, 100)}%`, backgroundColor: s.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -488,29 +543,30 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Relationship Stats */}
+          {/* Relationship Stats with Donut Chart */}
           <div className="bg-white rounded-[14px] p-4 border border-[rgba(0,0,0,0.04)] shadow-sm">
             <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5 mb-3">
               <PieChart size={14} className="text-[#E6002D]"/> Thống kê mối quan hệ
             </h2>
-            {contacts.length === 0 ? (
+            {relationshipStats.length === 0 ? (
               <p className="text-[12px] text-[#8E8E93] text-center py-6">Chưa có dữ liệu</p>
             ) : (
-              <div className="space-y-2.5">
-                {relationshipStats.filter(r => r.count > 0).sort((a, b) => b.count - a.count).map(r => (
-                  <div key={r.label}>
-                    <div className="flex items-center justify-between text-[12px] mb-0.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.color }} />
-                        <span className="text-[#111] font-medium">{r.label}</span>
-                      </div>
-                      <span className="text-[#8E8E93]">{r.count}</span>
+              <div className="flex items-start gap-3">
+                {/* Donut Chart */}
+                <div className="shrink-0">
+                  <DonutChart data={relationshipStats} size={130} innerRadius={36} />
+                </div>
+                {/* Legend */}
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  {relationshipStats.map(r => (
+                    <div key={r.label} className="flex items-center gap-2 text-[11px]">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+                      <span className="text-[#5F6368] flex-1 truncate">{r.label}</span>
+                      <span className="font-semibold text-[#111]">{r.count}</span>
+                      <span className="text-[#8E8E93] w-[3ch] text-right">{r.pct}%</span>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-[rgba(0,0,0,0.04)] overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${r.pct}%`, backgroundColor: r.color }}/>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -555,5 +611,49 @@ function QuickAction({ icon: Icon, label, color, onClick }: { icon: any; label: 
       </div>
       <span className="text-[10px] font-medium text-[#5F6368] text-center">{label}</span>
     </button>
+  );
+}
+
+// ─── SVG Donut Chart ───
+function DonutChart({ data, size, innerRadius }: { data: { count: number; color: string }[]; size: number; innerRadius: number }) {
+  const total = data.reduce((s, r) => s + r.count, 0);
+  if (total === 0) return null;
+  const cx = size / 2, cy = size / 2;
+  const outerRadius = size / 2 - 4;
+  const strokeWidth = outerRadius - innerRadius;
+  const centerR = innerRadius + strokeWidth / 2;
+  const circumference = 2 * Math.PI * centerR;
+
+  let cumulative = 0;
+  const segments = data.map(r => {
+    const pct = r.count / total;
+    const offset = cumulative * circumference;
+    const length = pct * circumference;
+    cumulative += pct;
+    return { ...r, offset, length };
+  });
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rotate-[-90deg]">
+      {/* Background circle */}
+      <circle cx={cx} cy={cy} r={centerR} fill="none" stroke="rgba(0,0,0,0.04)" strokeWidth={strokeWidth} />
+      {segments.map((s, i) => (
+        <circle key={i} cx={cx} cy={cy} r={centerR} fill="none"
+          stroke={s.color} strokeWidth={strokeWidth} strokeLinecap="butt"
+          strokeDasharray={`${s.length} ${circumference - s.length}`}
+          strokeDashoffset={-s.offset}
+          style={{ transition: 'stroke-dasharray 0.5s ease' }}
+        />
+      ))}
+      {/* Center text */}
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
+        className="fill-[#111] font-bold" fontSize={size * 0.16}>
+        {total}
+      </text>
+      <text x={cx} y={cy + size * 0.12} textAnchor="middle" dominantBaseline="central"
+        className="fill-[#8E8E93]" fontSize={size * 0.07}>
+        tổng
+      </text>
+    </svg>
   );
 }
