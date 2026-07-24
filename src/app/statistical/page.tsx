@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { goalService } from '@/lib/services/goal-service';
 import { organizationService } from '@/lib/services/organization-service';
-import { Users, CalendarDays, BookHeart, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Minus } from 'lucide-react';
+import { Users, CalendarDays, BookHeart, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Heart, BrainCircuit } from 'lucide-react';
 import Link from 'next/link';
 
 // ─── Types ───
@@ -27,6 +27,8 @@ interface DashboardStats {
   recentItems: { type: 'contact' | 'event' | 'memory'; title: string; date: string; id: string }[];
   totalStorageMb: number;
   eventTrend: TrendInfo;
+  lifeScore: number;
+  lifeSubScores: { label: string; score: number; max: number; color: string }[];
 }
 
 const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
@@ -87,7 +89,7 @@ export default function StatisticalPage() {
         supabase.from('events').select('"EventID","Title","StartDate"').order('"StartDate"', { ascending: false }).limit(5),
         supabase.from('memories').select('"MemoryID","Title","CreatedDate"').order('"CreatedDate"', { ascending: false }).limit(5),
         supabase.from('events').select('"StartDate"').gte('"StartDate"', threeMonthsAgo),
-        supabase.from('contacts').select('"Relationship"'),
+        supabase.from('contacts').select('"Relationship","RelationshipScore"'),
       ]);
 
       const recentC = recentCRes.data as any[] || [];
@@ -136,6 +138,26 @@ export default function StatisticalPage() {
 
       const dbMb = Math.round(((contactCount || 0) * 8000 + (eventCount || 0) * 4000 + (memoryCount || 0) * 6000) / (1024 * 1024) * 10) / 10;
 
+      // ─── Life Score ───
+      const contactScores = (allContacts || []).map((c: any) => c.RelationshipScore ?? 0);
+      const avgRelScore = contactScores.length > 0
+        ? Math.round(contactScores.reduce((a: number, b: number) => a + b, 0) / contactScores.length * 10)
+        : 0;
+      const activityScore = Math.min((eventCount || 0) * 2, 100);
+      const memoryScore = Math.min((memoryCount || 0) * 5, 100);
+      const socialScore = Math.min((contactCount || 0) * 2, 100);
+      const goalScore = Math.min((allGoals.length || 0) * 25, 100);
+      const lifeScore = Math.round(
+        avgRelScore * 0.30 + activityScore * 0.25 + memoryScore * 0.20 + socialScore * 0.15 + goalScore * 0.10
+      );
+      const lifeSubScores = [
+        { label: 'Quan hệ', score: Math.round(avgRelScore), max: 100, color: '#E6002D' },
+        { label: 'Hoạt động', score: activityScore, max: 100, color: '#0EA5E9' },
+        { label: 'Ký ức', score: memoryScore, max: 100, color: '#8B5CF6' },
+        { label: 'Kết nối', score: socialScore, max: 100, color: '#F59E0B' },
+        { label: 'Mục tiêu', score: goalScore, max: 100, color: '#10B981' },
+      ];
+
       setStats({
         contacts: contactCount || 0,
         events: eventCount || 0,
@@ -149,6 +171,8 @@ export default function StatisticalPage() {
         recentItems,
         totalStorageMb: Math.max(dbMb, 0.1),
         eventTrend,
+        lifeScore,
+        lifeSubScores,
       });
     } catch (e) {
       console.error('Stats error:', e);
@@ -233,6 +257,44 @@ export default function StatisticalPage() {
           </div>
         ) : stats ? (
           <>
+            {/* ─── Life Score ─── */}
+            <div className="bg-white border border-[#EDEDF1] rounded-[18px] p-[22px] shadow-[0_8px_28px_rgba(0,0,0,.05)] mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)' }}>
+                    <Heart size={18} strokeWidth={2.2} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-[14.5px] font-extrabold">Life Score</h3>
+                    <p className="text-[11px] text-[#6B7280]">Điểm số tổng hợp cuộc sống</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[32px] font-extrabold tracking-[-1px]" style={{ color: stats.lifeScore >= 70 ? '#10B981' : stats.lifeScore >= 40 ? '#F59E0B' : '#EF4444' }}>
+                    {stats.lifeScore}
+                  </span>
+                  <span className="text-[12px] text-[#6B7280] font-semibold">/100</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {stats.lifeSubScores.map((s) => (
+                  <div key={s.label} className="bg-[#FAFAFB] rounded-[10px] p-[10px]">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10.5px] font-semibold text-[#6B7280]">{s.label}</span>
+                      <span className="text-[12px] font-extrabold" style={{ color: s.color }}>{s.score}</span>
+                    </div>
+                    <div className="w-full h-[4px] rounded-[2px] bg-[#EDEDF1] overflow-hidden">
+                      <div className="h-full rounded-[2px] transition-all duration-500" style={{
+                        width: `${(s.score / s.max) * 100}%`,
+                        background: s.color,
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* ─── 6 Stat Cards ─── */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
               <StatCard icon={<Users size={18} strokeWidth={2.2} />} label="Người thân & bạn bè" value={stats.contacts} color="#E6002D" bg="rgba(230,0,45,.06)" />
