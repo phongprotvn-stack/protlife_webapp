@@ -61,11 +61,11 @@ export default function StatisticalPage() {
         supabase.from('contacts').select('*', { count: 'exact', head: true }),
         supabase.from('events').select('*', { count: 'exact', head: true }),
         supabase.from('memories').select('*', { count: 'exact', head: true }),
-        supabase.from('contacts').select('id,name,created_at').order('created_at', { ascending: false }).limit(5),
-        supabase.from('events').select('id,title,start_time').order('start_time', { ascending: false }).limit(5),
-        supabase.from('memories').select('id,title,created_at').order('created_at', { ascending: false }).limit(5),
-        supabase.from('events').select('start_time').gte('start_time', threeMonthsAgo),
-        supabase.from('contacts').select('relation_type'),
+        supabase.from('contacts').select('"ContactID","Name","CreatedDate"').order('"CreatedDate"', { ascending: false }).limit(5),
+                supabase.from('events').select('"EventID","Title","StartDate"').order('"StartDate"', { ascending: false }).limit(5),
+                supabase.from('memories').select('"MemoryID","Title","CreatedDate"').order('"CreatedDate"', { ascending: false }).limit(5),
+                supabase.from('events').select('"StartDate"').gte('"StartDate"', threeMonthsAgo),
+                supabase.from('contacts').select('"Relationship"'),
       ]);
 
       const recentC = recentCRes.data as any[] || [];
@@ -76,9 +76,9 @@ export default function StatisticalPage() {
 
       // Recent items
       const recentItems: DashboardStats['recentItems'] = [];
-      (recentC || []).forEach((c: any) => recentItems.push({ type: 'contact', title: c.name, date: c.created_at, id: c.id }));
-      (recentE || []).forEach((e: any) => recentItems.push({ type: 'event', title: e.title, date: e.start_time, id: e.id }));
-      (recentM || []).forEach((m: any) => recentItems.push({ type: 'memory', title: m.title, date: m.created_at, id: m.id }));
+      (recentC || []).forEach((c: any) => recentItems.push({ type: 'contact', title: c.Name, date: c.CreatedDate, id: c.ContactID }));
+            (recentE || []).forEach((e: any) => recentItems.push({ type: 'event', title: e.Title, date: e.StartDate, id: e.EventID }));
+            (recentM || []).forEach((m: any) => recentItems.push({ type: 'memory', title: m.Title, date: m.CreatedDate, id: m.MemoryID }));
       recentItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       recentItems.splice(10);
 
@@ -91,14 +91,14 @@ export default function StatisticalPage() {
         byMonth.push({
           month: label,
           contacts: 0,
-          events: (allEvents || []).filter((e: any) => e.start_time?.startsWith(mStr)).length,
+          events: (allEvents || []).filter((e: any) => e.StartDate?.startsWith(mStr)).length,
         });
       }
 
       // By relation type
       const typeMap: Record<string, number> = {};
       (allContacts || []).forEach((c: any) => {
-        const t = c.relation_type || 'Khác';
+        const t = c.Relationship || 'Khác';
         typeMap[t] = (typeMap[t] || 0) + 1;
       });
       const byRelation = Object.entries(typeMap).map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count);
