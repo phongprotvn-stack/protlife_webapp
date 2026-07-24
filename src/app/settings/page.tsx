@@ -775,9 +775,9 @@ function BackupTab() {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-          {[{ n:'3', t:'Bản sao', d:'1 chính + 2 dự phòng', tg:['Supabase','R2','Drive'], cl:['#3ECF8E','#F38020','#4285F4'] },
+          {[{ n:'3', t:'Bản sao', d:'1 chính + 2 dự phòng', tg:['Supabase','B2','Drive'], cl:['#3ECF8E','#E6002D','#4285F4'] },
             { n:'2', t:'Loại lưu trữ', d:'Database, object, cloud', tg:['DB','Object','Cloud'] },
-            { n:'1', t:'Ngoại vi', d:'R2 + Drive ≠ Supabase', tg:['R2','Drive'], cl:['#F38020','#4285F4'] },
+            { n:'1', t:'Ngoại vi', d:'B2 + Drive ≠ Supabase', tg:['B2','Drive'], cl:['#E6002D','#4285F4'] },
           ].map(x => (
             <div key={x.n} className="bg-[#FAFAFB] border border-[#EDEDF1] rounded-[16px] p-4">
               <div className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center text-white font-extrabold text-[14px] mb-2.5"
@@ -800,7 +800,7 @@ function BackupTab() {
           <div className="w-9 h-9 rounded-[11px] flex items-center justify-center text-white font-extrabold text-[15px] shrink-0" style={{background:'#24292F'}}>G</div>
           <div className="flex-1">
             <div className="text-[13px] font-bold flex items-center flex-wrap gap-1.5">GitHub Actions <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-[6px] bg-[rgba(36,41,47,.08)]">Engine · 2.000 phút/tháng free</span></div>
-            <div className="text-[11.5px] text-[#6B7280] mt-0.5">Chạy cron backup hằng ngày & tháng. <strong>Chưa active</strong> — cần thiết lập GitHub Secrets.</div>
+            <div className="text-[11.5px] text-[#6B7280] mt-0.5">Chạy cron backup hằng ngày & tháng. <strong>Đang hoạt động</strong> — workflow `backup-daily.yml` & `backup-monthly.yml`.</div>
           </div>
         </div>
       </div>
@@ -809,7 +809,7 @@ function BackupTab() {
         <Card title="Điểm lưu trữ">
           {[
             { i:'S', bg:'#3ECF8E', n:'Supabase', b:'Bản chính', d:'Postgres + Storage sống', status:true },
-            { i:'R', bg:'#F38020', n:'Cloudflare R2', b:'Ngoại vi', d:'10GB free, 0đ tải', tog:[s.r2Enabled, (v:boolean) => setSetting({ r2Enabled: v })] },
+            { i:'R', bg:'#E6002D', n:'Backblaze B2', b:'Ngoại vi', d:'10GB free, 0đ tải xuống', tog:[s.b2Enabled, (v:boolean) => setSetting({ b2Enabled: v })] },
             { i:'D', bg:'#4285F4', n:'Google Drive', b:'Cá nhân', d:'Dump nén hằng tháng', tog:[s.driveBackup, (v:boolean) => setSetting({ driveBackup: v })] },
             { i:'G', bg:'#24292F', n:'GitHub', b:'Version', d:'Manifest.json nhẹ', tog:[s.gitManifest, (v:boolean) => setSetting({ gitManifest: v })] },
           ].map(node => (
@@ -830,9 +830,9 @@ function BackupTab() {
         </Card>
 
         <Card title="Tự động hoá">
-          <ToggleRow title="Sao lưu hằng ngày" desc="03:00 UTC → R2" checked={s.dailyBackup} onChange={v => setSetting({ dailyBackup: v })} />
-          <ToggleRow title="Snapshot tháng" desc="Ngày 1 → R2 + Drive" checked={s.monthlySnapshot} onChange={v => setSetting({ monthlySnapshot: v })} />
-          <BtnP onClick={() => toast('⏳ Cần thiết lập GitHub Actions trước')}>Sao lưu ngay</BtnP>
+          <ToggleRow title="Sao lưu hằng ngày" desc="03:00 UTC → B2" checked={s.dailyBackup} onChange={v => setSetting({ dailyBackup: v })} />
+          <ToggleRow title="Snapshot tháng" desc="Ngày 1 → B2 + Drive" checked={s.monthlySnapshot} onChange={v => setSetting({ monthlySnapshot: v })} />
+          <BtnP onClick={() => window.open('https://github.com/phongprotvn-stack/protlife_webapp/actions', '_blank')}>Sao lưu ngay</BtnP>
         </Card>
       </div>
     </>

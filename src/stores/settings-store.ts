@@ -53,7 +53,7 @@ export interface SettingsState {
   // Backup
   dailyBackup: boolean;
   monthlySnapshot: boolean;
-  r2Enabled: boolean;
+  b2Enabled: boolean;
   driveBackup: boolean;
   gitManifest: boolean;
 
@@ -103,7 +103,7 @@ const DEFAULTS: Omit<SettingsState, 'set' | 'reset'> = {
 
   dailyBackup: true,
   monthlySnapshot: true,
-  r2Enabled: true,
+  b2Enabled: true,
   driveBackup: true,
   gitManifest: true,
 };
