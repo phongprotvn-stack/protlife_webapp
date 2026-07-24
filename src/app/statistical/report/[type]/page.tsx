@@ -1,42 +1,105 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Users, Calendar, LayoutList,
   FileText, FileSpreadsheet, File,
   Search, Download, Printer,
-  ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
+import { contactService } from '@/lib/services/contact-service';
+import { eventService } from '@/lib/services/event-service';
+import { memoryService } from '@/lib/services/memory-service';
+import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
+import type { Contact, EventItem, Memory } from '@/types/database';
 
 const reportConfigs: Record<string, {
   label: string;
   icon: React.ElementType;
   color: string;
   fields: string[];
-  data: Record<string, string>[];
+  fetchData: () => Promise<Record<string, string>[]>;
 }> = {
   'danh-sach-quan-he': {
     label: 'Danh sách quan hệ',
     icon: Users,
     color: '#E6002D',
     fields: ['STT', 'Họ tên', 'Mối quan hệ', 'Ngày sinh', 'SĐT', 'Email', 'Điểm thân thiết', 'Trạng thái'],
-    data: [],
+    fetchData: async () => {
+      const data = await contactService.getAll();
+      return data.map((c: Contact, i: number) => ({
+        'STT': String(i + 1),
+        'Họ tên': c.Name,
+        'Mối quan hệ': c.Relationship,
+        'Ngày sinh': c.Birthday ? formatDate(c.Birthday, 'ddmmyyyy') : '-',
+        'SĐT': c.Phone || '-',
+        'Email': c.Email || '-',
+        'Điểm thân thiết': String(c.RelationshipScore),
+        'Trạng thái': c.Status === 'Active' ? 'Đang liên lạc' : c.Status === 'Lost Contact' ? 'Mất liên lạc' : c.Status === 'Deceased' ? 'Đã mất' : 'Đã chặn',
+      }));
+    },
   },
   'danh-sach-su-kien': {
     label: 'Danh sách sự kiện',
     icon: Calendar,
     color: '#007AFF',
     fields: ['STT', 'Sự kiện', 'Loại', 'Ngày bắt đầu', 'Ngày kết thúc', 'Địa điểm', 'Mức độ', 'Cảm xúc'],
-    data: [],
+    fetchData: async () => {
+      const data = await eventService.getAll();
+      return data.map((e: EventItem, i: number) => ({
+        'STT': String(i + 1),
+        'Sự kiện': e.Title,
+        'Loại': e.EventType,
+        'Ngày bắt đầu': formatDate(e.StartDate, 'ddmmyyyy'),
+        'Ngày kết thúc': e.EndDate ? formatDate(e.EndDate, 'ddmmyyyy') : '-',
+        'Địa điểm': e.Place || '-',
+        'Mức độ': e.Importance,
+        'Cảm xúc': e.Mood ? `${getMoodEmoji(e.Mood)} ${e.Mood}` : '-',
+      }));
+    },
   },
   'bao-cao-tong-hop': {
     label: 'Danh sách Tổng hợp',
     icon: LayoutList,
     color: '#5856D6',
     fields: ['STT', 'Loại', 'Nội dung', 'Ngày', 'Trạng thái'],
-    data: [],
+    fetchData: async () => {
+      const [contacts, events, memories] = await Promise.all([
+        contactService.getAll(),
+        eventService.getAll(),
+        memoryService.getAll(),
+      ]);
+      const rows: Record<string, string>[] = [];
+      contacts.forEach((c: Contact, i: number) => {
+        rows.push({
+          'STT': String(rows.length + 1),
+          'Loại': 'Quan hệ',
+          'Nội dung': c.Name,
+          'Ngày': formatDate(c.CreatedDate, 'ddmmyyyy'),
+          'Trạng thái': c.Status === 'Active' ? 'Đang liên lạc' : 'Khác',
+        });
+      });
+      events.forEach((e: EventItem) => {
+        rows.push({
+          'STT': String(rows.length + 1),
+          'Loại': 'Sự kiện',
+          'Nội dung': e.Title,
+          'Ngày': formatDate(e.StartDate, 'ddmmyyyy'),
+          'Trạng thái': e.Importance,
+        });
+      });
+      memories.forEach((m: Memory) => {
+        rows.push({
+          'STT': String(rows.length + 1),
+          'Loại': 'Ký ức',
+          'Nội dung': m.Title,
+          'Ngày': formatDate(m.CreatedDate, 'ddmmyyyy'),
+          'Trạng thái': m.Mood || '-',
+        });
+      });
+      return rows;
+    },
   },
 };
 
@@ -56,15 +119,34 @@ export default function ReportPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
+  const [data, setData] = useState<Record<string, string>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (config?.fetchData) {
+      setLoading(true);
+      setError('');
+      config.fetchData()
+        .then(setData)
+        .catch((e) => setError(e?.message || 'Lỗi tải dữ liệu'))
+        .finally(() => setLoading(false));
+    }
+  }, [config?.label]);
 
   const filteredData = useMemo(() => {
-    return config?.data.filter((row) => {
-      if (!searchQuery) return true;
-      return Object.values(row).some(v =>
+    return data.filter((row) => {
+      if (searchQuery && !Object.values(row).some(v =>
         v.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }) || [];
-  }, [config, searchQuery]);
+      )) return false;
+      if (fromDate || toDate) {
+        const dateVal = row['Ngày'] || row['Ngày bắt đầu'] || '';
+        if (fromDate && dateVal && dateVal < fromDate) return false;
+        if (toDate && dateVal && dateVal > toDate) return false;
+      }
+      return true;
+    });
+  }, [data, searchQuery, fromDate, toDate]);
 
   if (!config) {
     return (
@@ -95,7 +177,8 @@ export default function ReportPage() {
             {config.label}
           </h1>
           <p className="text-[12px] text-[#8E8E93] mt-0.5">
-            {config.data.length} bản ghi · Tìm kiếm, lọc và xuất dữ liệu
+            {loading ? 'Đang tải...' : `${data.length} bản ghi`}
+            {' · Tìm kiếm, lọc và xuất dữ liệu'}
           </p>
         </div>
       </div>
@@ -142,7 +225,7 @@ export default function ReportPage() {
       {/* Export buttons */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-[13px] text-[#8E8E93]">
-          {filteredData.length} bản ghi
+          {loading ? 'Đang tải...' : `${filteredData.length} bản ghi`}
           {(fromDate || toDate) && (
             <span className="ml-2 text-[11px] text-[#E6002D] bg-[#E6002D]/8 px-2 py-0.5 rounded-full">
               Đã lọc theo ngày
@@ -177,7 +260,16 @@ export default function ReportPage() {
 
       {/* Data table */}
       <div className="card-ios overflow-hidden">
-        {filteredData.length === 0 ? (
+        {loading ? (
+          <div className="py-16 text-center">
+            <div className="w-12 h-12 border-3 border-[rgba(var(--color-primary-rgb),.2)] border-t-[var(--color-primary)] rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[14px] text-[#6B7280]">Đang tải dữ liệu...</p>
+          </div>
+        ) : error ? (
+          <div className="py-16 text-center">
+            <p className="text-[14px] text-[#E6002D]">{error}</p>
+          </div>
+        ) : filteredData.length === 0 ? (
           <div className="py-16 text-center">
             <div className="w-16 h-16 rounded-full bg-[rgba(0,0,0,0.04)] mx-auto mb-4 flex items-center justify-center">
               <Icon size={28} className="text-[#D1D5DB]" />
