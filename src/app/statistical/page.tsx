@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase/client';
 import { goalService } from '@/lib/services/goal-service';
 import { organizationService } from '@/lib/services/organization-service';
 import { exportExcel, exportWord, exportPDF } from '@/lib/export-utils';
-import { Users, CalendarDays, BookHeart, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Heart, BrainCircuit } from 'lucide-react';
+import { Users, CalendarDays, BookHeart, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Heart, BrainCircuit, LayoutList } from 'lucide-react';
 import Link from 'next/link';
 
 // ─── Types ───
@@ -490,7 +490,7 @@ export default function StatisticalPage() {
                 )}
               </div>
 
-              {/* Right column: Goals/Orgs overview + Quick stats */}
+              {/* Right column: Goals/Orgs overview + Report links */}
               <div className="space-y-4">
                 {/* Goals & Organizations quick stats */}
                 <div className="bg-white border border-[#EDEDF1] rounded-[18px] p-[22px] shadow-[0_8px_28px_rgba(0,0,0,.05)]">
@@ -509,24 +509,46 @@ export default function StatisticalPage() {
                   </div>
                 </div>
 
-                {/* Quick report link */}
-                <Link href="/statistical/report/bao-cao-tong-hop"
-                  className="block bg-white border border-[#EDEDF1] rounded-[18px] p-[22px] shadow-[0_8px_28px_rgba(0,0,0,.05)] no-underline hover:border-[var(--color-primary)]/30 transition-colors group">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-white text-[17px] shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)' }}>
-                      <TrendingUp size={18} strokeWidth={2.2} />
+                {/* Report links */}
+                <Link href="/statistical/report/danh-sach-quan-he"
+                  className="block bg-white border border-[#EDEDF1] rounded-[18px] p-[16px] shadow-[0_4px_12px_rgba(0,0,0,.03)] no-underline hover:border-[#E6002D]/30 transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-white shrink-0" style={{ background: '#E6002D' }}>
+                      <Users size={18} strokeWidth={2.2} />
                     </div>
-                    <div>
-                      <div className="text-[14px] font-extrabold">Báo cáo tổng quan</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[14px] font-extrabold">Danh sách quan hệ</div>
+                      <div className="text-[11.5px] text-[#6B7280]">{stats.contacts} người thân & bạn bè</div>
+                    </div>
+                    <ChevronRight size={14} className="text-[#D1D5DB] shrink-0" />
+                  </div>
+                </Link>
+
+                <Link href="/statistical/report/danh-sach-su-kien"
+                  className="block bg-white border border-[#EDEDF1] rounded-[18px] p-[16px] shadow-[0_4px_12px_rgba(0,0,0,.03)] no-underline hover:border-[#007AFF]/30 transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-white shrink-0" style={{ background: '#007AFF' }}>
+                      <CalendarDays size={18} strokeWidth={2.2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[14px] font-extrabold">Danh sách sự kiện</div>
+                      <div className="text-[11.5px] text-[#6B7280]">{stats.events} sự kiện đã ghi nhận</div>
+                    </div>
+                    <ChevronRight size={14} className="text-[#D1D5DB] shrink-0" />
+                  </div>
+                </Link>
+
+                <Link href="/statistical/report/bao-cao-tong-hop"
+                  className="block bg-white border border-[#EDEDF1] rounded-[18px] p-[16px] shadow-[0_4px_12px_rgba(0,0,0,.03)] no-underline hover:border-[#5856D6]/30 transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center text-white shrink-0" style={{ background: '#5856D6' }}>
+                      <LayoutList size={18} strokeWidth={2.2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[14px] font-extrabold">Báo cáo tổng hợp</div>
                       <div className="text-[11.5px] text-[#6B7280]">Toàn bộ dữ liệu Prot Life</div>
                     </div>
-                  </div>
-                  <p className="text-[12px] text-[#6B7280] leading-relaxed mb-3">
-                    Báo cáo chi tiết tất cả quan hệ, sự kiện, ký ức — kèm biểu đồ tương tác và xu hướng theo thời gian.
-                  </p>
-                  <div className="flex items-center text-[12px] font-bold gap-1" style={{ color: 'var(--color-primary)' }}>
-                    Xem báo cáo <ArrowUpRight size={12} strokeWidth={2.5} />
+                    <ChevronRight size={14} className="text-[#D1D5DB] shrink-0" />
                   </div>
                 </Link>
               </div>
