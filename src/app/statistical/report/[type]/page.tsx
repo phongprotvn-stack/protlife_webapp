@@ -12,6 +12,7 @@ import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
+import { exportExcel, exportWord, exportPDF } from '@/lib/export-utils';
 import type { Contact, EventItem, Memory } from '@/types/database';
 
 const reportConfigs: Record<string, {
@@ -244,10 +245,21 @@ export default function ReportPage() {
           {/* Export buttons */}
           {formatOptions.map((fmt) => {
             const FmtIcon = fmt.icon;
+            const handleExport = async () => {
+              if (filteredData.length === 0) return;
+              const label = config.label.replace(/[^a-zA-Z0-9À-ỹ]/g, '_');
+              try {
+                if (fmt.id === 'word') await exportWord(config.fields, filteredData, label);
+                else if (fmt.id === 'excel') await exportExcel(config.fields, filteredData, label);
+                else if (fmt.id === 'pdf') await exportPDF(config.fields, filteredData, label);
+              } catch (e) { console.error('Export error:', e); }
+            };
             return (
               <button
                 key={fmt.id}
-                className="h-[36px] px-3 rounded-[10px] flex items-center gap-1.5 text-[12px] font-semibold transition-all hover:opacity-80"
+                onClick={handleExport}
+                disabled={filteredData.length === 0}
+                className="h-[36px] px-3 rounded-[10px] flex items-center gap-1.5 text-[12px] font-semibold transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                 style={{ backgroundColor: `${fmt.color}12`, color: fmt.color }}
               >
                 <FmtIcon size={14} />

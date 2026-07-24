@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { goalService } from '@/lib/services/goal-service';
 import { organizationService } from '@/lib/services/organization-service';
+import { exportExcel, exportWord, exportPDF } from '@/lib/export-utils';
 import { Users, CalendarDays, BookHeart, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Heart, BrainCircuit } from 'lucide-react';
 import Link from 'next/link';
 
@@ -61,6 +62,7 @@ export default function StatisticalPage() {
   const [loading, setLoading] = useState(true);
   const [activeChart, setActiveChart] = useState<'contacts' | 'events'>('events');
   const [exporting, setExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -181,8 +183,8 @@ export default function StatisticalPage() {
     }
   }
 
-  // ─── Export ───
-  const handleExport = useCallback(async () => {
+  // ─── Export handlers ───
+  const handleExportJson = useCallback(async () => {
     setExporting(true);
     try {
       const [contacts, events, memories] = await Promise.all([
@@ -207,6 +209,53 @@ export default function StatisticalPage() {
     } catch { showToast('❌ Lỗi khi xuất'); }
     finally { setExporting(false); }
   }, [stats]);
+
+  const prepareTableData = useCallback(() => {
+    if (!stats) return { headers: [], rows: [] };
+    const headers = ['Loại', 'Mục', 'Số lượng'];
+    const rows: Record<string, string>[] = [
+      { 'Loại': 'Người thân', 'Mục': 'Tổng số', 'Số lượng': String(stats.contacts) },
+      { 'Loại': 'Sự kiện', 'Mục': 'Tổng số', 'Số lượng': String(stats.events) },
+      { 'Loại': 'Ký ức', 'Mục': 'Tổng số', 'Số lượng': String(stats.memories) },
+      { 'Loại': 'Mục tiêu', 'Mục': 'Tổng số', 'Số lượng': String(stats.goals) },
+      { 'Loại': 'Tổ chức', 'Mục': 'Tổng số', 'Số lượng': String(stats.organizations) },
+      { 'Loại': 'Life Score', 'Mục': 'Điểm tổng hợp', 'Số lượng': String(stats.lifeScore) },
+    ];
+    stats.byRelation.slice(0, 8).forEach(r => {
+      rows.push({ 'Loại': 'Quan hệ', 'Mục': r.type, 'Số lượng': String(r.count) });
+    });
+    return { headers, rows };
+  }, [stats]);
+
+  const handleExportDocx = useCallback(async () => {
+    setExporting(true);
+    try {
+      const { headers, rows } = prepareTableData();
+      await exportWord(headers, rows, `Thong_ke_${new Date().toISOString().split('T')[0]}`);
+      showToast('✅ Đã xuất Word');
+    } catch { showToast('❌ Lỗi xuất Word'); }
+    finally { setExporting(false); }
+  }, [prepareTableData]);
+
+  const handleExportXlsx = useCallback(async () => {
+    setExporting(true);
+    try {
+      const { headers, rows } = prepareTableData();
+      await exportExcel(headers, rows, `Thong_ke_${new Date().toISOString().split('T')[0]}`);
+      showToast('✅ Đã xuất Excel');
+    } catch { showToast('❌ Lỗi xuất Excel'); }
+    finally { setExporting(false); }
+  }, [prepareTableData]);
+
+  const handleExportPdf = useCallback(async () => {
+    setExporting(true);
+    try {
+      const { headers, rows } = prepareTableData();
+      await exportPDF(headers, rows, `Thong_ke_${new Date().toISOString().split('T')[0]}`);
+      showToast('✅ Đã xuất PDF');
+    } catch { showToast('❌ Lỗi xuất PDF'); }
+    finally { setExporting(false); }
+  }, [prepareTableData]);
 
   // ─── Chart data ───
   const chartData = useMemo(() => {
@@ -241,12 +290,26 @@ export default function StatisticalPage() {
               className="px-4 py-2.5 rounded-[12px] border border-[#EDEDF1] bg-white text-[13px] font-bold cursor-pointer hover:bg-[#FAFAFB] active:scale-[.97] transition-all disabled:opacity-50">
               {loading ? '⏳ Đang tải...' : '🔄 Làm mới'}
             </button>
-            <button onClick={handleExport} disabled={exporting}
-              className="px-4 py-2.5 rounded-[12px] text-[13px] font-bold text-white cursor-pointer active:scale-[.97] transition-all disabled:opacity-50 flex items-center gap-1.5"
-              style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)', boxShadow: '0 8px 20px rgba(214,0,50,.2)' }}>
-              <Download size={14} strokeWidth={2.5} />
-              {exporting ? '⏳' : 'Xuất .json'}
-            </button>
+            <div className="relative">
+              <button onClick={() => setShowExportMenu(!showExportMenu)} disabled={!stats}
+                className="px-4 py-2.5 rounded-[12px] text-[13px] font-bold text-white cursor-pointer active:scale-[.97] transition-all disabled:opacity-50 flex items-center gap-1.5"
+                style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 55%,#FF6A3D 100%)', boxShadow: '0 8px 20px rgba(214,0,50,.2)' }}>
+                <Download size={14} strokeWidth={2.5} />
+                {exporting ? '⏳ Đang xuất...' : 'Xuất'}
+              </button>
+              {showExportMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                  <div className="absolute right-0 top-[48px] z-50 bg-white border border-[#EDEDF1] rounded-[14px] shadow-[0_12px_40px_rgba(0,0,0,.12)] p-[4px] min-w-[160px]">
+                    <ExportMenuItem icon="📄" label="Word (.docx)" onClick={async () => { setShowExportMenu(false); await handleExportDocx(); }} />
+                    <ExportMenuItem icon="📊" label="Excel (.xlsx)" onClick={async () => { setShowExportMenu(false); await handleExportXlsx(); }} />
+                    <ExportMenuItem icon="📕" label="PDF" onClick={async () => { setShowExportMenu(false); await handleExportPdf(); }} />
+                    <div className="h-[1px] bg-[#EDEDF1] mx-2" />
+                    <ExportMenuItem icon="📋" label="JSON" onClick={async () => { setShowExportMenu(false); await handleExportJson(); }} />
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -510,5 +573,18 @@ function StatCard({ icon, label, value, color, bg, trend }: {
       </div>
       <div className="text-[26px] font-extrabold tracking-[-.5px]" style={{ color: '#101010' }}>{value}</div>
     </div>
+  );
+}
+
+// ─── Export Menu Item ───
+function ExportMenuItem({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-semibold text-[#111] hover:bg-[rgba(0,0,0,0.04)] transition-all text-left cursor-pointer"
+    >
+      <span className="text-[16px]">{icon}</span>
+      {label}
+    </button>
   );
 }
