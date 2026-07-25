@@ -201,7 +201,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold text-[#111] tracking-tight">
-              Xin chào, {user?.name || 'FREE'} 👋
+              Xin chào, {user?.name || 'FREE'} 🐒
             </h1>
             <p className="text-[12px] text-[#6B7280] mt-0.5">Quản lý cuộc sống của bạn</p>
           </div>
@@ -359,13 +359,13 @@ export default function DashboardPage() {
       </div>
 
       {/* ===== DESKTOP VIEW ===== */}
-      <div className="hidden md:block p-5 lg:p-6 max-w-6xl mx-auto">
+      <div className="hidden md:block page-content">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[26px] font-bold text-[#111] tracking-tight">
-              Xin chào, {user?.name || 'FREE'} 👋
+              Xin chào, {user?.name || 'FREE'} 🐒
             </h1>
-            <p className="text-[13px] text-[#6B7280] mt-1">Hôm nay là một ngày tuyệt vời để ghi lại những khoảnh khắc.</p>
+            <p className="text-[13px] text-[#6B7280] mt-1">Mỗi ngày trôi qua là một kỷ niệm đáng giá</p>
           </div>
           <button onClick={loadData} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center hover:bg-[rgba(0,0,0,0.08)]">
             <RefreshCw size={16} className="text-[#8E8E93]" />
@@ -475,12 +475,15 @@ export default function DashboardPage() {
             {upcomingBirthdays.length === 0 ? (
               <p className="text-[12px] text-[#8E8E93] text-center py-6">Chưa có</p>
             ) : (
-              <div className="space-y-1.5">
-                {upcomingBirthdays.map(b => (
-                  <div key={b.contact.ContactID} className="flex items-center gap-2 p-1.5 rounded-[8px] hover:bg-[rgba(0,0,0,0.02)]">
-                    <AvatarCircle contact={b.contact} size={28} />
-                    <span className="flex-1 text-[12px] font-medium text-[#111] truncate">{b.contact.Name}</span>
-                    <span className="text-[10px] font-medium text-[#FF9500]">{b.days === 0 ? '🎉 Hôm nay' : `${b.days} ngày`}</span>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {upcomingBirthdays.slice(0, 5).map(b => (
+                  <div key={b.contact.ContactID}
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)] hover:bg-[rgba(0,0,0,0.04)] transition-colors min-w-[80px] shrink-0">
+                    <AvatarCircle contact={b.contact} size={34} />
+                    <span className="text-[11px] font-medium text-[#111] text-center truncate w-full">{b.contact.Name}</span>
+                    <span className="text-[9px] font-semibold text-[#FF9500] bg-[rgba(255,149,0,0.1)] px-2 py-0.5 rounded-[6px] whitespace-nowrap">
+                      {b.days === 0 ? '🎉 Hôm nay' : formatDate(b.nextDate, 'ddmm')}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -634,18 +637,20 @@ function DonutChart({ data, size, innerRadius }: { data: { count: number; color:
   });
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rotate-[-90deg]">
-      {/* Background circle */}
-      <circle cx={cx} cy={cy} r={centerR} fill="none" stroke="rgba(0,0,0,0.04)" strokeWidth={strokeWidth} />
-      {segments.map((s, i) => (
-        <circle key={i} cx={cx} cy={cy} r={centerR} fill="none"
-          stroke={s.color} strokeWidth={strokeWidth} strokeLinecap="butt"
-          strokeDasharray={`${s.length} ${circumference - s.length}`}
-          strokeDashoffset={-s.offset}
-          style={{ transition: 'stroke-dasharray 0.5s ease' }}
-        />
-      ))}
-      {/* Center text */}
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {/* Rotate only the pie circles — not the text */}
+      <g className="rotate-[-90deg]" style={{ transformOrigin: '50% 50%' }}>
+        <circle cx={cx} cy={cy} r={centerR} fill="none" stroke="rgba(0,0,0,0.04)" strokeWidth={strokeWidth} />
+        {segments.map((s, i) => (
+          <circle key={i} cx={cx} cy={cy} r={centerR} fill="none"
+            stroke={s.color} strokeWidth={strokeWidth} strokeLinecap="butt"
+            strokeDasharray={`${s.length} ${circumference - s.length}`}
+            strokeDashoffset={-s.offset}
+            style={{ transition: 'stroke-dasharray 0.5s ease' }}
+          />
+        ))}
+      </g>
+      {/* Center text — not rotated */}
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
         className="fill-[#111] font-bold" fontSize={size * 0.16}>
         {total}
