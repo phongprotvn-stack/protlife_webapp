@@ -46,10 +46,7 @@ export default function AddEventPage() {
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showContactSearch, setShowContactSearch] = useState(false);
-  const [searchDropdownStyle, setSearchDropdownStyle] = useState<React.CSSProperties>({});
   const contactSearchRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchDropdownRef = useRef<HTMLDivElement>(null);
 
   const [locations, setLocations] = useState<LocationItem[]>([
     { id: '1', place: '', maplink: '' },
@@ -97,10 +94,7 @@ export default function AddEventPage() {
   // Close contact search on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      const isInsideSearch = contactSearchRef.current?.contains(target);
-      const isInsideDropdown = searchDropdownRef.current?.contains(target);
-      if (!isInsideSearch && !isInsideDropdown) {
+      if (contactSearchRef.current && !contactSearchRef.current.contains(e.target as Node)) {
         setShowContactSearch(false);
       }
     };
@@ -111,19 +105,6 @@ export default function AddEventPage() {
   const filteredContacts = contacts.filter(
     (c) => c.Name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedContacts.find((sc) => sc.ContactID === c.ContactID)
   );
-
-  const openContactSearch = () => {
-    if (searchInputRef.current) {
-      const rect = searchInputRef.current.getBoundingClientRect();
-      setSearchDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-    setShowContactSearch(true);
-  };
 
   const toggleContact = (contact: Contact) => {
     const exists = selectedContacts.find((c) => c.ContactID === contact.ContactID);
@@ -313,9 +294,9 @@ export default function AddEventPage() {
         </FormSection>
 
         <FormSection title="Người tham gia">
-          <div className="relative" ref={contactSearchRef}>
+          <div ref={contactSearchRef}>
             <div className="flex items-center gap-2 p-2 rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] cursor-text"
-              onClick={() => openContactSearch()}>
+              onClick={() => setShowContactSearch(true)}>
               <Search size={14} className="text-[#8E8E93] shrink-0"/>
               <div className="flex-1 flex flex-wrap gap-1">
                 {selectedContacts.map((c) => (
@@ -325,15 +306,15 @@ export default function AddEventPage() {
                     <button type="button" onClick={() => toggleContact(c)} className="hover:text-[#E6002D]"><X size={10}/></button>
                   </span>
                 ))}
-                <input ref={searchInputRef} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  onFocus={() => openContactSearch()}
+                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => setShowContactSearch(true)}
                   className="flex-1 min-w-[80px] text-[16px] outline-none bg-transparent"
                   placeholder={selectedContacts.length > 0 ? '' : 'Tìm kiếm người tham gia...'}/>
               </div>
             </div>
 
             {showContactSearch && (
-              <div ref={searchDropdownRef} className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] z-[100] max-h-[200px] overflow-y-auto" style={searchDropdownStyle}>
+              <div className="mt-1 bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[160px] overflow-y-auto">
                 {searchTerm.trim() ? (
                   filteredContacts.length > 0 ? (
                     filteredContacts.map((c) => (
