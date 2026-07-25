@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { eventService } from '@/lib/services/event-service';
 import { organizationService } from '@/lib/services/organization-service';
@@ -33,7 +32,7 @@ async function geocodeAddress(address: string) {
   );
   const data = await res.json();
   if (data.length === 0) return null;
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng) };
 }
 
 export default function AddEventPage() {
@@ -46,10 +45,9 @@ export default function AddEventPage() {
 
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showContactSearch, setShowContactSearch] = useState(false);
-  const contactSearchRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [searchFocused, setSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const [locations, setLocations] = useState<LocationItem[]>([
     { id: '1', place: '', maplink: '' },
@@ -87,17 +85,6 @@ export default function AddEventPage() {
     }
   }, [placeText]);
 
-  // Close contact search on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (contactSearchRef.current && !contactSearchRef.current.contains(e.target as Node)) {
-        setShowContactSearch(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
   const filteredContacts = contacts.filter(
     (c) => c.Name && c.Name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedContacts.find((sc) => sc.ContactID === c.ContactID)
   );
@@ -116,12 +103,15 @@ export default function AddEventPage() {
     }
   };
 
-  const openSearchWithPosition = () => {
-    if (contactSearchRef.current) {
-      const rect = contactSearchRef.current.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
-    }
-    setShowContactSearch(true);
+  const handleFocus = () => {
+    if (blurTimeout.current) clearTimeout(blurTimeout.current);
+    setSearchFocused(true);
+  };
+
+  const handleBlur = () => {
+    blurTimeout.current = setTimeout(() => {
+      setSearchFocused(false);
+    }, 200);
   };
 
   const addLocation = () => {
@@ -298,53 +288,47 @@ export default function AddEventPage() {
         </FormSection>
 
         <FormSection title="Người tham gia">
-          <div ref={contactSearchRef}>
-            <div className="flex items-center gap-2 p-2 rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] cursor-text"
-              onClick={() => openSearchWithPosition()}>
-              <Search size={14} className="text-[#8E8E93] shrink-0"/>
-              <div className="flex-1 flex flex-wrap gap-1">
-                {selectedContacts.map((c) => (
-                  <span key={c.ContactID}
-                    className="inline-flex items-center gap-1 px-[8px] py-[3px] rounded-full bg-[rgba(52,199,89,0.1)] text-[11px] font-medium text-[#2C8E4A]">
-                    {c.Name}
-                    <button type="button" onClick={() => { toggleContact(c); inputRef.current?.focus(); }} className="hover:text-[#E6002D]"><X size={10}/></button>
-                  </span>
-                ))}
-                <input ref={inputRef} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  onFocus={() => openSearchWithPosition()} onKeyDown={handleKeyDown}
-                  className="flex-1 min-w-[80px] text-[16px] outline-none bg-transparent"
-                  placeholder={selectedContacts.length > 0 ? '' : 'Tìm kiếm người tham gia...'}/>
-              </div>
+          <div className="flex items-center gap-2 p-2 rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)]">
+            <Search size={14} className="text-[#8E8E93] shrink-0"/>
+            <div className="flex-1 flex flex-wrap gap-1">
+              {selectedContacts.map((c) => (
+                <span key={c.ContactID}
+                  className="inline-flex items-center gap-1 px-[8px] py-[3px] rounded-full bg-[rgba(52,199,89,0.1)] text-[11px] font-medium text-[#2C8E4A]">
+                  {c.Name}
+                  <button type="button" onClick={() => { toggleContact(c); inputRef.current?.focus(); }} className="hover:text-[#E6002D]"><X size={10}/></button>
+                </span>
+              ))}
+              <input ref={inputRef} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={handleFocus} onBlur={handleBlur} onKeyDown={handleKeyDown}
+                className="flex-1 min-w-[80px] text-[16px] outline-none bg-transparent"
+                placeholder={selectedContacts.length > 0 ? '' : 'Tìm kiếm người tham gia...'}/>
             </div>
           </div>
           {selectedContacts.length > 0 && (
             <p className="text-[10px] text-[#8E8E93]">{selectedContacts.length} người tham gia</p>
           )}
 
-          {showContactSearch && typeof document !== 'undefined' && createPortal(
-            <div className="fixed inset-0 z-40" onMouseDown={() => setShowContactSearch(false)}>
-              <div className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[200px] overflow-y-auto"
-                style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width || 200, zIndex: 50 }}
-                onMouseDown={(e) => e.stopPropagation()}>
-                {searchTerm.trim() ? (
-                  filteredContacts.length > 0 ? (
-                    filteredContacts.map((c) => (
-                      <button key={c.ContactID} type="button" onMouseDown={() => { toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
-                        className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
-                        <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
-                        {c.Name}
-                      </button>
-                    ))
-                  ) : (
-                    <p className="text-[12px] text-[#8E8E93] text-center py-3">Không tìm thấy</p>
-                  )
+          {/* Contact dropdown — always below the search box, no portal, no floating */}
+          <div className="relative">
+            {searchFocused && (
+              <div className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[200px] overflow-y-auto mt-1">
+                {filteredContacts.length > 0 ? (
+                  filteredContacts.map((c) => (
+                    <button key={c.ContactID} type="button"
+                      onMouseDown={(e) => { e.preventDefault(); toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
+                      className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
+                      <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
+                      {c.Name}
+                    </button>
+                  ))
                 ) : (
-                  <p className="text-[11px] text-[#8E8E93] text-center py-3">Gõ tên để tìm kiếm người tham gia</p>
+                  <p className="text-[12px] text-[#8E8E93] text-center py-3">
+                    {searchTerm.trim() ? 'Không tìm thấy' : 'Chưa có liên hệ nào'}
+                  </p>
                 )}
               </div>
-            </div>,
-            document.body
-          )}
+            )}
+          </div>
         </FormSection>
 
         <FormSection title="Cảm xúc & Chi phí">
