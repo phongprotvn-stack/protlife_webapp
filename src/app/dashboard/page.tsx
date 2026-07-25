@@ -203,7 +203,7 @@ export default function DashboardPage() {
             <h1 className="text-[22px] font-bold text-[#111] tracking-tight">
               Xin chào, {user?.name || 'FREE'} 🐒
             </h1>
-            <p className="text-[12px] text-[#6B7280] mt-0.5">Quản lý cuộc sống của bạn</p>
+            <p className="text-[12px] text-[#6B7280] mt-0.5">Mỗi ngày trôi qua là một kỷ niệm đáng giá</p>
           </div>
           <button onClick={loadData} className="w-[36px] h-[36px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
             <RefreshCw size={15} className="text-[#8E8E93]" />
