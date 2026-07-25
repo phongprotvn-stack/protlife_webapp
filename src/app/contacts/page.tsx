@@ -137,7 +137,7 @@ export default function ContactsPage() {
           <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
           <input type="text" placeholder="Tìm kiếm quan hệ..." value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[40px] pl-[36px] pr-[12px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[13px] text-[#111] placeholder:text-[#9CA3AF] outline-none border border-transparent focus:border-[rgba(230,0,45,0.25)] transition-all" />
+            className="w-full h-[40px] pl-[36px] pr-[12px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[16px] text-[#111] placeholder:text-[#9CA3AF] outline-none border border-transparent focus:border-[rgba(230,0,45,0.25)] transition-all" />
         </div>
 
         {/* Filter chips */}

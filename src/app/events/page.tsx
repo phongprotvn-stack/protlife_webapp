@@ -129,7 +129,7 @@ export default function EventsPage() {
           <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
           <input type="text" placeholder="Tìm kiếm sự kiện..." value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[40px] pl-[36px] pr-[12px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[13px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[rgba(230,0,45,0.25)] transition-all" />
+            className="w-full h-[40px] pl-[36px] pr-[12px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[16px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[rgba(230,0,45,0.25)] transition-all" />
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
           {EVENT_TYPES.map((t) => (
