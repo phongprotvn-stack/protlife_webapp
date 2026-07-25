@@ -32,7 +32,7 @@ export function EventCard({ event, variant = 'default', onSelect }: EventCardPro
     <>
       <div
         onClick={handleClick}
-        className="card-ios flex items-start gap-4 cursor-pointer active:scale-[0.98] transition-all duration-200"
+        className="card-ios flex items-start gap-4 cursor-pointer active:scale-[0.98] transition-all duration-200 p-3"
       >
         {/* Date Badge */}
         <div className="w-[52px] h-[60px] rounded-[14px] bg-[#E6002D]/5 flex flex-col items-center justify-center flex-shrink-0">

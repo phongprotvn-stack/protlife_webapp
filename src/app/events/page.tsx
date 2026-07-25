@@ -20,7 +20,13 @@ const EVENT_TYPES = [
   { id: 'Travel', label: 'Du lịch', icon: '✈️' },
   { id: 'Work', label: 'Công việc', icon: '💼' },
   { id: 'Sport', label: 'Thể thao', icon: '⚽' },
-  { id: 'Meal', label: 'Ăn uống', icon: '🍽️' },
+  { id: 'Hospital', label: 'Bệnh viện', icon: '🏥' },
+  { id: 'Meal', label: 'Bữa ăn', icon: '🍽️' },
+  { id: 'PhoneCall', label: 'Cuộc gọi', icon: '📞' },
+  { id: 'Shopping', label: 'Mua sắm', icon: '🛒' },
+  { id: 'Study', label: 'Học tập', icon: '📚' },
+  { id: 'Party', label: 'Buổi tiệc', icon: '🎉' },
+  { id: 'Date', label: 'Hẹn hò', icon: '💕' },
   { id: 'Entertainment', label: 'Giải trí', icon: '🎮' },
   { id: 'Other', label: 'Khác', icon: '📌' },
 ];
@@ -163,10 +169,10 @@ export default function EventsPage() {
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="w-full h-[38px] pl-[34px] pr-[12px] rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] text-[13px] outline-none focus:border-[#E6002D] transition-all" />
             </div>
-            <div className="flex items-center gap-1.5">
-              {EVENT_TYPES.slice(0, 5).map((t) => (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-[45%]">
+              {EVENT_TYPES.map((t) => (
                 <button key={t.id} onClick={() => { setActiveFilter(t.id); setCurrentPage(1); }}
-                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all ${
+                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all whitespace-nowrap ${
                     activeFilter === t.id ? 'bg-[#E6002D] text-white border-[#E6002D]' : 'bg-white text-[#5F6368] border-[rgba(0,0,0,0.06)] hover:border-[rgba(0,0,0,0.12)]'
                   }`}>{t.icon} {t.label}</button>
               ))}

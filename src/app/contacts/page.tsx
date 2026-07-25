@@ -218,10 +218,10 @@ export default function ContactsPage() {
             </div>
 
             {/* All relationships filter block */}
-            <div className="flex items-center gap-1.5">
-              {RELATIONSHIPS.slice(0, 4).map((rel) => (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-[55%]">
+              {RELATIONSHIPS.map((rel) => (
                 <button key={rel.id} onClick={() => { setActiveFilter(rel.id); setCurrentPage(1); }}
-                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all ${
+                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all whitespace-nowrap ${
                     activeFilter === rel.id
                       ? 'bg-[#E6002D] text-white border-[#E6002D]'
                       : 'bg-white text-[#5F6368] border-[rgba(0,0,0,0.06)] hover:border-[rgba(0,0,0,0.12)]'
@@ -229,11 +229,6 @@ export default function ContactsPage() {
                   {rel.label}
                 </button>
               ))}
-              {activeFilter && RELATIONSHIPS.slice(4).some((r) => r.id === activeFilter) && (
-                <span className="px-[8px] py-[6px] rounded-[6px] text-[11px] font-medium bg-[#E6002D]/10 text-[#E6002D] border border-[#E6002D]/20">
-                  {RELATIONSHIPS.find((r) => r.id === activeFilter)?.label}
-                </span>
-              )}
             </div>
 
             {/* Add button - red */}
