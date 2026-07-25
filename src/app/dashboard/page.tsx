@@ -13,6 +13,7 @@ import { memoryService } from '@/lib/services/memory-service';
 import { goalService } from '@/lib/services/goal-service';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth-store';
+import { useAppStore } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
 import type { Contact, EventItem } from '@/types/database';
 import { formatDate, getAvatarColor, getInitials } from '@/lib/utils';
@@ -35,6 +36,9 @@ export default function DashboardPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const selectContact = useAppStore((s) => s.selectContact);
+  const selectEvent = useAppStore((s) => s.selectEvent);
 
   useEffect(() => { loadData(); }, []);
 
@@ -251,28 +255,30 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-2.5">
               {redAlerts.map(s => (
-                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.08)]">
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.08)] cursor-pointer hover:brightness-95 transition-all"
+                  onClick={() => selectContact(s.contact.ContactID)}>
                   <AvatarCircle contact={s.contact} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
                     <p className="text-[10px] text-[#E6002D]">{s.daysSinceLastEvent} ngày chưa gặp</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Cafe">☕</button>
-                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Ăn">🍽️</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Cafe">☕</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Ăn">🍽️</button>
                   </div>
                 </div>
               ))}
               {yellowAlerts.map(s => (
-                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)]">
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)] cursor-pointer hover:brightness-95 transition-all"
+                  onClick={() => selectContact(s.contact.ContactID)}>
                   <AvatarCircle contact={s.contact} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
                     <p className="text-[10px] text-[#B8860B]">{s.daysSinceLastEvent} ngày chưa gặp</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Cafe">☕</button>
-                    <button className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Ăn">🍽️</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Cafe">☕</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Ăn">🍽️</button>
                   </div>
                 </div>
               ))}
@@ -296,7 +302,8 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {recentEvents.map(e => (
-                <div key={e.EventID} className="flex items-center gap-2.5 p-2 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
+                <div key={e.EventID} className="flex items-center gap-2.5 p-2 rounded-[10px] bg-[rgba(0,0,0,0.02)] cursor-pointer hover:brightness-95 transition-all"
+                  onClick={() => selectEvent(e.EventID)}>
                   <div className="w-[32px] h-[36px] rounded-[8px] bg-[rgba(0,122,255,0.08)] flex flex-col items-center justify-center shrink-0">
                     <span className="text-[11px] font-bold text-[#007AFF] leading-none">{new Date(e.StartDate).getDate()}</span>
                     <span className="text-[7px] text-[#007AFF]/60">{monthNames[new Date(e.StartDate).getMonth()]}</span>
@@ -319,7 +326,8 @@ export default function DashboardPage() {
             </h2>
             <div className="space-y-2">
               {upcomingBirthdays.map(b => (
-                <div key={b.contact.ContactID} className="flex items-center gap-2.5 p-2 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
+                <div key={b.contact.ContactID} className="flex items-center gap-2.5 p-2 rounded-[10px] bg-[rgba(0,0,0,0.02)] cursor-pointer hover:brightness-95 transition-all"
+                  onClick={() => selectContact(b.contact.ContactID)}>
                   <AvatarCircle contact={b.contact} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{b.contact.Name}</p>
@@ -417,27 +425,29 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {redAlerts.map(s => (
-                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.1)]">
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.1)] cursor-pointer hover:brightness-95 transition-all"
+                  onClick={() => selectContact(s.contact.ContactID)}>
                   <AvatarCircle contact={s.contact} size={34} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
                     <p className="text-[9px] text-[#E6002D] font-medium">⚠️ {s.daysSinceLastEvent} ngày chưa gặp</p>
                     <div className="flex gap-1 mt-1">
-                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">☕ Cafe</button>
-                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">🍽️ Ăn</button>
+                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">☕ Cafe</button>
+                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">🍽️ Ăn</button>
                     </div>
                   </div>
                 </div>
               ))}
               {yellowAlerts.map(s => (
-                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)]">
+                <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)] cursor-pointer hover:brightness-95 transition-all"
+                  onClick={() => selectContact(s.contact.ContactID)}>
                   <AvatarCircle contact={s.contact} size={34} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
                     <p className="text-[9px] text-[#B8860B] font-medium">⚠️ {s.daysSinceLastEvent} ngày chưa gặp</p>
                     <div className="flex gap-1 mt-1">
-                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">☕ Cafe</button>
-                      <button className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">🍽️ Ăn</button>
+                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">☕ Cafe</button>
+                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">🍽️ Ăn</button>
                     </div>
                   </div>
                 </div>
@@ -458,7 +468,7 @@ export default function DashboardPage() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {favoriteContacts.map(c => (
-                  <div key={c.ContactID} className="flex items-center gap-2 p-1.5 rounded-[8px] hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer" onClick={() => router.push('/contacts')}>
+                  <div key={c.ContactID} className="flex items-center gap-2 p-1.5 rounded-[8px] hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer" onClick={() => selectContact(c.ContactID)}>
                     <AvatarCircle contact={c} size={32} />
                     <span className="text-[11px] font-medium text-[#5F6368] truncate max-w-[80px]">{c.Name}</span>
                   </div>
@@ -477,7 +487,8 @@ export default function DashboardPage() {
             ) : (
               <div className="flex items-center gap-5 overflow-x-auto pb-1">
                 {upcomingBirthdays.slice(0, 5).map(b => (
-                  <div key={b.contact.ContactID} className="flex flex-col items-center gap-1 shrink-0">
+                  <div key={b.contact.ContactID} className="flex flex-col items-center gap-1 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => selectContact(b.contact.ContactID)}>
                     <AvatarCircle contact={b.contact} size={36} />
                     <span className="text-[11px] font-medium text-[#111] text-center truncate max-w-[70px]">{b.contact.Name}</span>
                     <span className="text-[9px] text-[#FF9500] font-medium whitespace-nowrap">
@@ -530,7 +541,8 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-1.5">
                 {recentEvents.map(e => (
-                  <div key={e.EventID} className="flex items-center gap-2.5 p-2 rounded-[8px] bg-[rgba(0,0,0,0.02)]">
+                  <div key={e.EventID} className="flex items-center gap-2.5 p-2 rounded-[8px] bg-[rgba(0,0,0,0.02)] cursor-pointer hover:brightness-95 transition-all"
+                    onClick={() => selectEvent(e.EventID)}>
                     <div className="w-[34px] h-[38px] rounded-[8px] bg-[rgba(0,122,255,0.08)] flex flex-col items-center justify-center shrink-0">
                       <span className="text-[12px] font-bold text-[#007AFF] leading-none">{new Date(e.StartDate).getDate()}</span>
                       <span className="text-[7px] text-[#007AFF]/60">{monthNames[new Date(e.StartDate).getMonth()]}</span>
