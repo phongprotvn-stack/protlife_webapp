@@ -61,7 +61,19 @@ export default function AddEventPage() {
 
   // Load contacts for participant selection
   useEffect(() => {
-    contactService.getAll().then(setContacts).catch(() => {});
+    const loadContacts = async (retries = 3): Promise<void> => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const data = await contactService.getAll();
+          setContacts(data);
+          return;
+        } catch (e) {
+          if (i < retries - 1) await new Promise(r => setTimeout(r, 1500));
+          else console.error('Failed to load contacts', e);
+        }
+      }
+    };
+    loadContacts();
   }, []);
 
   // Auto-generate maplink when place changes
