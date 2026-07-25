@@ -57,31 +57,37 @@ export const useAppStore = create<AppState>()((set) => ({
   selectContact: (id) => set({
     selectedContactId: id, selectedEventId: null, selectedMemoryId: null,
     selectedOrgId: null, selectedDocumentId: null, selectedGoalId: null,
+    dashboardPanelContact: null,
     rightPanelView: id ? 'detail' : null,
   }),
   selectEvent: (id) => set({
     selectedEventId: id, selectedContactId: null, selectedMemoryId: null,
     selectedOrgId: null, selectedDocumentId: null, selectedGoalId: null,
+    dashboardPanelContact: null,
     rightPanelView: id ? 'detail' : null,
   }),
   selectMemory: (id) => set({
     selectedMemoryId: id, selectedContactId: null, selectedEventId: null,
     selectedOrgId: null, selectedDocumentId: null, selectedGoalId: null,
+    dashboardPanelContact: null,
     rightPanelView: id ? 'detail' : null,
   }),
   selectOrg: (id) => set({
     selectedOrgId: id, selectedContactId: null, selectedEventId: null,
     selectedMemoryId: null, selectedDocumentId: null, selectedGoalId: null,
+    dashboardPanelContact: null,
     rightPanelView: id ? 'detail' : null,
   }),
   selectDocument: (id) => set({
     selectedDocumentId: id, selectedContactId: null, selectedEventId: null,
     selectedMemoryId: null, selectedOrgId: null, selectedGoalId: null,
+    dashboardPanelContact: null,
     rightPanelView: id ? 'detail' : null,
   }),
   selectGoal: (id) => set({
     selectedGoalId: id, selectedContactId: null, selectedEventId: null,
     selectedMemoryId: null, selectedOrgId: null, selectedDocumentId: null,
+    dashboardPanelContact: null,
     rightPanelView: id ? 'detail' : null,
   }),
   clearSelection: () => set({

@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Calendar, MapPin, Phone, Star } from 'lucide-react';
+import { X, Calendar, MapPin, Phone, Heart } from 'lucide-react';
 import { getAvatarColor, getInitials, formatDate } from '@/lib/utils';
 import type { DashboardPanelContact } from '@/stores/app-store';
 
@@ -26,13 +26,30 @@ const RELATION_LABELS: Record<string, string> = {
   'Other': 'Khác',
 };
 
+function getScoreLabel(score: number): string {
+  if (score >= 90) return 'Ruột thịt';
+  if (score >= 70) return 'Thâm tình';
+  if (score >= 50) return 'Thân';
+  if (score >= 30) return 'Bạn bè';
+  if (score >= 1) return 'Quen biết';
+  return 'Chưa xác định';
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 90) return '#E6002D';
+  if (score >= 70) return '#FF4D6A';
+  if (score >= 50) return '#FF9500';
+  if (score >= 30) return '#007AFF';
+  return '#8E8E93';
+}
+
 interface Props {
   data: DashboardPanelContact;
   onClose: () => void;
 }
 
 export function DashboardContactPanel({ data, onClose }: Props) {
-  const { contact, lastEventName, lastEventDate, lastEventLocation, phone } = data;
+  const { contact, lastEventDate, lastEventLocation, phone } = data;
 
   return (
     <div className="p-5">
@@ -58,7 +75,7 @@ export function DashboardContactPanel({ data, onClose }: Props) {
         </div>
         <div className="flex items-center justify-center gap-1.5">
           <h2 className="text-[17px] font-bold text-[#111]">{contact.Name}</h2>
-          {contact.IsFavorite && <Star size={14} className="text-[#FF9500] fill-[#FF9500]" />}
+          {contact.IsFavorite && <Heart size={14} className="text-[#FF2D55] fill-[#FF2D55]" />}
         </div>
         {contact.Relationship && (
           <span
@@ -72,58 +89,49 @@ export function DashboardContactPanel({ data, onClose }: Props) {
           </span>
         )}
 
-        {/* Relationship Score Bar */}
-        <div className="mt-3 max-w-[200px] mx-auto">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-[#8E8E93]">Mức độ quan hệ</span>
-            <span className="text-[10px] font-semibold" style={{
-              color: (contact.RelationshipScore || 0) >= 70 ? '#34C759' : (contact.RelationshipScore || 0) >= 40 ? '#FF9500' : '#FF3B30'
-            }}>
-              {contact.RelationshipScore || 0}%
-            </span>
-          </div>
-          <div className="h-1.5 rounded-full bg-[rgba(0,0,0,0.06)] overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{
-              width: `${contact.RelationshipScore || 0}%`,
-              backgroundColor: (contact.RelationshipScore || 0) >= 70 ? '#34C759' : (contact.RelationshipScore || 0) >= 40 ? '#FF9500' : '#FF3B30'
-            }} />
-          </div>
+        {/* Score Label */}
+        <div className="mt-3">
+          <span className="text-[13px] font-semibold" style={{
+            color: getScoreColor(contact.RelationshipScore || 0),
+          }}>
+            {getScoreLabel(contact.RelationshipScore || 0)}
+          </span>
         </div>
       </div>
 
       {/* Info rows */}
       <div className="space-y-3">
-        <div className="flex items-center gap-3 p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
-          <div className="w-[32px] h-[32px] rounded-[8px] bg-[rgba(0,122,255,0.08)] flex items-center justify-center shrink-0">
+        <div className="flex items-start gap-3 p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
+          <div className="w-[32px] h-[32px] rounded-[8px] bg-[rgba(0,122,255,0.08)] flex items-center justify-center shrink-0 mt-0.5">
             <Calendar size={14} className="text-[#007AFF]" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-medium text-[#8E8E93] uppercase tracking-wider">Sự kiện gần nhất</p>
-            <p className="text-[13px] font-medium text-[#111] truncate">
-              {lastEventName ? `${lastEventName} • ${formatDate(lastEventDate, 'ddmmyyyy')}` : 'Chưa có sự kiện'}
+            <p className="text-[13px] font-medium text-[#111]">
+              {lastEventDate ? formatDate(lastEventDate, 'ddmmyyyy') : 'Chưa có sự kiện'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
-          <div className="w-[32px] h-[32px] rounded-[8px] bg-[rgba(255,149,0,0.08)] flex items-center justify-center shrink-0">
+        <div className="flex items-start gap-3 p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
+          <div className="w-[32px] h-[32px] rounded-[8px] bg-[rgba(255,149,0,0.08)] flex items-center justify-center shrink-0 mt-0.5">
             <MapPin size={14} className="text-[#FF9500]" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-medium text-[#8E8E93] uppercase tracking-wider">Địa điểm</p>
-            <p className="text-[13px] font-medium text-[#111] truncate">
+            <p className="text-[13px] font-medium text-[#111] whitespace-pre-wrap break-words">
               {lastEventLocation || 'Chưa có thông tin'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
-          <div className="w-[32px] h-[32px] rounded-[8px] bg-[rgba(52,199,89,0.08)] flex items-center justify-center shrink-0">
+        <div className="flex items-start gap-3 p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
+          <div className="w-[32px] h-[32px] rounded-[8px] bg-[rgba(52,199,89,0.08)] flex items-center justify-center shrink-0 mt-0.5">
             <Phone size={14} className="text-[#34C759]" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-medium text-[#8E8E93] uppercase tracking-wider">Số điện thoại</p>
-            <p className="text-[13px] font-medium text-[#111] truncate">
+            <p className="text-[13px] font-medium text-[#111] break-words">
               {phone || 'Chưa có thông tin'}
             </p>
           </div>
