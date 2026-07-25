@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Users, Calendar, Heart, TrendingUp, Clock, MapPin,
   Target, PieChart, RefreshCw, Gift, Coffee,
-  BookHeart, FileText, Building2, AlertTriangle, Bell
+  BookHeart, FileText, Building2,
 } from 'lucide-react';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
@@ -34,14 +35,7 @@ interface ReconnectSuggestion {
 export default function DashboardPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [memoryCount, setMemoryCount] = useState(0);
-  const [goalCount, setGoalCount] = useState(0);
-  const [reconnectSuggestions, setReconnectSuggestions] = useState<ReconnectSuggestion[]>([]);
   const [sortAsc, setSortAsc] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [detailEventId, setDetailEventId] = useState<string | null>(null);
   const [detailSuggestion, setDetailSuggestion] = useState<DashboardPanelContact | null>(null);
@@ -49,6 +43,120 @@ export default function DashboardPage() {
   const selectContact = useAppStore((s) => s.selectContact);
   const selectEvent = useAppStore((s) => s.selectEvent);
   const setDashboardPanelContact = useAppStore((s) => s.setDashboardPanelContact);
+
+  // ─── Data from TanStack Query cache (DataPrefetcher loads these at app root) ───
+  const { data: contacts = [], isFetching: loadingContacts } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: () => contactService.getAll(),
+    staleTime: 1000 * 60 * 5,
+    retry: 3,
+    retryDelay: 1500,
+  });
+
+  const { data: events = [], isFetching: loadingEvents } = useQuery({
+    queryKey: ['events'],
+    queryFn: () => eventService.getAll(),
+    staleTime: 1000 * 60 * 5,
+    retry: 3,
+    retryDelay: 1500,
+  });
+
+  const { data: goalCount = 0 } = useQuery({
+    queryKey: ['goalCount'],
+    queryFn: async () => {
+      const g = await goalService.getAll();
+      return g.length;
+    },
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  const { data: memoryCount = 0 } = useQuery({
+    queryKey: ['memoryCount'],
+    queryFn: () => memoryService.count(),
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  // ─── Reconnect suggestions (loaded separately, non-blocking) ───
+  const [reconnectSuggestions, setReconnectSuggestions] = useState<ReconnectSuggestion[]>([]);
+  const [suggestionError, setSuggestionError] = useState(false);
+
+  useEffect(() => {
+    if (contacts.length === 0 || events.length === 0) return;
+    let cancelled = false;
+
+    const compute = async () => {
+      try {
+        // Add timeout for participants query to avoid statement timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const { data: participants, error } = await supabase
+          .from('participants')
+          .select('ContactID, EventID')
+          .in('ContactID', contacts.map(c => c.ContactID));
+
+        clearTimeout(timeoutId);
+
+        if (error) throw error;
+        if (cancelled || !participants || participants.length === 0) {
+          if (!cancelled) setReconnectSuggestions([]);
+          return;
+        }
+
+        // Build maps
+        const contactEventMap: Record<string, string[]> = {};
+        participants.forEach(p => {
+          if (!contactEventMap[p.ContactID]) contactEventMap[p.ContactID] = [];
+          contactEventMap[p.ContactID].push(p.EventID);
+        });
+
+        const eventsMap: Record<string, string> = {};
+        events.forEach(e => { eventsMap[e.EventID] = e.StartDate; });
+
+        const now = new Date();
+        const suggestionMap = new Map<string, ReconnectSuggestion>();
+
+        contacts.forEach(c => {
+          const eventIds = contactEventMap[c.ContactID];
+          if (!eventIds || eventIds.length === 0) return;
+
+          let lastDate = '';
+          let lastId = '';
+          eventIds.forEach(eid => {
+            const d = eventsMap[eid];
+            if (d && (!lastDate || d > lastDate)) { lastDate = d; lastId = eid; }
+          });
+
+          if (!lastDate) return;
+          const lastEventDate = new Date(lastDate);
+          const daysSince = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24));
+          const isFavorite = c.IsFavorite && daysSince >= 21;
+          const isHighScore = (c.RelationshipScore || 0) >= 80 && daysSince >= 180;
+
+          if (isHighScore) {
+            suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'red' });
+          } else if (isFavorite && !suggestionMap.has(c.ContactID)) {
+            suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'yellow' });
+          }
+        });
+
+        if (!cancelled) {
+          setReconnectSuggestions(Array.from(suggestionMap.values()));
+          setSuggestionError(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setReconnectSuggestions([]);
+          setSuggestionError(true);
+        }
+      }
+    };
+
+    compute();
+    return () => { cancelled = true; };
+  }, [contacts, events]);
 
   const handleSuggestionClick = (s: ReconnectSuggestion) => {
     const lastEvent = events.find(e => e.EventID === s.lastEventId);
@@ -72,97 +180,6 @@ export default function DashboardPage() {
     });
   };
 
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
-    const tryLoad = async (retries = 3): Promise<void> => {
-      try {
-        const [c, e, mc, gc] = await Promise.all([
-          contactService.getAll(),
-          eventService.getAll(),
-          memoryService.count(),
-          goalService.getAll(),
-        ]);
-        setContacts(c); setEvents(e); setMemoryCount(mc); setGoalCount(gc.length);
-        await computeReconnectSuggestions(c, e);
-      } catch (err: any) {
-        const msg = err.message || '';
-        if (msg.includes('connection pool') && retries > 0) {
-          await new Promise(r => setTimeout(r, 1500));
-          return tryLoad(retries - 1);
-        }
-        throw err;
-      }
-    };
-    setIsLoading(true); setError('');
-    try { await tryLoad(); }
-    catch (err: any) { setError(err.message || 'Không thể tải dữ liệu'); }
-    finally { setIsLoading(false); }
-  };
-
-  const computeReconnectSuggestions = async (contacts: Contact[], events: EventItem[]) => {
-    try {
-      // Get all participants to find last event date per contact
-      const { data: participants } = await supabase
-        .from('participants')
-        .select('ContactID, EventID')
-        .in('ContactID', contacts.map(c => c.ContactID));
-
-      if (!participants || participants.length === 0) {
-        setReconnectSuggestions([]);
-        return;
-      }
-
-      // Build map of ContactID → list of EventIDs
-      const contactEventMap: Record<string, string[]> = {};
-      participants.forEach(p => {
-        if (!contactEventMap[p.ContactID]) contactEventMap[p.ContactID] = [];
-        contactEventMap[p.ContactID].push(p.EventID);
-      });
-
-      // Build map of EventID → StartDate
-      const eventsMap: Record<string, string> = {};
-      events.forEach(e => { eventsMap[e.EventID] = e.StartDate; });
-
-      // For each contact with events, find the most recent event date
-      const now = new Date();
-      const suggestionMap = new Map<string, ReconnectSuggestion>();
-
-      contacts.forEach(c => {
-        const eventIds = contactEventMap[c.ContactID];
-        if (!eventIds || eventIds.length === 0) return;
-
-        let lastDate = '';
-        let lastId = '';
-        eventIds.forEach(eid => {
-          const d = eventsMap[eid];
-          if (d && (!lastDate || d > lastDate)) { lastDate = d; lastId = eid; }
-        });
-
-        if (!lastDate) return;
-
-        const lastEventDate = new Date(lastDate);
-        const daysSince = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        const isFavorite = c.IsFavorite && daysSince >= 21;
-        const isHighScore = (c.RelationshipScore || 0) >= 80 && daysSince >= 180;
-
-        // Red alert takes priority over yellow
-        if (isHighScore) {
-          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'red' });
-        } else if (isFavorite && !suggestionMap.has(c.ContactID)) {
-          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'yellow' });
-        }
-      });
-
-      const sorted = Array.from(suggestionMap.values());
-      setReconnectSuggestions(sorted);
-    } catch (err) {
-      console.error('Failed to compute reconnect suggestions:', err);
-      setReconnectSuggestions([]);
-    }
-  };
-
   const statsCards = [
     { id: 'contacts', label: 'Quan hệ', value: contacts.length, icon: Users, color: '#E6002D', href: '/contacts' },
     { id: 'events', label: 'Sự kiện', value: events.length, icon: Calendar, color: '#007AFF', href: '/events' },
@@ -170,7 +187,7 @@ export default function DashboardPage() {
     { id: 'places', label: 'Địa điểm', value: new Set(events.filter(e => e.Place).map(e => e.Place)).size, icon: MapPin, color: '#34C759', href: '/map' },
   ];
 
-  // ─── Life Score (same formula as Statistics page) ───
+  // ─── Life Score ───
   const lifeScore = useMemo(() => {
     const contactScores = contacts.map(c => c.RelationshipScore || 0);
     const avgRelScore = contactScores.length > 0
@@ -210,7 +227,7 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.StartDate).getTime() - new Date(a.StartDate).getTime())
     .slice(0, 5);
 
-  // ─── Relationship stats (dynamic, same as Statistics page) ───
+  // ─── Relationship stats ───
   const relationshipMap: Record<string, { label: string; color: string; count: number }> = {
     Family: { label: 'Gia đình', color: '#E6002D', count: 0 },
     Relative: { label: 'Họ hàng', color: '#FF4D6A', count: 0 },
@@ -230,13 +247,14 @@ export default function DashboardPage() {
   const relationshipStats = relStatsAll.map(r => ({ ...r, pct: Math.round((r.count / totalRel) * 100) }));
 
   const monthNames = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
-  const totalBirthdays = contacts.filter(c => c.Birthday).length;
 
-  // Sorted suggestions based on sortAsc toggle
+  const isLoading = loadingContacts || loadingEvents;
+
+  // Sorted suggestions
   const sortedSuggestions = [...reconnectSuggestions]
     .sort((a, b) => sortAsc
-      ? a.daysSinceLastEvent - b.daysSinceLastEvent  // ít→nhiều
-      : b.daysSinceLastEvent - a.daysSinceLastEvent   // nhiều→ít
+      ? a.daysSinceLastEvent - b.daysSinceLastEvent
+      : b.daysSinceLastEvent - a.daysSinceLastEvent
     )
     .slice(0, 10);
   const yellowAlerts = sortedSuggestions.filter(s => s.type === 'yellow');
@@ -253,15 +271,11 @@ export default function DashboardPage() {
             </h1>
             <p className="text-[12px] text-[#6B7280] mt-0.5">Mỗi ngày trôi qua là một kỷ niệm đáng giá</p>
           </div>
-          <button onClick={loadData} className="w-[36px] h-[36px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
-            <RefreshCw size={15} className="text-[#8E8E93]" />
-          </button>
         </div>
 
-        {error && (
-          <div className="p-3 rounded-[12px] bg-[rgba(230,0,45,0.06)] text-[12px] text-[#E6002D] text-center">
-            {error}
-            <button onClick={loadData} className="ml-2 underline font-medium">Thử lại</button>
+        {suggestionError && (
+          <div className="p-3 rounded-[12px] bg-[rgba(255,204,0,0.08)] text-[12px] text-[#B8860B] text-center">
+            Không thể tải gợi ý gặp gỡ (có thể do timeout), các thông tin khác vẫn được hiển thị như bình thường.
           </div>
         )}
 
@@ -307,8 +321,8 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-[#E6002D]">{s.daysSinceLastEvent} ngày chưa gặp</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Cafe">☕</button>
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white" title="Rủ Ăn">🍽️</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white">☕</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white">🍽️</button>
                   </div>
                 </div>
               ))}
@@ -321,8 +335,8 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-[#B8860B]">{s.daysSinceLastEvent} ngày chưa gặp</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Cafe">☕</button>
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]" title="Rủ Ăn">🍽️</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]">☕</button>
+                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]">🍽️</button>
                   </div>
                 </div>
               ))}
@@ -384,7 +398,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Relationship Stats */}  
+        {/* Relationship Stats */}
         <div className="bg-white rounded-[16px] p-4 shadow-sm border border-[rgba(0,0,0,0.04)]">
           <h2 className="text-[14px] font-semibold text-[#111] flex items-center gap-1.5 mb-3">
             <PieChart size={14} className="text-[#E6002D]"/> Quan hệ
@@ -419,14 +433,11 @@ export default function DashboardPage() {
             </h1>
             <p className="text-[13px] text-[#6B7280] mt-1">Mỗi ngày trôi qua là một kỷ niệm đáng giá</p>
           </div>
-          <button onClick={loadData} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center hover:bg-[rgba(0,0,0,0.08)]">
-            <RefreshCw size={16} className="text-[#8E8E93]" />
-          </button>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-[12px] bg-[rgba(230,0,45,0.06)] text-[13px] text-[#E6002D] text-center">
-            {error} <button onClick={loadData} className="ml-2 underline font-medium">Thử lại</button>
+        {suggestionError && (
+          <div className="mb-4 p-3 rounded-[12px] bg-[rgba(255,204,0,0.08)] text-[13px] text-[#B8860B] text-center">
+            Không thể tải gợi ý gặp gỡ, các thông tin khác vẫn được hiển thị như bình thường.
           </div>
         )}
 
@@ -610,11 +621,9 @@ export default function DashboardPage() {
               <p className="text-[12px] text-[#8E8E93] text-center py-6">Chưa có dữ liệu</p>
             ) : (
               <div className="flex items-start gap-3">
-                {/* Donut Chart */}
                 <div className="shrink-0">
                   <DonutChart data={relationshipStats} size={130} innerRadius={36} />
                 </div>
-                {/* Legend */}
                 <div className="flex-1 space-y-1.5 min-w-0">
                   {relationshipStats.map(r => (
                     <div key={r.label} className="flex items-center gap-2 text-[11px]">
@@ -699,7 +708,6 @@ function DonutChart({ data, size, innerRadius }: { data: { count: number; color:
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {/* Rotate only the pie circles — not the text */}
       <g className="rotate-[-90deg]" style={{ transformOrigin: '50% 50%' }}>
         <circle cx={cx} cy={cy} r={centerR} fill="none" stroke="rgba(0,0,0,0.04)" strokeWidth={strokeWidth} />
         {segments.map((s, i) => (
@@ -711,7 +719,6 @@ function DonutChart({ data, size, innerRadius }: { data: { count: number; color:
           />
         ))}
       </g>
-      {/* Center text — not rotated */}
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
         className="fill-[#111] font-bold" fontSize={size * 0.16}>
         {total}
