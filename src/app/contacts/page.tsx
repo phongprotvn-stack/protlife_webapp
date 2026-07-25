@@ -49,7 +49,9 @@ export default function ContactsPage() {
       const data = await contactService.getAll();
       return data;
     },
-    staleTime: 60_000,       // 1 phút trước khi coi là stale
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
     refetchOnWindowFocus: true,
   });
 

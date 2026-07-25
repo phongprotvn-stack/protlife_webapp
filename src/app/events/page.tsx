@@ -55,25 +55,36 @@ export default function EventsPage() {
   useEffect(() => { setIsDesktop(window.innerWidth >= 768); loadEvents(); }, [refreshKey]);
 
   const loadEvents = async () => {
-    setIsLoading(true); setError('');
-    try {
-      const data = await eventService.getAll();
-      setEvents(data);
+    const tryLoad = async (retries = 3): Promise<void> => {
+      try {
+        const data = await eventService.getAll();
+        setEvents(data);
 
-      // Fetch participant counts for ALL events
-      const { data: participants } = await supabase
-        .from('participants')
-        .select('EventID')
-        .in('EventID', data.map((e: EventItem) => e.EventID));
+        // Fetch participant counts for ALL events
+        const { data: participants } = await supabase
+          .from('participants')
+          .select('EventID')
+          .in('EventID', data.map((e: EventItem) => e.EventID));
 
-      const counts: Record<string, number> = {};
-      if (participants) {
-        participants.forEach((p: any) => {
-          counts[p.EventID] = (counts[p.EventID] || 0) + 1;
-        });
+        const counts: Record<string, number> = {};
+        if (participants) {
+          participants.forEach((p: any) => {
+            counts[p.EventID] = (counts[p.EventID] || 0) + 1;
+          });
+        }
+        setParticipantCounts(counts);
+      } catch (e: any) {
+        const msg = e.message || '';
+        if (msg.includes('connection pool') && retries > 0) {
+          await new Promise(r => setTimeout(r, 1500));
+          return tryLoad(retries - 1);
+        }
+        throw e;
       }
-      setParticipantCounts(counts);
-    } catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
+    };
+    setIsLoading(true); setError('');
+    try { await tryLoad(); }
+    catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
     finally { setIsLoading(false); }
   };
 

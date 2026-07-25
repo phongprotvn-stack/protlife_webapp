@@ -47,17 +47,28 @@ export default function DashboardPage() {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
+    const tryLoad = async (retries = 3): Promise<void> => {
+      try {
+        const [c, e, mc, gc] = await Promise.all([
+          contactService.getAll(),
+          eventService.getAll(),
+          memoryService.count(),
+          goalService.getAll(),
+        ]);
+        setContacts(c); setEvents(e); setMemoryCount(mc); setGoalCount(gc.length);
+        await computeReconnectSuggestions(c, e);
+      } catch (err: any) {
+        const msg = err.message || '';
+        if (msg.includes('connection pool') && retries > 0) {
+          await new Promise(r => setTimeout(r, 1500));
+          return tryLoad(retries - 1);
+        }
+        throw err;
+      }
+    };
     setIsLoading(true); setError('');
-    try {
-      const [c, e, mc, gc] = await Promise.all([
-        contactService.getAll(),
-        eventService.getAll(),
-        memoryService.count(),
-        goalService.getAll(),
-      ]);
-      setContacts(c); setEvents(e); setMemoryCount(mc); setGoalCount(gc.length);
-      await computeReconnectSuggestions(c, e);
-    } catch (err: any) { setError(err.message || 'Không thể tải dữ liệu'); }
+    try { await tryLoad(); }
+    catch (err: any) { setError(err.message || 'Không thể tải dữ liệu'); }
     finally { setIsLoading(false); }
   };
 

@@ -33,16 +33,27 @@ export default function MemoriesPage() {
   useEffect(() => { loadMemories(); }, []);
 
   const loadMemories = async () => {
+    const tryLoad = async (retries = 3): Promise<void> => {
+      try {
+        const data = await memoryService.getAllWithEvent();
+        data.sort((a, b) => {
+          const aDate = a.EventDate || a.MemoryDate || a.CreatedDate;
+          const bDate = b.EventDate || b.MemoryDate || b.CreatedDate;
+          return new Date(aDate).getTime() - new Date(bDate).getTime();
+        });
+        setMemories(data);
+      } catch (e: any) {
+        const msg = e.message || '';
+        if (msg.includes('connection pool') && retries > 0) {
+          await new Promise(r => setTimeout(r, 1500));
+          return tryLoad(retries - 1);
+        }
+        throw e;
+      }
+    };
     setIsLoading(true); setError('');
-    try {
-      const data = await memoryService.getAllWithEvent();
-      data.sort((a, b) => {
-        const aDate = a.EventDate || a.MemoryDate || a.CreatedDate;
-        const bDate = b.EventDate || b.MemoryDate || b.CreatedDate;
-        return new Date(aDate).getTime() - new Date(bDate).getTime();
-      });
-      setMemories(data);
-    } catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
+    try { await tryLoad(); }
+    catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
     finally { setIsLoading(false); }
   };
 

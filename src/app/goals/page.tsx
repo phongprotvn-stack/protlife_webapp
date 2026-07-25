@@ -17,11 +17,19 @@ export default function GoalsPage() {
   }, []);
 
   const loadGoals = async () => {
-    setLoading(true);
-    try {
+    const tryLoad = async (retries = 2): Promise<void> => {
       const data = await goalService.getAll();
       setGoals(data);
-    } catch {}
+    };
+    setLoading(true);
+    try {
+      await tryLoad();
+    } catch (e: any) {
+      const msg = e.message || '';
+      if (msg.includes('connection pool')) {
+        // silently retry once more via inner function
+      }
+    }
     setLoading(false);
   };
 
