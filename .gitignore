@@ -31,3 +31,6 @@ npm-debug.log*
 .env*
 # Supabase temp
 supabase/.temp/
+_local-drafts/
+*.zip
+settings_v6_final.html
