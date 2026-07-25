@@ -475,14 +475,13 @@ export default function DashboardPage() {
             {upcomingBirthdays.length === 0 ? (
               <p className="text-[12px] text-[#8E8E93] text-center py-6">Chưa có</p>
             ) : (
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex items-center gap-4 overflow-x-auto pb-1">
                 {upcomingBirthdays.slice(0, 5).map(b => (
-                  <div key={b.contact.ContactID}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-[10px] bg-[rgba(0,0,0,0.02)] hover:bg-[rgba(0,0,0,0.04)] transition-colors min-w-[80px] shrink-0">
-                    <AvatarCircle contact={b.contact} size={34} />
-                    <span className="text-[11px] font-medium text-[#111] text-center truncate w-full">{b.contact.Name}</span>
-                    <span className="text-[9px] font-semibold text-[#FF9500] bg-[rgba(255,149,0,0.1)] px-2 py-0.5 rounded-[6px] whitespace-nowrap">
-                      {b.days === 0 ? '🎉 Hôm nay' : formatDate(b.nextDate, 'ddmm')}
+                  <div key={b.contact.ContactID} className="flex items-center gap-1.5 shrink-0">
+                    <AvatarCircle contact={b.contact} size={22} />
+                    <span className="text-[12px] font-medium text-[#111] truncate max-w-[100px]">{b.contact.Name}</span>
+                    <span className="text-[10px] text-[#FF9500] font-medium whitespace-nowrap">
+                      {b.days === 0 ? '🎉' : formatDate(b.nextDate, 'ddmm')}
                     </span>
                   </div>
                 ))}
