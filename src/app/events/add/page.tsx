@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { eventService } from '@/lib/services/event-service';
@@ -43,7 +44,6 @@ export default function AddEventPage() {
   const [geocoding, setGeocoding] = useState<Record<string, 'idle' | 'loading' | 'done' | 'fail'>>({});
   const lastGeocodeTime = useRef(0);
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showContactSearch, setShowContactSearch] = useState(false);
@@ -62,22 +62,15 @@ export default function AddEventPage() {
 
   const [placeText, setPlaceText] = useState('');
 
-  // Load contacts for participant selection
-  useEffect(() => {
-    const loadContacts = async (retries = 3): Promise<void> => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          const data = await contactService.getAll();
-          setContacts(data);
-          return;
-        } catch (e) {
-          if (i < retries - 1) await new Promise(r => setTimeout(r, 1500));
-          else console.error('Failed to load contacts', e);
-        }
-      }
-    };
-    loadContacts();
-  }, []);
+  // Load contacts for participant selection using TanStack Query (cached, retried, refetched on focus)
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: () => contactService.getAll(),
+    staleTime: 1000 * 60 * 5,
+    retry: 3,
+    retryDelay: 1500,
+    refetchOnWindowFocus: true,
+  });
 
   // Auto-generate maplink when place changes
   useEffect(() => {
@@ -144,7 +137,6 @@ export default function AddEventPage() {
     setLocations(locations.map((l) => {
       if (l.id !== id) return l;
       const updated = { ...l, [field]: value };
-      // Auto-generate maplink when place changes
       if (field === 'place' && value.trim()) {
         updated.maplink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value.trim())}`;
       }
@@ -156,7 +148,6 @@ export default function AddEventPage() {
     const loc = locations.find((l) => l.id === locId);
     if (!loc || !loc.place.trim()) return;
 
-    // Rate limit: 1 req/s
     const now = Date.now();
     const elapsed = now - lastGeocodeTime.current;
     if (elapsed < MAX_GEOCODE_RATE) {
@@ -196,7 +187,6 @@ export default function AddEventPage() {
         Cost:form.Cost, Notes:form.Notes||undefined,
       });
 
-      // Add participants
       if (selectedContacts.length > 0 && newEvent?.EventID) {
         await participantService.addParticipants(
           newEvent.EventID,
@@ -267,7 +257,6 @@ export default function AddEventPage() {
                 <MapPin size={14} className="text-[#FF9500] shrink-0"/>
                 <input value={loc.place} onChange={(e) => updateLocation(loc.id, 'place', e.target.value)}
                   className="flex-1 input-glass text-[16px]" placeholder="VD: Hà Nội, quán cafe..."/>
-                {/* Geocode button */}
                 <button type="button" onClick={() => handleGeocode(loc.id)}
                   disabled={geocoding[loc.id] === 'loading'}
                   className="shrink-0 px-2.5 h-[30px] rounded-[8px] text-[11px] font-medium flex items-center gap-1 border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)] disabled:opacity-50 transition-all">
@@ -333,32 +322,28 @@ export default function AddEventPage() {
           )}
 
           {showContactSearch && typeof document !== 'undefined' && createPortal(
-          <div className="fixed inset-0 z-40" onMouseDown={() => setShowContactSearch(false)}>
-            <div className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[200px] overflow-y-auto"
-              style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width || 200, zIndex: 50 }}
-              onMouseDown={(e) => e.stopPropagation()}>
-              <div className="px-3 py-1 text-[9px] text-[#8E8E93] border-b border-[rgba(0,0,0,0.04)] flex justify-between">
-                <span>Loaded: {contacts.length}</span>
-                <span>Term: "{searchTerm}"</span>
-              </div>
-              {searchTerm.trim() ? (
-                filteredContacts.length > 0 ? (
-                  filteredContacts.map((c) => (
-                    <button key={c.ContactID} type="button" onMouseDown={() => { toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
-                      className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
-                      <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
-                      {c.Name}
-                    </button>
-                  ))
+            <div className="fixed inset-0 z-40" onMouseDown={() => setShowContactSearch(false)}>
+              <div className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[200px] overflow-y-auto"
+                style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width || 200, zIndex: 50 }}
+                onMouseDown={(e) => e.stopPropagation()}>
+                {searchTerm.trim() ? (
+                  filteredContacts.length > 0 ? (
+                    filteredContacts.map((c) => (
+                      <button key={c.ContactID} type="button" onMouseDown={() => { toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
+                        className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
+                        <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
+                        {c.Name}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-[12px] text-[#8E8E93] text-center py-3">Không tìm thấy</p>
+                  )
                 ) : (
-                  <p className="text-[12px] text-[#8E8E93] text-center py-3">Không tìm thấy</p>
-                )
-              ) : (
-                <p className="text-[11px] text-[#8E8E93] text-center py-3">Gõ tên để tìm kiếm người tham gia</p>
-              )}
-            </div>
-          </div>,
-          document.body
+                  <p className="text-[11px] text-[#8E8E93] text-center py-3">Gõ tên để tìm kiếm người tham gia</p>
+                )}
+              </div>
+            </div>,
+            document.body
           )}
         </FormSection>
 

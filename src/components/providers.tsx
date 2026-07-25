@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Toaster } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
 import { supabase } from '@/lib/supabase/client';
+import DataPrefetcher from '@/components/data-prefetcher';
 
 /**
  * Syncs the auth-store with the Supabase session across tabs.
@@ -139,8 +140,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000,
-            retry: 1,
+            staleTime: 1000 * 60 * 5, // 5 min — data stays usable across pages
+            retry: 3,
+            retryDelay: 1500,
           },
         },
       })
@@ -149,6 +151,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthListener />
+      <DataPrefetcher />
       {children}
       <Toaster
         position="top-center"
