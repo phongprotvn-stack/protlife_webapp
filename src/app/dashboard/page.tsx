@@ -24,6 +24,7 @@ interface ReconnectSuggestion {
   contact: Contact;
   daysSinceLastEvent: number;
   lastEventDate: string;
+  lastEventId: string;
   type: 'yellow' | 'red';
 }
 
@@ -43,6 +44,18 @@ export default function DashboardPage() {
 
   const selectContact = useAppStore((s) => s.selectContact);
   const selectEvent = useAppStore((s) => s.selectEvent);
+  const setDashboardPanelContact = useAppStore((s) => s.setDashboardPanelContact);
+
+  const handleSuggestionClick = (s: ReconnectSuggestion) => {
+    const lastEvent = events.find(e => e.EventID === s.lastEventId);
+    setDashboardPanelContact({
+      contact: s.contact,
+      lastEventName: lastEvent?.Title || '',
+      lastEventDate: s.lastEventDate,
+      lastEventLocation: lastEvent?.Place || '',
+      phone: s.contact.Phone || '',
+    });
+  };
 
   useEffect(() => { loadData(); }, []);
 
@@ -105,9 +118,10 @@ export default function DashboardPage() {
         if (!eventIds || eventIds.length === 0) return;
 
         let lastDate = '';
+        let lastId = '';
         eventIds.forEach(eid => {
           const d = eventsMap[eid];
-          if (d && (!lastDate || d > lastDate)) lastDate = d;
+          if (d && (!lastDate || d > lastDate)) { lastDate = d; lastId = eid; }
         });
 
         if (!lastDate) return;
@@ -120,9 +134,9 @@ export default function DashboardPage() {
 
         // Red alert takes priority over yellow
         if (isHighScore) {
-          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'red' });
+          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'red' });
         } else if (isFavorite && !suggestionMap.has(c.ContactID)) {
-          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, type: 'yellow' });
+          suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'yellow' });
         }
       });
 
@@ -441,7 +455,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {redAlerts.map(s => (
                 <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.1)] cursor-pointer hover:brightness-95 transition-all"
-                  onClick={() => selectContact(s.contact.ContactID)}>
+                  onClick={() => handleSuggestionClick(s)}>
                   <AvatarCircle contact={s.contact} size={34} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
@@ -455,7 +469,7 @@ export default function DashboardPage() {
               ))}
               {yellowAlerts.map(s => (
                 <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)] cursor-pointer hover:brightness-95 transition-all"
-                  onClick={() => selectContact(s.contact.ContactID)}>
+                  onClick={() => handleSuggestionClick(s)}>
                   <AvatarCircle contact={s.contact} size={34} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>

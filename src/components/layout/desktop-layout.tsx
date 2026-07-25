@@ -11,6 +11,7 @@ import { MemoryDetail } from '@/components/memories/memory-detail';
 import { OrganizationDetail } from '@/components/organizations/organization-detail';
 import { DocumentDetail } from '@/components/documents/document-detail';
 import { GoalDetail } from '@/components/goals/goal-detail';
+import { DashboardContactPanel } from '@/components/dashboard/contact-panel';
 import {
   LayoutDashboard, Users, CalendarDays, Timeline, Map, Building2,
   FileText, Target, BarChart3, Cpu, Settings, Plus, LogOut,
@@ -48,6 +49,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const {
     selectedContactId, selectedEventId, selectedMemoryId,
     selectedOrgId, selectedDocumentId, selectedGoalId,
+    dashboardPanelContact,
     rightPanelView, clearSelection,
   } = useAppStore();
 
@@ -65,7 +67,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
     router.push(href);
   };
 
-  const hasSelection = selectedContactId || selectedEventId || selectedMemoryId || selectedOrgId || selectedDocumentId || selectedGoalId;
+  const hasSelection = dashboardPanelContact || selectedContactId || selectedEventId || selectedMemoryId || selectedOrgId || selectedDocumentId || selectedGoalId;
 
   return (
     <div className="desktop-layout">
@@ -167,7 +169,10 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       {/* ─── RIGHT PANEL ─── */}
       <aside className={`desktop-panel ${hasSelection ? 'open' : ''}`}>
         <div className="h-full overflow-y-auto">
-          {selectedContactId ? (
+          {dashboardPanelContact ? (
+            <DashboardContactPanel data={dashboardPanelContact}
+              onClose={() => useAppStore.getState().clearSelection()} />
+          ) : selectedContactId ? (
             <ContactDetail contactId={selectedContactId === 'new' ? null : selectedContactId}
               onClose={() => useAppStore.getState().clearSelection()} panelMode />
           ) : selectedEventId ? (

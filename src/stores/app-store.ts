@@ -1,4 +1,13 @@
 import { create } from 'zustand';
+import type { Contact } from '@/types/database';
+
+export interface DashboardPanelContact {
+  contact: Contact;
+  lastEventName: string;
+  lastEventDate: string;
+  lastEventLocation: string;
+  phone: string;
+}
 
 interface AppState {
   refreshKey: number;
@@ -24,6 +33,10 @@ interface AppState {
   selectGoal: (id: string | null) => void;
   clearSelection: () => void;
   setRightPanelView: (view: 'detail' | 'add' | 'edit' | null) => void;
+
+  // Dashboard contact panel
+  dashboardPanelContact: DashboardPanelContact | null;
+  setDashboardPanelContact: (data: DashboardPanelContact | null) => void;
 }
 
 export const useAppStore = create<AppState>()((set) => ({
@@ -74,7 +87,16 @@ export const useAppStore = create<AppState>()((set) => ({
   clearSelection: () => set({
     selectedContactId: null, selectedEventId: null, selectedMemoryId: null,
     selectedOrgId: null, selectedDocumentId: null, selectedGoalId: null,
+    dashboardPanelContact: null,
     rightPanelView: null,
   }),
   setRightPanelView: (view) => set({ rightPanelView: view }),
+  dashboardPanelContact: null,
+  setDashboardPanelContact: (data) => set({
+    dashboardPanelContact: data,
+    // Clear other selections when showing dashboard panel
+    selectedContactId: null, selectedEventId: null, selectedMemoryId: null,
+    selectedOrgId: null, selectedDocumentId: null, selectedGoalId: null,
+    rightPanelView: data ? 'detail' : null,
+  }),
 }));
