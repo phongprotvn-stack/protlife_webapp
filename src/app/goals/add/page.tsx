@@ -54,18 +54,18 @@ export default function AddGoalPage() {
         <FormSection title="Thông tin cơ bản">
           <FormField label="Tên mục tiêu *">
             <input value={form.Title} onChange={(e) => setForm(f => ({...f, Title: e.target.value}))}
-              className="input-glass text-[14px]" placeholder="Ví dụ: Học tiếng Nhật N3" />
+              className="input-glass text-[16px]" placeholder="Ví dụ: Học tiếng Nhật N3" />
           </FormField>
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Trạng thái">
               <select value={form.Status} onChange={(e) => setForm(f => ({...f, Status: e.target.value}))}
-                className="input-glass text-[13px]">
+                className="input-glass text-[16px]">
                 {STATUSES.map(s => <option key={s} value={s}>{s === 'Not Started' ? 'Chưa bắt đầu' : s === 'In Progress' ? 'Đang làm' : 'Hoàn thành'}</option>)}
               </select>
             </FormField>
             <FormField label="Mức ưu tiên">
               <select value={form.Priority} onChange={(e) => setForm(f => ({...f, Priority: e.target.value}))}
-                className="input-glass text-[13px]">
+                className="input-glass text-[16px]">
                 {PRIORITIES.map(p => <option key={p} value={p}>{p === 'Low' ? 'Thấp' : p === 'Medium' ? 'Trung bình' : 'Cao'}</option>)}
               </select>
             </FormField>
@@ -75,7 +75,7 @@ export default function AddGoalPage() {
         <FormSection title="Thời hạn">
           <FormField label="Hạn chót">
             <input type="date" value={form.Deadline} onChange={(e) => setForm(f => ({...f, Deadline: e.target.value}))}
-              className="input-glass text-[13px]" />
+              className="input-glass text-[16px]" />
           </FormField>
         </FormSection>
 
@@ -98,7 +98,7 @@ export default function AddGoalPage() {
 
         <FormSection title="Ghi chú">
           <textarea value={form.Notes} onChange={(e) => setForm(f => ({...f, Notes: e.target.value}))}
-            className="input-glass text-[13px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm về mục tiêu này..." />
+            className="input-glass text-[16px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm về mục tiêu này..." />
         </FormSection>
       </div>
 

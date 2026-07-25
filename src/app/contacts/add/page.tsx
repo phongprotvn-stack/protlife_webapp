@@ -139,17 +139,17 @@ export default function AddContactPage() {
 
         <FormSection title="Thông tin cơ bản">
           <FormField label="Họ và tên *">
-            <input value={form.Name} onChange={(e)=>setForm((f)=>({...f,Name:e.target.value}))} className="input-glass text-[14px]" placeholder="Nhập họ và tên"/>
+            <input value={form.Name} onChange={(e)=>setForm((f)=>({...f,Name:e.target.value}))} className="input-glass text-[16px]" placeholder="Nhập họ và tên"/>
           </FormField>
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Giới tính">
-              <select value={form.Gender} onChange={(e)=>setForm((f)=>({...f,Gender:e.target.value}))} className="input-glass text-[13px]">
+              <select value={form.Gender} onChange={(e)=>setForm((f)=>({...f,Gender:e.target.value}))} className="input-glass text-[16px]">
                 <option value="">Chọn</option>
                 {GENDERS.map((g)=><option key={g} value={g}>{g==='Male'?'Nam':g==='Female'?'Nữ':'Khác'}</option>)}
               </select>
             </FormField>
             <FormField label="Ngày sinh">
-              <input type="date" value={form.Birthday} onChange={(e)=>setForm((f)=>({...f,Birthday:e.target.value}))} className="input-glass text-[13px]"/>
+              <input type="date" value={form.Birthday} onChange={(e)=>setForm((f)=>({...f,Birthday:e.target.value}))} className="input-glass text-[16px]"/>
             </FormField>
           </div>
         </FormSection>
@@ -157,10 +157,10 @@ export default function AddContactPage() {
         <FormSection title="Liên hệ">
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Số điện thoại">
-              <input value={form.Phone} onChange={(e)=>setForm((f)=>({...f,Phone:e.target.value}))} className="input-glass text-[13px]" placeholder="090..."/>
+              <input value={form.Phone} onChange={(e)=>setForm((f)=>({...f,Phone:e.target.value}))} className="input-glass text-[16px]" placeholder="090..."/>
             </FormField>
             <FormField label="Email">
-              <input value={form.Email} onChange={(e)=>setForm((f)=>({...f,Email:e.target.value}))} className="input-glass text-[13px]" placeholder="email@domain.com"/>
+              <input value={form.Email} onChange={(e)=>setForm((f)=>({...f,Email:e.target.value}))} className="input-glass text-[16px]" placeholder="email@domain.com"/>
             </FormField>
           </div>
         </FormSection>
@@ -202,12 +202,12 @@ export default function AddContactPage() {
         <FormSection title="Mối quan hệ">
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Loại quan hệ">
-              <select value={form.Relationship} onChange={(e)=>setForm((f)=>({...f,Relationship:e.target.value}))} className="input-glass text-[13px]">
+              <select value={form.Relationship} onChange={(e)=>setForm((f)=>({...f,Relationship:e.target.value}))} className="input-glass text-[16px]">
                 {RELATIONSHIPS.map((r)=><option key={r} value={r}>{r}</option>)}
               </select>
             </FormField>
             <FormField label="Trạng thái">
-              <select value={form.Status} onChange={(e)=>setForm((f)=>({...f,Status:e.target.value}))} className="input-glass text-[13px]">
+              <select value={form.Status} onChange={(e)=>setForm((f)=>({...f,Status:e.target.value}))} className="input-glass text-[16px]">
                 {STATUSES.map((s)=><option key={s} value={s}>{s==='Active'?'Đang liên lạc':s==='Lost Contact'?'Mất liên lạc':s==='Deceased'?'Đã mất':'Chặn'}</option>)}
               </select>
             </FormField>
@@ -246,7 +246,7 @@ export default function AddContactPage() {
 
         <FormSection title="Ghi chú">
           <textarea value={form.Notes} onChange={(e)=>setForm((f)=>({...f,Notes:e.target.value}))}
-            className="input-glass text-[13px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm..."/>
+            className="input-glass text-[16px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm..."/>
         </FormSection>
       </div>
 
@@ -267,7 +267,7 @@ function OrgCombobox({ value, list, search, open, onOpen, onClose, onSearch, onS
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
           <input value={value} onChange={(e)=>onSelect(e.target.value)} onFocus={onOpen}
-            className="input-glass text-[13px] w-full pr-8" placeholder={placeholder} />
+            className="input-glass text-[16px] w-full pr-8" placeholder={placeholder} />
           <button type="button" onClick={()=>{if(open)onClose();else onOpen();}}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93]"><ChevronDown size={14}/></button>
         </div>

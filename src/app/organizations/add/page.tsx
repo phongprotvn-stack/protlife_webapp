@@ -90,20 +90,20 @@ export default function AddOrganizationPage() {
         <FormSection title="Thông tin cơ bản">
           <FormField label="Tên tổ chức *">
             <input value={form.Name} onChange={(e)=>setForm((f)=>({...f,Name:e.target.value}))}
-              className="input-glass text-[14px] w-full" placeholder="VD: Vietcombank"/>
+              className="input-glass text-[16px] w-full" placeholder="VD: Vietcombank"/>
           </FormField>
           <FormField label="Người liên hệ">
             <input value={form.Contact} onChange={(e)=>setForm((f)=>({...f,Contact:e.target.value}))}
-              className="input-glass text-[13px] w-full" placeholder="Tên người liên hệ"/>
+              className="input-glass text-[16px] w-full" placeholder="Tên người liên hệ"/>
           </FormField>
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Email">
               <input type="email" value={form.Email} onChange={(e)=>setForm((f)=>({...f,Email:e.target.value}))}
-                className="input-glass text-[13px] w-full" placeholder="email@example.com"/>
+                className="input-glass text-[16px] w-full" placeholder="email@example.com"/>
             </FormField>
             <FormField label="Số điện thoại">
               <input type="tel" value={form.Phone} onChange={(e)=>setForm((f)=>({...f,Phone:e.target.value}))}
-                className="input-glass text-[13px] w-full" placeholder="090..."/>
+                className="input-glass text-[16px] w-full" placeholder="090..."/>
             </FormField>
           </div>
         </FormSection>
@@ -112,7 +112,7 @@ export default function AddOrganizationPage() {
           <div className="flex items-center gap-2">
             <MapPin size={14} className="text-[#FF9500] shrink-0"/>
             <input value={form.Address} onChange={(e)=>setForm((f)=>({...f,Address:e.target.value}))}
-              className="flex-1 input-glass text-[13px]" placeholder="Địa chỉ tổ chức..."/>
+              className="flex-1 input-glass text-[16px]" placeholder="Địa chỉ tổ chức..."/>
             <button type="button" onClick={handleGeocode}
               disabled={geocoding === 'loading'}
               className="shrink-0 px-2.5 h-[30px] rounded-[8px] text-[11px] font-medium flex items-center gap-1 border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)] disabled:opacity-50 transition-all">

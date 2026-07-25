@@ -51,18 +51,18 @@ export default function AddDocumentPage() {
         <FormSection title="Thông tin cơ bản">
           <FormField label="Tên tài liệu *">
             <input value={form.Title} onChange={(e) => setForm(f => ({...f, Title: e.target.value}))}
-              className="input-glass text-[14px]" placeholder="Ví dụ: Hợp đồng thuê nhà" />
+              className="input-glass text-[16px]" placeholder="Ví dụ: Hợp đồng thuê nhà" />
           </FormField>
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Loại tài liệu">
               <select value={form.Type} onChange={(e) => setForm(f => ({...f, Type: e.target.value}))}
-                className="input-glass text-[13px]">
+                className="input-glass text-[16px]">
                 {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </FormField>
             <FormField label="Ngày">
               <input type="date" value={form.Date} onChange={(e) => setForm(f => ({...f, Date: e.target.value}))}
-                className="input-glass text-[13px]" />
+                className="input-glass text-[16px]" />
             </FormField>
           </div>
         </FormSection>
@@ -70,13 +70,13 @@ export default function AddDocumentPage() {
         <FormSection title="Kích cỡ">
           <FormField label="Dung lượng (tuỳ chọn)">
             <input value={form.Size} onChange={(e) => setForm(f => ({...f, Size: e.target.value}))}
-              className="input-glass text-[13px]" placeholder="Ví dụ: 2.5 MB" />
+              className="input-glass text-[16px]" placeholder="Ví dụ: 2.5 MB" />
           </FormField>
         </FormSection>
 
         <FormSection title="Ghi chú">
           <textarea value={form.Notes} onChange={(e) => setForm(f => ({...f, Notes: e.target.value}))}
-            className="input-glass text-[13px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm về tài liệu này..." />
+            className="input-glass text-[16px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm về tài liệu này..." />
         </FormSection>
       </div>
 

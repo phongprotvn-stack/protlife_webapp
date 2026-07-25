@@ -199,16 +199,16 @@ export default function AddEventPage() {
         <FormSection title="Thông tin cơ bản">
           <FormField label="Tiêu đề *">
             <input value={form.Title} onChange={(e)=>setForm((f)=>({...f,Title:e.target.value}))}
-              className="input-glass text-[14px]" placeholder="Nhập tiêu đề sự kiện"/>
+              className="input-glass text-[16px]" placeholder="Nhập tiêu đề sự kiện"/>
           </FormField>
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Loại sự kiện">
-              <select value={form.EventType} onChange={(e)=>setForm((f)=>({...f,EventType:e.target.value}))} className="input-glass text-[13px]">
+              <select value={form.EventType} onChange={(e)=>setForm((f)=>({...f,EventType:e.target.value}))} className="input-glass text-[16px]">
                 {EVENT_TYPES.map((t)=><option key={t} value={t}>{t}</option>)}
               </select>
             </FormField>
             <FormField label="Mức độ">
-              <select value={form.Importance} onChange={(e)=>setForm((f)=>({...f,Importance:e.target.value}))} className="input-glass text-[13px]">
+              <select value={form.Importance} onChange={(e)=>setForm((f)=>({...f,Importance:e.target.value}))} className="input-glass text-[16px]">
                 {IMPORTANCE.map((i)=><option key={i} value={i}>{i}</option>)}
               </select>
             </FormField>
@@ -218,10 +218,10 @@ export default function AddEventPage() {
         <FormSection title="Thời gian">
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Ngày bắt đầu">
-              <input type="date" value={form.StartDate} onChange={(e)=>setForm((f)=>({...f,StartDate:e.target.value}))} className="input-glass text-[13px]"/>
+              <input type="date" value={form.StartDate} onChange={(e)=>setForm((f)=>({...f,StartDate:e.target.value}))} className="input-glass text-[16px]"/>
             </FormField>
             <FormField label="Ngày kết thúc">
-              <input type="date" value={form.EndDate} onChange={(e)=>setForm((f)=>({...f,EndDate:e.target.value}))} className="input-glass text-[13px]"/>
+              <input type="date" value={form.EndDate} onChange={(e)=>setForm((f)=>({...f,EndDate:e.target.value}))} className="input-glass text-[16px]"/>
             </FormField>
           </div>
         </FormSection>
@@ -239,7 +239,7 @@ export default function AddEventPage() {
               <div className="flex items-center gap-2">
                 <MapPin size={14} className="text-[#FF9500] shrink-0"/>
                 <input value={loc.place} onChange={(e) => updateLocation(loc.id, 'place', e.target.value)}
-                  className="flex-1 input-glass text-[13px]" placeholder="VD: Hà Nội, quán cafe..."/>
+                  className="flex-1 input-glass text-[16px]" placeholder="VD: Hà Nội, quán cafe..."/>
                 {/* Geocode button */}
                 <button type="button" onClick={() => handleGeocode(loc.id)}
                   disabled={geocoding[loc.id] === 'loading'}
@@ -264,7 +264,7 @@ export default function AddEventPage() {
               <div className="flex items-center gap-2">
                 <Globe size={14} className="text-[#007AFF] shrink-0"/>
                 <input value={loc.maplink} onChange={(e) => updateLocation(loc.id, 'maplink', e.target.value)}
-                  className="flex-1 input-glass text-[13px] text-[#007AFF]" placeholder="https://maps.google.com/..."/>
+                  className="flex-1 input-glass text-[16px] text-[#007AFF]" placeholder="https://maps.google.com/..."/>
                 {loc.maplink && (
                   <a href={loc.maplink} target="_blank" rel="noopener noreferrer"
                     className="text-[10px] font-medium text-[#007AFF] hover:underline shrink-0">Map</a>
@@ -296,7 +296,7 @@ export default function AddEventPage() {
                 ))}
                 <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                   onFocus={() => setShowContactSearch(true)}
-                  className="flex-1 min-w-[80px] text-[12px] outline-none bg-transparent"
+                  className="flex-1 min-w-[80px] text-[16px] outline-none bg-transparent"
                   placeholder={selectedContacts.length > 0 ? '' : 'Tìm kiếm người tham gia...'}/>
               </div>
             </div>
@@ -329,7 +329,7 @@ export default function AddEventPage() {
         <FormSection title="Cảm xúc & Chi phí">
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Cảm xúc">
-              <select value={form.Mood} onChange={(e)=>setForm((f)=>({...f,Mood:e.target.value}))} className="input-glass text-[13px]">
+              <select value={form.Mood} onChange={(e)=>setForm((f)=>({...f,Mood:e.target.value}))} className="input-glass text-[16px]">
                 <option value="">Không</option>
                 {MOODS.map((m)=><option key={m} value={m}>{m}</option>)}
               </select>
@@ -341,7 +341,7 @@ export default function AddEventPage() {
                     const raw = e.target.value.replace(/[^0-9.,]/g, '');
                     setForm((f)=>({...f,Cost: parseVND(raw)}));
                   }}
-                  className="input-glass text-[13px] w-full" placeholder="0"/>
+                  className="input-glass text-[16px] w-full" placeholder="0"/>
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#8E8E93] font-medium">VND</span>
               </div>
             </FormField>
@@ -350,7 +350,7 @@ export default function AddEventPage() {
 
         <FormSection title="Ghi chú">
           <textarea value={form.Notes} onChange={(e)=>setForm((f)=>({...f,Notes:e.target.value}))}
-            className="input-glass text-[13px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm..."/>
+            className="input-glass text-[16px] min-h-[70px]" rows={3} placeholder="Ghi chú thêm..."/>
         </FormSection>
       </div>
 

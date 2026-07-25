@@ -372,7 +372,7 @@ export default function MemoryFormFields({
         <div className="mb-3">
           <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1">Tiêu đề</p>
           <input value={title} onChange={(e) => setTitle(e.target.value)}
-            className="input-glass text-[13px] font-semibold w-full" placeholder="Tên ký ức..." />
+            className="input-glass text-[16px] font-semibold w-full" placeholder="Tên ký ức..." />
         </div>
       )}
 
@@ -380,7 +380,7 @@ export default function MemoryFormFields({
       <div className="mb-3">
         <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1">Ngày sự kiện</p>
         <input type="date" value={memoryDate} onChange={(e) => setMemoryDate(e.target.value)}
-          className="input-glass text-[12px] w-full" />
+          className="input-glass text-[16px] w-full" />
       </div>
 
       {/* Content */}
@@ -406,7 +406,7 @@ export default function MemoryFormFields({
           )}
         </div>
         <textarea value={content} onChange={(e) => setContent(e.target.value)}
-          className="input-glass text-[12px] min-h-[60px] w-full" rows={3}
+          className="input-glass text-[16px] min-h-[60px] w-full" rows={3}
           placeholder="Hãy viết về ký ức này..." />
       </div>
 
@@ -447,7 +447,7 @@ export default function MemoryFormFields({
         {/* Tab: URL */}
         {imageTab === 'url' && (
           <input value={image} onChange={(e) => setImage(e.target.value)}
-            className="input-glass text-[12px] w-full" placeholder="https://... hoặc để trống" />
+            className="input-glass text-[16px] w-full" placeholder="https://... hoặc để trống" />
         )}
 
         {/* Tab: Upload */}
