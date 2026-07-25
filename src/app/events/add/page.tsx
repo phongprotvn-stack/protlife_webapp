@@ -106,7 +106,7 @@ export default function AddEventPage() {
   }, []);
 
   const filteredContacts = contacts.filter(
-    (c) => c.Name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedContacts.find((sc) => sc.ContactID === c.ContactID)
+    (c) => c.Name && c.Name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedContacts.find((sc) => sc.ContactID === c.ContactID)
   );
 
   const toggleContact = (contact: Contact) => {
@@ -333,28 +333,32 @@ export default function AddEventPage() {
           )}
 
           {showContactSearch && typeof document !== 'undefined' && createPortal(
-            <div className="fixed inset-0 z-40" onMouseDown={() => setShowContactSearch(false)}>
-              <div className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[200px] overflow-y-auto"
-                style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width || 200, zIndex: 50 }}
-                onMouseDown={(e) => e.stopPropagation()}>
-                {searchTerm.trim() ? (
-                  filteredContacts.length > 0 ? (
-                    filteredContacts.map((c) => (
-                      <button key={c.ContactID} type="button" onMouseDown={() => { toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
-                        className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
-                        <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
-                        {c.Name}
-                      </button>
-                    ))
-                  ) : (
-                    <p className="text-[12px] text-[#8E8E93] text-center py-3">Không tìm thấy</p>
-                  )
-                ) : (
-                  <p className="text-[11px] text-[#8E8E93] text-center py-3">Gõ tên để tìm kiếm người tham gia</p>
-                )}
+          <div className="fixed inset-0 z-40" onMouseDown={() => setShowContactSearch(false)}>
+            <div className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[200px] overflow-y-auto"
+              style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width || 200, zIndex: 50 }}
+              onMouseDown={(e) => e.stopPropagation()}>
+              <div className="px-3 py-1 text-[9px] text-[#8E8E93] border-b border-[rgba(0,0,0,0.04)] flex justify-between">
+                <span>Loaded: {contacts.length}</span>
+                <span>Term: "{searchTerm}"</span>
               </div>
-            </div>,
-            document.body
+              {searchTerm.trim() ? (
+                filteredContacts.length > 0 ? (
+                  filteredContacts.map((c) => (
+                    <button key={c.ContactID} type="button" onMouseDown={() => { toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
+                      className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
+                      <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
+                      {c.Name}
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-[12px] text-[#8E8E93] text-center py-3">Không tìm thấy</p>
+                )
+              ) : (
+                <p className="text-[11px] text-[#8E8E93] text-center py-3">Gõ tên để tìm kiếm người tham gia</p>
+              )}
+            </div>
+          </div>,
+          document.body
           )}
         </FormSection>
 
