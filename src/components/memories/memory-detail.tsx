@@ -8,6 +8,7 @@ import type { Memory, Mood, MoodEmoji } from '@/types/database';
 import { formatDate } from '@/lib/utils';
 import { BookHeart, Calendar, Edit3, Trash2, X, Link as LinkIcon } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import MemoryFormFields from '@/components/memories/memory-form-fields';
 
 const MOOD_EMOJIS: { emoji: MoodEmoji; label: string; mood: Mood }[] = [
   { emoji: '😊', label: 'Vui vẻ', mood: 'Happy' },
@@ -45,40 +46,16 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
   const router = useRouter();
   const [memory, setMemory] = useState<Memory | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [form, setForm] = useState({ Title: '', Content: '', Mood: '' as Mood | '', MoodEmoji: '' as MoodEmoji | '', MemoryDate: '' });
   const selectMemory = useAppStore((s) => s.selectMemory);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!memoryId) { setMemory(null); return; }
     memoryService.getById(memoryId).then((m) => {
       setMemory(m);
-      if (m) {
-        setForm({ Title: m.Title, Content: m.Content || '', Mood: m.Mood || '', MoodEmoji: m.MoodEmoji || '', MemoryDate: m.MemoryDate || m.CreatedDate?.split('T')[0] || '' });
-        setEditMode(false);
-      }
+      setEditMode(false);
     });
   }, [memoryId]);
-
-  const handleSave = async () => {
-    if (!memory) return;
-    setSaving(true);
-    try {
-      await memoryService.update(memory.MemoryID, {
-        Title: form.Title,
-        Content: form.Content || null,
-        Mood: form.Mood || null,
-        MoodEmoji: form.MoodEmoji || null,
-        MemoryDate: form.MemoryDate || null,
-      });
-      const updated = await memoryService.getById(memory.MemoryID);
-      setMemory(updated);
-      setEditMode(false);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!memory) return;
@@ -87,20 +64,32 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
     onClose();
   };
 
+  const handleEditSaved = (savedId: string) => {
+    // Reload memory and exit edit mode
+    memoryService.getById(savedId).then((m) => {
+      setMemory(m);
+      setEditMode(false);
+    });
+  };
+
   const content = (
     <div className="memory-detail">
       {memory ? (
         <>
           {/* Edit / Delete buttons */}
           <div className="flex items-center justify-end gap-1 mb-2">
-            <button onClick={() => setEditMode(!editMode)}
-              className={`w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] ${editMode ? 'bg-[rgba(230,0,45,0.08)]' : ''}`}>
-              <Edit3 size={14} className={editMode ? 'text-[#E6002D]' : 'text-[#8E8E93]'} />
-            </button>
-            <button onClick={() => setConfirmDelete(true)}
-              className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)]">
-              <Trash2 size={14} className="text-[#E6002D]" />
-            </button>
+            {!editMode && (
+              <>
+                <button onClick={() => setEditMode(true)}
+                  className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)]">
+                  <Edit3 size={14} className="text-[#8E8E93]" />
+                </button>
+                <button onClick={() => setConfirmDelete(true)}
+                  className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)]">
+                  <Trash2 size={14} className="text-[#E6002D]" />
+                </button>
+              </>
+            )}
             {panelMode && (
               <button onClick={onClose}
                 className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)]">
@@ -126,102 +115,73 @@ export function MemoryDetail({ memoryId, onClose, panelMode }: Props) {
             </div>
           )}
 
-          {/* Mood Emoji */}
-          <div className="flex justify-center mb-3">
-            {editMode ? (
-              <div className="flex gap-2">
-                {MOOD_EMOJIS.map((item) => (
-                  <button key={item.emoji} onClick={() => setForm((f) => ({ ...f, Mood: item.mood, MoodEmoji: item.emoji }))}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-[18px] transition-all ${
-                      form.MoodEmoji === item.emoji ? 'bg-[#E6002D]/10 scale-110 ring-2 ring-[#E6002D]' : 'hover:bg-[rgba(0,0,0,0.04)]'
-                    }`}>
-                    {item.emoji}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="w-[60px] h-[60px] rounded-full flex items-center justify-center text-[32px]"
-                style={{ background: `${moodColor(memory.Mood)}15` }}>
-                <MoodDisplay emoji={memory.MoodEmoji} mood={memory.Mood} size={32} />
-              </div>
-            )}
-          </div>
-
-          {/* Title */}
           {editMode ? (
-            <input value={form.Title} onChange={(e) => setForm((f) => ({ ...f, Title: e.target.value }))}
-              className="input-glass text-center text-[17px] font-bold w-full" />
+            /* ── Full edit form (same as Add Memory) ── */
+            <div className="overflow-y-auto max-h-[65vh] px-1">
+              <MemoryFormFields
+                existingMemoryId={memory.MemoryID}
+                initialTitle={memory.Title}
+                initialContent={memory.Content || ''}
+                initialMoodEmoji={(memory.MoodEmoji as MoodEmoji | '') || ''}
+                initialImage={memory.Image || ''}
+                initialMemoryDate={memory.MemoryDate || memory.CreatedDate?.split('T')[0] || ''}
+                onSaved={handleEditSaved}
+                onCancel={() => setEditMode(false)}
+                showTitleField={true}
+              />
+            </div>
           ) : (
-            <h2 className="text-[18px] font-bold text-[#111] text-center">{memory.Title}</h2>
-          )}
-
-          {/* Date */}
-          <div className="flex items-center justify-center gap-1.5 mt-2 mb-3">
-            {editMode ? (
-              <div className="flex items-center gap-2">
-                <Calendar size={12} className="text-[#FF9500]" />
-                <input type="date" value={form.MemoryDate}
-                  onChange={(e) => setForm((f) => ({ ...f, MemoryDate: e.target.value }))}
-                  className="input-glass text-[12px] w-[160px] text-center" />
+            /* ── View mode ── */
+            <>
+              {/* Mood Emoji */}
+              <div className="flex justify-center mb-3">
+                <div className="w-[60px] h-[60px] rounded-full flex items-center justify-center text-[32px]"
+                  style={{ background: `${moodColor(memory.Mood)}15` }}>
+                  <MoodDisplay emoji={memory.MoodEmoji} mood={memory.Mood} size={32} />
+                </div>
               </div>
-            ) : (
-              <>
+
+              {/* Title */}
+              <h2 className="text-[18px] font-bold text-[#111] text-center">{memory.Title}</h2>
+
+              {/* Date */}
+              <div className="flex items-center justify-center gap-1.5 mt-2 mb-3">
                 <Calendar size={12} className="text-[#FF9500]" />
                 <span className="text-[11px] text-[#8E8E93]">
                   {formatDate(memory.MemoryDate || memory.CreatedDate, 'ddmmyyyy')}
                 </span>
                 {memory.Mood && <span className="text-[11px] text-[#8E8E93]">· {memory.Mood}</span>}
-              </>
-            )}
-          </div>
-
-          {/* Image */}
-          {memory.Image && !editMode && (
-            <div className="mb-3 rounded-[12px] overflow-hidden">
-              <img src={memory.Image} alt={memory.Title} className="w-full h-[200px] object-cover" />
-            </div>
-          )}
-
-          {/* Content */}
-          <div className="mt-3">
-            {editMode ? (
-              <>
-                <label className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1 block">Nội dung ký ức</label>
-                <textarea value={form.Content} onChange={(e) => setForm((f) => ({ ...f, Content: e.target.value }))}
-                  className="input-glass text-[13px] min-h-[100px] w-full" rows={4} placeholder="Cảm nghĩ của bạn về ký ức này..." />
-              </>
-            ) : memory.Content ? (
-              <div className="p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
-                <p className="text-[13px] text-[#111] whitespace-pre-wrap leading-relaxed">{memory.Content}</p>
               </div>
-            ) : (
-              <p className="text-[12px] text-[#8E8E93] text-center italic">Chưa có nội dung</p>
-            )}
-          </div>
 
-          {/* Event link — clickable */}
-          {memory.EventID && !editMode && (
-            <div className="mt-3 p-2.5 rounded-[10px] bg-[rgba(88,86,214,0.05)] border border-[rgba(88,86,214,0.1)]">
-              <button onClick={() => { router.push(`/events`); selectMemory(null); }}
-                className="w-full flex items-center justify-center gap-1.5 text-[11px] font-medium text-[#5856D6] hover:text-[#3B3BB5] transition-colors cursor-pointer">
-                <LinkIcon size={12} />
-                🔗 Xem sự kiện liên quan
-              </button>
-            </div>
-          )}
+              {/* Image */}
+              {memory.Image && (
+                <div className="mb-3 rounded-[12px] overflow-hidden">
+                  <img src={memory.Image} alt={memory.Title} className="w-full h-[200px] object-cover" />
+                </div>
+              )}
 
-          {/* Save / Cancel in edit mode */}
-          {editMode && (
-            <div className="flex gap-2 mt-4">
-              <button onClick={() => setEditMode(false)}
-                className="flex-1 py-2.5 rounded-[10px] text-[12px] font-medium bg-[rgba(0,0,0,0.04)] text-[#5F6368]">
-                Huỷ
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                className="flex-1 py-2.5 rounded-[10px] text-[12px] font-medium text-white bg-[#E6002D]">
-                {saving ? '...' : 'Lưu'}
-              </button>
-            </div>
+              {/* Content */}
+              <div className="mt-3">
+                {memory.Content ? (
+                  <div className="p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)]">
+                    <p className="text-[13px] text-[#111] whitespace-pre-wrap leading-relaxed">{memory.Content}</p>
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-[#8E8E93] text-center italic">Chưa có nội dung</p>
+                )}
+              </div>
+
+              {/* Event link */}
+              {memory.EventID && (
+                <div className="mt-3 p-2.5 rounded-[10px] bg-[rgba(88,86,214,0.05)] border border-[rgba(88,86,214,0.1)]">
+                  <button onClick={() => { router.push(`/events`); selectMemory(null); }}
+                    className="w-full flex items-center justify-center gap-1.5 text-[11px] font-medium text-[#5856D6] hover:text-[#3B3BB5] transition-colors cursor-pointer">
+                    <LinkIcon size={12} />
+                    🔗 Xem sự kiện liên quan
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       ) : (
