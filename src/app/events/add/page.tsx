@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { eventService } from '@/lib/services/event-service';
 import { organizationService } from '@/lib/services/organization-service';
@@ -47,6 +48,8 @@ export default function AddEventPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showContactSearch, setShowContactSearch] = useState(false);
   const contactSearchRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [locations, setLocations] = useState<LocationItem[]>([
     { id: '1', place: '', maplink: '' },
@@ -107,13 +110,25 @@ export default function AddEventPage() {
   );
 
   const toggleContact = (contact: Contact) => {
-    const exists = selectedContacts.find((c) => c.ContactID === contact.ContactID);
-    if (exists) {
-      setSelectedContacts(selectedContacts.filter((c) => c.ContactID !== contact.ContactID));
-    } else {
-      setSelectedContacts([...selectedContacts, contact]);
+    setSelectedContacts((prev) => {
+      const exists = prev.find((c) => c.ContactID === contact.ContactID);
+      if (exists) return prev.filter((c) => c.ContactID !== contact.ContactID);
+      return [...prev, contact];
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !searchTerm && selectedContacts.length > 0) {
+      setSelectedContacts((prev) => prev.slice(0, -1));
     }
-    setSearchTerm('');
+  };
+
+  const openSearchWithPosition = () => {
+    if (contactSearchRef.current) {
+      const rect = contactSearchRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+    setShowContactSearch(true);
   };
 
   const addLocation = () => {
@@ -200,8 +215,8 @@ export default function AddEventPage() {
       <div className="flex items-center gap-2 mb-5">
         <button onClick={()=>router.back()} className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"><ArrowLeft size={18}/></button>
         <div>
-          <h1 className="text-[18px] font-bold text-[#111]\">Thêm sự kiện mới</h1>
-          <p className="text-[11px] text-[#8E8E93]\">Nhập thông tin sự kiện mới</p>
+          <h1 className="text-[18px] font-bold text-[#111]">Thêm sự kiện mới</h1>
+          <p className="text-[11px] text-[#8E8E93]">Nhập thông tin sự kiện mới</p>
         </div>
       </div>
 
@@ -296,29 +311,36 @@ export default function AddEventPage() {
         <FormSection title="Người tham gia">
           <div ref={contactSearchRef}>
             <div className="flex items-center gap-2 p-2 rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] cursor-text"
-              onClick={() => setShowContactSearch(true)}>
+              onClick={() => openSearchWithPosition()}>
               <Search size={14} className="text-[#8E8E93] shrink-0"/>
               <div className="flex-1 flex flex-wrap gap-1">
                 {selectedContacts.map((c) => (
                   <span key={c.ContactID}
                     className="inline-flex items-center gap-1 px-[8px] py-[3px] rounded-full bg-[rgba(52,199,89,0.1)] text-[11px] font-medium text-[#2C8E4A]">
                     {c.Name}
-                    <button type="button" onClick={() => toggleContact(c)} className="hover:text-[#E6002D]"><X size={10}/></button>
+                    <button type="button" onClick={() => { toggleContact(c); inputRef.current?.focus(); }} className="hover:text-[#E6002D]"><X size={10}/></button>
                   </span>
                 ))}
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  onFocus={() => setShowContactSearch(true)}
+                <input ref={inputRef} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => openSearchWithPosition()} onKeyDown={handleKeyDown}
                   className="flex-1 min-w-[80px] text-[16px] outline-none bg-transparent"
                   placeholder={selectedContacts.length > 0 ? '' : 'Tìm kiếm người tham gia...'}/>
               </div>
             </div>
+          </div>
+          {selectedContacts.length > 0 && (
+            <p className="text-[10px] text-[#8E8E93]">{selectedContacts.length} người tham gia</p>
+          )}
 
-            {showContactSearch && (
-              <div className="mt-1 bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[160px] overflow-y-auto">
+          {showContactSearch && typeof document !== 'undefined' && createPortal(
+            <div className="fixed inset-0 z-40" onMouseDown={() => setShowContactSearch(false)}>
+              <div className="bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] max-h-[200px] overflow-y-auto"
+                style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width || 200, zIndex: 50 }}
+                onMouseDown={(e) => e.stopPropagation()}>
                 {searchTerm.trim() ? (
                   filteredContacts.length > 0 ? (
                     filteredContacts.map((c) => (
-                      <button key={c.ContactID} type="button" onClick={() => toggleContact(c)}
+                      <button key={c.ContactID} type="button" onMouseDown={() => { toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
                         className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
                         <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
                         {c.Name}
@@ -331,10 +353,8 @@ export default function AddEventPage() {
                   <p className="text-[11px] text-[#8E8E93] text-center py-3">Gõ tên để tìm kiếm người tham gia</p>
                 )}
               </div>
-            )}
-          </div>
-          {selectedContacts.length > 0 && (
-            <p className="text-[10px] text-[#8E8E93]">{selectedContacts.length} người tham gia</p>
+            </div>,
+            document.body
           )}
         </FormSection>
 
