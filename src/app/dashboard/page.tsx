@@ -17,6 +17,8 @@ import { useAppStore } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
 import type { Contact, EventItem } from '@/types/database';
 import { formatDate, getAvatarColor, getInitials } from '@/lib/utils';
+import { ContactDetail } from '@/components/contacts/contact-detail';
+import { EventDetail } from '@/components/events/event-detail';
 
 interface ReconnectSuggestion {
   contact: Contact;
@@ -36,6 +38,8 @@ export default function DashboardPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [detailContactId, setDetailContactId] = useState<string | null>(null);
+  const [detailEventId, setDetailEventId] = useState<string | null>(null);
 
   const selectContact = useAppStore((s) => s.selectContact);
   const selectEvent = useAppStore((s) => s.selectEvent);
@@ -256,7 +260,7 @@ export default function DashboardPage() {
             <div className="space-y-2.5">
               {redAlerts.map(s => (
                 <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(230,0,45,0.04)] border border-[rgba(230,0,45,0.08)] cursor-pointer hover:brightness-95 transition-all"
-                  onClick={() => selectContact(s.contact.ContactID)}>
+                  onClick={() => setDetailContactId(s.contact.ContactID)}>
                   <AvatarCircle contact={s.contact} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
@@ -270,7 +274,7 @@ export default function DashboardPage() {
               ))}
               {yellowAlerts.map(s => (
                 <div key={s.contact.ContactID} className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[rgba(255,204,0,0.06)] border border-[rgba(255,204,0,0.12)] cursor-pointer hover:brightness-95 transition-all"
-                  onClick={() => selectContact(s.contact.ContactID)}>
+                  onClick={() => setDetailContactId(s.contact.ContactID)}>
                   <AvatarCircle contact={s.contact} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
@@ -303,7 +307,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {recentEvents.map(e => (
                 <div key={e.EventID} className="flex items-center gap-2.5 p-2 rounded-[10px] bg-[rgba(0,0,0,0.02)] cursor-pointer hover:brightness-95 transition-all"
-                  onClick={() => selectEvent(e.EventID)}>
+                  onClick={() => setDetailEventId(e.EventID)}>
                   <div className="w-[32px] h-[36px] rounded-[8px] bg-[rgba(0,122,255,0.08)] flex flex-col items-center justify-center shrink-0">
                     <span className="text-[11px] font-bold text-[#007AFF] leading-none">{new Date(e.StartDate).getDate()}</span>
                     <span className="text-[7px] text-[#007AFF]/60">{monthNames[new Date(e.StartDate).getMonth()]}</span>
@@ -327,7 +331,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {upcomingBirthdays.map(b => (
                 <div key={b.contact.ContactID} className="flex items-center gap-2.5 p-2 rounded-[10px] bg-[rgba(0,0,0,0.02)] cursor-pointer hover:brightness-95 transition-all"
-                  onClick={() => selectContact(b.contact.ContactID)}>
+                  onClick={() => setDetailContactId(b.contact.ContactID)}>
                   <AvatarCircle contact={b.contact} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{b.contact.Name}</p>
@@ -596,6 +600,9 @@ export default function DashboardPage() {
           <QuickAction icon={Target} label="Thêm mục tiêu" color="#AF52DE" onClick={() => router.push('/goals/add')} />
         </div>
       </div>
+      {/* Mobile detail modals */}
+      <ContactDetail contactId={detailContactId} onClose={() => setDetailContactId(null)} />
+      <EventDetail eventId={detailEventId} onClose={() => setDetailEventId(null)} />
     </>
   );
 }
