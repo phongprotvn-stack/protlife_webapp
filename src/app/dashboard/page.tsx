@@ -475,12 +475,12 @@ export default function DashboardPage() {
             {upcomingBirthdays.length === 0 ? (
               <p className="text-[12px] text-[#8E8E93] text-center py-6">Chưa có</p>
             ) : (
-              <div className="flex items-center gap-4 overflow-x-auto pb-1">
+              <div className="flex items-center gap-5 overflow-x-auto pb-1">
                 {upcomingBirthdays.slice(0, 5).map(b => (
-                  <div key={b.contact.ContactID} className="flex items-center gap-1.5 shrink-0">
-                    <AvatarCircle contact={b.contact} size={22} />
-                    <span className="text-[12px] font-medium text-[#111] truncate max-w-[100px]">{b.contact.Name}</span>
-                    <span className="text-[10px] text-[#FF9500] font-medium whitespace-nowrap">
+                  <div key={b.contact.ContactID} className="flex flex-col items-center gap-1 shrink-0">
+                    <AvatarCircle contact={b.contact} size={36} />
+                    <span className="text-[11px] font-medium text-[#111] text-center truncate max-w-[70px]">{b.contact.Name}</span>
+                    <span className="text-[9px] text-[#FF9500] font-medium whitespace-nowrap">
                       {b.days === 0 ? '🎉' : formatDate(b.nextDate, 'ddmm')}
                     </span>
                   </div>
