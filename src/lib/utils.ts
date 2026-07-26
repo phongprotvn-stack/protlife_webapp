@@ -103,6 +103,7 @@ export function getImportanceColor(importance: string): string {
 }
 
 export function getInitials(name: string): string {
+  if (!name) return '?';
   return name
     .split(' ')
     .map((n) => n[0])
@@ -112,6 +113,7 @@ export function getInitials(name: string): string {
 }
 
 export function getAvatarColor(name: string): string {
+  if (!name) return '#8E8E93';
   const colors = [
     '#E6002D', '#FF4D6A', '#FF9500', '#FFCC00',
     '#34C759', '#007AFF', '#5856D6', '#AF52DE',
