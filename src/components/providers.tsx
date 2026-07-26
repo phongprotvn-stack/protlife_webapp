@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import type { PersistedClient, Persister } from '@tanstack/react-query-persist-client';
 import { Toaster } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
 import { supabase } from '@/lib/supabase/client';
@@ -134,22 +135,41 @@ function AuthListener() {
   return null;
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 1000 * 60 * 5, // 5 min — data stays usable across pages
-            retry: 3,
-            retryDelay: 1500,
-          },
-        },
-      })
-  );
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 30, // 30 min — data stays usable across pages
+      gcTime: 1000 * 60 * 60,    // 1 hour garbage collection
+      retry: 3,
+      retryDelay: 1500,
+    },
+  },
+});
 
+// localStorage persister — cache survives page reloads & login redirects
+const localStoragePersister: Persister = {
+  persistClient: async (client: PersistedClient) => {
+    localStorage.setItem('PROTLIFE_QC', JSON.stringify(client));
+  },
+  restoreClient: async () => {
+    const cache = localStorage.getItem('PROTLIFE_QC');
+    return cache ? JSON.parse(cache) : undefined;
+  },
+  removeClient: async () => {
+    localStorage.removeItem('PROTLIFE_QC');
+  },
+};
+
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: localStoragePersister,
+        maxAge: 1000 * 60 * 60 * 24,
+        buster: 'v1',
+      }}
+    >
       <AuthListener />
       <DataPrefetcher />
       {children}
@@ -168,6 +188,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
         }}
       />
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
