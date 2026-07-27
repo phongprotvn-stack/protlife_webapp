@@ -151,7 +151,7 @@ export default function LandingPage() {
   const features = [
     { icon: 'heart', label: 'Quan hệ', desc: 'Quản lý mối quan hệ quan trọng' },
     { icon: 'calendar', label: 'Sự kiện', desc: 'Ghi nhớ & theo dõi mọi sự kiện' },
-    { icon: 'image', label: 'Ký ức', desc: 'Lưu giữ những khoảnh khắc đáng nhớ' },
+    { icon: 'image', label: 'Ký ức', desc: 'Lưu giữ khoảnh khắc đáng nhớ' },
     { icon: 'brain', label: 'AI Insight', desc: 'Phân tích & gợi ý thông minh' },
     { icon: 'shield', label: 'Bảo mật', desc: 'Dữ liệu của bạn luôn được bảo vệ' },
   ];
