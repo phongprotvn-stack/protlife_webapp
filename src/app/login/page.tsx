@@ -149,14 +149,14 @@ export default function LoginPage() {
   // ─── SVG icons for feature row ───
   const features = [
     { icon: 'heart', label: 'Quan hệ', desc: 'Quản lý mối quan hệ quan trọng' },
-    { icon: 'calendar', label: 'Sự kiện', desc: 'Ghi nhớ và theo dõi mọi sự kiện' },
+    { icon: 'calendar', label: 'Sự kiện', desc: 'Ghi nhớ & theo dõi mọi sự kiện' },
     { icon: 'image', label: 'Ký ức', desc: 'Lưu giữ những khoảnh khắc đáng nhớ' },
     { icon: 'brain', label: 'AI Insight', desc: 'Phân tích & gợi ý thông minh' },
     { icon: 'shield', label: 'Bảo mật', desc: 'Dữ liệu của bạn luôn được bảo vệ' },
   ];
 
   function featureIcon(name: string) {
-    const s = { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+    const s = { width: 34, height: 34, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
     switch (name) {
       case 'heart':
         return <svg {...s}><path d="M20.8 8.6c0-3-2.2-5-5-5-1.9 0-3.4 1-4.3 2.5C10.6 4.6 9.1 3.6 7.2 3.6c-2.8 0-5 2-5 5 0 5.5 9.3 10.8 9.3 10.8s9.3-5.3 9.3-10.8z"/></svg>;
@@ -183,19 +183,17 @@ export default function LoginPage() {
           {/* Cover image — screen blend, dark overlay */}
           <div className="absolute inset-0 z-0"
             style={{
-              backgroundImage: 'url(/images/protlife-cover.jpg)',
-              backgroundSize: '130%',
-              backgroundPosition: '82% 48%',
+              backgroundImage: 'url(/images/bg-panel-left.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              mixBlendMode: 'screen',
-              opacity: 0.9,
             }} />
           <div className="absolute inset-0 z-[1]"
             style={{
               background: `
-                radial-gradient(ellipse at 78% 42%, rgba(20,0,3,.05) 0%, rgba(5,2,3,.35) 48%, #050203 82%),
-                linear-gradient(90deg, rgba(5,2,3,.92) 0%, rgba(5,2,3,.55) 42%, rgba(5,2,3,.2) 66%, rgba(5,2,3,.5) 100%),
-                linear-gradient(180deg, rgba(5,2,3,.15) 0%, rgba(5,2,3,.05) 35%, rgba(5,2,3,.65) 100%)
+                radial-gradient(ellipse at 78% 42%, rgba(20,0,3,.08) 0%, rgba(5,2,3,.2) 48%, rgba(5,2,3,.55) 82%),
+                linear-gradient(90deg, rgba(5,2,3,.5) 0%, rgba(5,2,3,.2) 30%, rgba(5,2,3,.05) 50%, rgba(5,2,3,.1) 66%, rgba(5,2,3,.3) 100%),
+                linear-gradient(180deg, rgba(5,2,3,.08) 0%, rgba(5,2,3,.03) 35%, rgba(5,2,3,.35) 100%)
               `,
             }} />
 
@@ -215,38 +213,42 @@ export default function LoginPage() {
             </div>
 
             {/* Hero */}
-            <div className="my-auto max-w-[430px] pt-[20px]">
-              <h1 className="text-[38px] font-extrabold leading-[1.2] tracking-[-1px]">
-                Quản lý <span style={{ color: '#FF3B4E' }}>toàn bộ</span><br />
-                <span style={{ color: '#FF3B4E' }}>cuộc sống</span> của bạn
-              </h1>
-              <div className="w-[64px] h-[4px] rounded-full mb-[16px]"
-                style={{ background: 'linear-gradient(90deg,#E6002D,#FF3B4E)' }} />
-              <p className="text-[14.5px] leading-[1.65]" style={{ color: 'rgba(255,255,255,.62)' }}>
-                Mọi mối quan hệ, sự kiện, ký ức và mục tiêu<br />
-                cuộc đời được kết nối trong một không gian<br />
-                riêng tư, an toàn.
-              </p>
+            <div className="my-auto w-full pt-[20px]">
+              <div className="max-w-[430px]">
+                <h1 className="text-[38px] font-extrabold leading-[1.2] tracking-[-1px]">
+                  Quản lý <span style={{ color: '#FF3B4E' }}>toàn bộ</span><br />
+                  <span style={{ color: '#FF3B4E' }}>cuộc sống</span> của bạn
+                </h1>
+                <div className="h-[4px] rounded-full mt-[8px] mb-[16px]"
+                  style={{ width: '180px', background: 'linear-gradient(90deg,#E6002D,#FF3B4E)' }} />
+                <p className="text-[14.5px] leading-[1.65]" style={{ color: 'rgba(255,255,255,.62)' }}>
+                  Mọi mối quan hệ, sự kiện, ký ức và mục tiêu<br />
+                  cuộc đời được kết nối trong một không gian<br />
+                  riêng tư, an toàn.
+                </p>
 
-              {/* CTA */}
-              <Link href="/register"
-                className="inline-flex items-center gap-[9px] px-[26px] py-[15px] rounded-[14px] text-[14.5px] font-bold text-white no-underline"
-                style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 100%)', boxShadow: '0 14px 34px rgba(214,0,50,.4)' }}>
-                🚀 Bắt đầu miễn phí
-              </Link>
+                <div className="flex flex-col items-start gap-[32px] mt-[32px]">
+                  <Link href="/register"
+                    className="inline-flex items-center gap-[9px] px-[26px] py-[15px] rounded-[14px] text-[14.5px] font-bold text-white no-underline"
+                    style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 100%)', boxShadow: '0 14px 34px rgba(214,0,50,.4)' }}>
+                    🚀 Bắt đầu miễn phí
+                  </Link>
+                </div>
+              </div>
 
-              {/* Feature row — 5 items */}
-              <div className="flex justify-between gap-[12px] mt-[56px]" style={{ maxWidth: '560px' }}>
-                {features.map((f, i) => (
-                  <div key={i} className="flex-1 text-left">
-                    <div className="w-[40px] h-[40px] rounded-[12px] flex items-center justify-center mb-[11px]"
-                      style={{ background: 'rgba(230,0,45,.08)', border: '1.3px solid rgba(230,0,45,.45)', color: '#FF3B4E' }}>
-                      {featureIcon(f.icon)}
+              {/* Features — centered in full panel */}
+              <div className="flex justify-center w-full mt-[32px]">
+                <div className="flex gap-0 justify-center items-stretch">
+                  {features.map((f, i) => (
+                    <div key={i} className="flex flex-col items-center text-center" style={{ width: '80px', paddingLeft: i > 0 ? '20px' : '0', borderLeft: i > 0 ? '1px solid rgba(255,255,255,.12)' : 'none' }}>
+                      <div className="mb-[8px]" style={{ color: '#FF3B4E' }}>
+                        {featureIcon(f.icon)}
+                      </div>
+                      <div className="text-[12px] font-bold mb-[4px] whitespace-nowrap">{f.label}</div>
+                      <div className="text-[10px] leading-[1.4] text-center" style={{ color: 'rgba(255,255,255,.45)' }}>{f.desc}</div>
                     </div>
-                    <div className="text-[12.5px] font-bold whitespace-nowrap mb-[4px]">{f.label}</div>
-                    <div className="text-[10.5px] leading-[1.5]" style={{ color: 'rgba(255,255,255,.45)' }}>{f.desc}</div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
