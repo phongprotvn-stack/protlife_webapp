@@ -185,7 +185,7 @@ export default function LoginPage() {
             style={{
               backgroundImage: 'url(/images/bg-panel-left.png)',
               backgroundSize: 'cover',
-              backgroundPosition: '60% center',
+              backgroundPosition: '15% center',
               backgroundRepeat: 'no-repeat',
             }} />
           <div className="absolute inset-0 z-[1]"
@@ -227,7 +227,7 @@ export default function LoginPage() {
                   riêng tư, an toàn.
                 </p>
 
-                <div className="flex flex-col items-start gap-[32px] mt-[48px]">
+                <div className="flex flex-col items-start gap-[32px] mt-[80px]">
                   <Link href="/register"
                     className="inline-flex items-center gap-[9px] px-[26px] py-[15px] rounded-[14px] text-[14.5px] font-bold text-white no-underline"
                     style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 100%)', boxShadow: '0 14px 34px rgba(214,0,50,.4)' }}>
