@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
 import { supabase } from '@/lib/supabase/client';
 import DataPrefetcher from '@/components/data-prefetcher';
+import { get, set, del } from 'idb-keyval';
 
 /**
  * Syncs the auth-store with the Supabase session across tabs.
@@ -146,17 +147,26 @@ const queryClient = new QueryClient({
   },
 });
 
-// localStorage persister — cache survives page reloads & login redirects
-const localStoragePersister: Persister = {
+// IndexedDB persister — cache survives page reloads without size limits
+const idbPersister: Persister = {
   persistClient: async (client: PersistedClient) => {
-    localStorage.setItem('PROTLIFE_QC', JSON.stringify(client));
+    try {
+      await set('PROTLIFE_QC', client);
+    } catch (e) {
+      console.warn('Could not persist cache to IndexedDB', e);
+    }
   },
   restoreClient: async () => {
-    const cache = localStorage.getItem('PROTLIFE_QC');
-    return cache ? JSON.parse(cache) : undefined;
+    try {
+      return await get<PersistedClient>('PROTLIFE_QC');
+    } catch (e) {
+      return undefined;
+    }
   },
   removeClient: async () => {
-    localStorage.removeItem('PROTLIFE_QC');
+    try {
+      await del('PROTLIFE_QC');
+    } catch (e) {}
   },
 };
 
@@ -165,7 +175,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{
-        persister: localStoragePersister,
+        persister: idbPersister,
         maxAge: 1000 * 60 * 60 * 24,
         buster: 'v1',
       }}

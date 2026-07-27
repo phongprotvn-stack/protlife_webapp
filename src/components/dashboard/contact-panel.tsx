@@ -7,7 +7,7 @@ import type { DashboardPanelContact } from '@/stores/app-store';
 // Map relationship types to colors
 const RELATION_COLORS: Record<string, string> = {
   'Family': '#E6002D',
-  'Relatives': '#FF4D6A',
+  'Relative': '#FF4D6A',
   'Friend': '#FF9500',
   'Colleague': '#007AFF',
   'Neighbor': '#34C759',
@@ -17,7 +17,7 @@ const RELATION_COLORS: Record<string, string> = {
 };
 const RELATION_LABELS: Record<string, string> = {
   'Family': 'Gia đình',
-  'Relatives': 'Họ hàng',
+  'Relative': 'Họ hàng',
   'Friend': 'Bạn bè',
   'Colleague': 'Đồng nghiệp',
   'Neighbor': 'Hàng xóm',
