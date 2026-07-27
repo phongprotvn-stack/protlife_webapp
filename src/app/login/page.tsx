@@ -184,8 +184,8 @@ export default function LoginPage() {
           <div className="absolute inset-0 z-0"
             style={{
               backgroundImage: 'url(/images/bg-panel-left.png)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              backgroundSize: 'auto 85%',
+              backgroundPosition: 'right center',
               backgroundRepeat: 'no-repeat',
             }} />
           <div className="absolute inset-0 z-[1]"
@@ -213,7 +213,7 @@ export default function LoginPage() {
             </div>
 
             {/* Hero */}
-            <div className="my-auto w-full pt-[20px]">
+            <div className="flex flex-col justify-center flex-1 w-full pt-[20px]">
               <div className="max-w-[430px]">
                 <h1 className="text-[38px] font-extrabold leading-[1.2] tracking-[-1px]">
                   Quản lý <span style={{ color: '#FF3B4E' }}>toàn bộ</span><br />
@@ -235,17 +235,25 @@ export default function LoginPage() {
                   </Link>
                 </div>
               </div>
+            </div>
 
-              {/* Features — centered in full panel */}
-              <div className="flex justify-center w-full mt-[32px]">
-                <div className="flex gap-0 justify-center items-stretch">
+            {/* Features — pushed down near footer, equal left/gap/right spacing */}
+            <div className="w-full mt-auto pb-[4px]">
+              <div className="flex justify-center w-full">
+                <div className="flex gap-0 items-stretch" style={{ paddingLeft: '15px', paddingRight: '15px' }}>
                   {features.map((f, i) => (
-                    <div key={i} className="flex flex-col items-center text-center" style={{ width: '80px', paddingLeft: i > 0 ? '20px' : '0', borderLeft: i > 0 ? '1px solid rgba(255,255,255,.12)' : 'none' }}>
-                      <div className="mb-[8px]" style={{ color: '#FF3B4E' }}>
+                    <div key={i} className="flex flex-col items-center text-center"
+                      style={{
+                        width: '76px',
+                        paddingLeft: i > 0 ? '15px' : '0',
+                        borderLeft: i > 0 ? '1px solid rgba(255,255,255,.12)' : 'none',
+                      }}>
+                      <div className="mb-[6px]" style={{ color: '#FF3B4E' }}>
                         {featureIcon(f.icon)}
                       </div>
-                      <div className="text-[12px] font-bold mb-[4px] whitespace-nowrap">{f.label}</div>
-                      <div className="text-[10px] leading-[1.4] text-center" style={{ color: 'rgba(255,255,255,.45)' }}>{f.desc}</div>
+                      <div className="text-[12px] font-bold mb-[3px] whitespace-nowrap">{f.label}</div>
+                      <div className="text-[10px] leading-[1.4] text-center line-clamp-2"
+                        style={{ color: 'rgba(255,255,255,.45)' }}>{f.desc}</div>
                     </div>
                   ))}
                 </div>
@@ -253,7 +261,7 @@ export default function LoginPage() {
             </div>
 
             {/* Footer */}
-            <div className="text-[12px] text-center mt-[24px]" style={{ color: 'rgba(255,255,255,.35)' }}>
+            <div className="text-[12px] text-center pt-[12px] pb-[4px]" style={{ color: 'rgba(255,255,255,.35)' }}>
               Made with <span style={{ color: '#FF3B4E' }}>♥</span> by <b style={{ color: 'rgba(255,255,255,.6)' }}>Prot</b>
             </div>
           </div>
