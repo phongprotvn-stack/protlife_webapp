@@ -193,7 +193,7 @@ export default function LandingPage() {
             style={{
               backgroundImage: 'url(/images/bg-panel-left.png)',
               backgroundSize: 'cover',
-              backgroundPosition: '15% center',
+              backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
             }} />
           <div className="absolute inset-0 z-[1]"
