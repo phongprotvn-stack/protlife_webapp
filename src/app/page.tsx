@@ -239,7 +239,7 @@ export default function LandingPage() {
                   <Link href="/register"
                     className="inline-flex items-center gap-[9px] px-[26px] py-[15px] rounded-[14px] text-[14.5px] font-bold text-white no-underline"
                     style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 100%)', boxShadow: '0 14px 34px rgba(214,0,50,.4)' }}>
-                    🚀 Bắt đầu miễn phí
+                    <img src="/images/rocket-white.png" alt="" className="w-[20px] h-[20px]" /> Bắt đầu miễn phí
                   </Link>
                 </div>
               </div>
