@@ -184,8 +184,8 @@ export default function LoginPage() {
           <div className="absolute inset-0 z-0"
             style={{
               backgroundImage: 'url(/images/bg-panel-left.png)',
-              backgroundSize: 'auto 85%',
-              backgroundPosition: 'right center',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
             }} />
           <div className="absolute inset-0 z-[1]"
@@ -237,17 +237,17 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Features — pushed down near footer, equal left/gap/right spacing */}
+            {/* Features — equal spacing, spread across full panel */}
             <div className="w-full mt-auto pb-[4px]">
-              <div className="flex justify-center w-full">
-                <div className="flex gap-0 items-stretch" style={{ paddingLeft: '15px', paddingRight: '15px' }}>
+              <div className="w-full" style={{ paddingLeft: '28px', paddingRight: '28px' }}>
+                <div className="flex items-stretch" style={{ gap: '28px' }}>
                   {features.map((f, i) => (
-                    <div key={i} className="flex flex-col items-center text-center"
-                      style={{
-                        width: '76px',
-                        paddingLeft: i > 0 ? '15px' : '0',
-                        borderLeft: i > 0 ? '1px solid rgba(255,255,255,.12)' : 'none',
-                      }}>
+                    <div key={i} className="flex-1 flex flex-col items-center text-center relative"
+                      style={{ minWidth: '100px', maxWidth: '180px' }}>
+                      {i > 0 && (
+                        <div className="absolute top-1/2 -translate-y-1/2 w-[1px] h-6 bg-white/12"
+                          style={{ left: '-14px' }} />
+                      )}
                       <div className="mb-[6px]" style={{ color: '#FF3B4E' }}>
                         {featureIcon(f.icon)}
                       </div>
