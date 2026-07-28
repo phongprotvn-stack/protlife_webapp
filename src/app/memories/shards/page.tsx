@@ -62,6 +62,18 @@ export default function MemoryShardsPage() {
   const [error, setError] = useState('');
   const [detailMemory, setDetailMemory] = useState<MemoryWithEvent | null>(null);
 
+  // ─── Inject CSS for touch-action ───
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'shards-touch-fix';
+    style.textContent = `
+      .shards-carousel { touch-action: none !important; -webkit-touch-callout: none !important; }
+      .shards-carousel * { touch-action: none !important; }
+    `;
+    document.head.appendChild(style);
+    return () => { const s = document.getElementById('shards-touch-fix'); if (s) s.remove(); };
+  }, []);
+
   // ─── Infinite carousel offset ───
   const offsetRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
@@ -76,7 +88,6 @@ export default function MemoryShardsPage() {
   const animRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playClickedRef = useRef(false);
 
   // ─── Data loading ───
   const loadMemories = useCallback(async () => {
@@ -156,28 +167,25 @@ export default function MemoryShardsPage() {
     });
   }, [total, getCenterVirtual, snapTo, rerender]);
 
-  // ─── Drag handling ───
-  // Use native DOM events for reliable pointer capture
+  // ─── Drag handling — mouse + touch events ───
   useEffect(() => {
     const el = containerRef.current;
     if (!el || total === 0) return;
 
-    const onDown = (e: PointerEvent) => {
-      // Ignore if play button was the target
+    // ── Mouse ──
+    const onMouseDown = (e: MouseEvent) => {
       if ((e.target as HTMLElement).closest('[data-play-btn]')) return;
-      playClickedRef.current = false;
       if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
       dragActive.current = true;
       dragStartY.current = e.clientY;
       dragOffsetStart.current = offsetRef.current;
       velocityRef.current = 0;
       lastMoveTime.current = performance.now();
-      el.setPointerCapture(e.pointerId);
+      e.preventDefault();
     };
 
-    const onMove = (e: PointerEvent) => {
+    const onMouseMove = (e: MouseEvent) => {
       if (!dragActive.current) return;
-      e.preventDefault();
       const dy = e.clientY - dragStartY.current;
       offsetRef.current = dragOffsetStart.current + dy;
       const now = performance.now();
@@ -188,10 +196,9 @@ export default function MemoryShardsPage() {
       rerender();
     };
 
-    const onUp = (e: PointerEvent) => {
+    const onMouseUp = () => {
       if (!dragActive.current) return;
       dragActive.current = false;
-      if (playClickedRef.current) return;
       const v = velocityRef.current;
       if (Math.abs(v) >= 0.8) {
         startInertia(v);
@@ -201,21 +208,61 @@ export default function MemoryShardsPage() {
       }
     };
 
-    const onCancel = () => {
-      dragActive.current = false;
+    // ── Touch ──
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      if ((e.target as HTMLElement).closest('[data-play-btn]')) return;
+      if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+      dragActive.current = true;
+      dragStartY.current = touch.clientY;
+      dragOffsetStart.current = offsetRef.current;
+      velocityRef.current = 0;
+      lastMoveTime.current = performance.now();
     };
 
-    el.addEventListener('pointerdown', onDown);
-    // Use target with pointer capture (captured events are guaranteed on el)
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointercancel', onCancel);
+    const onTouchMove = (e: TouchEvent) => {
+      if (!dragActive.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dy = touch.clientY - dragStartY.current;
+      offsetRef.current = dragOffsetStart.current + dy;
+      const now = performance.now();
+      const dt = Math.max(1, now - lastMoveTime.current);
+      const instantV = -dy * (16.67 / dt);
+      velocityRef.current = velocityRef.current * 0.5 + instantV * 0.5;
+      lastMoveTime.current = now;
+      rerender();
+    };
+
+    const onTouchEnd = () => {
+      if (!dragActive.current) return;
+      dragActive.current = false;
+      const v = velocityRef.current;
+      if (Math.abs(v) >= 0.8) {
+        startInertia(v);
+      } else {
+        const center = getCenterVirtual();
+        snapTo(Math.round(center));
+      }
+    };
+
+    // ── Attach ──
+    el.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
 
     return () => {
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointercancel', onCancel);
+      el.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      el.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
     };
   }, [total, getCenterVirtual, snapTo, startInertia, rerender]);
 
@@ -286,7 +333,6 @@ export default function MemoryShardsPage() {
   // ─── Handle play click ───
   const handlePlay = useCallback((e: React.MouseEvent, mem: MemoryWithEvent) => {
     e.stopPropagation();
-    playClickedRef.current = true;
     setDetailMemory(mem);
   }, []);
 
@@ -364,7 +410,7 @@ export default function MemoryShardsPage() {
       {/* Arc Carousel — drag directly on this element */}
       <div
         ref={containerRef}
-        className="flex-1 relative overflow-hidden"
+        className="shards-carousel flex-1 relative overflow-hidden"
         style={{ minHeight: 300, touchAction: 'none', userSelect: 'none' }}
       >
         {/* Center glow */}
