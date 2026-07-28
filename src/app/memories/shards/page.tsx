@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence, useMotionValue, animate as fmAnimate } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Play, Calendar, Link as LinkIcon, X, Sparkles, Disc3 } from 'lucide-react';
 import { memoryService } from '@/lib/services/memory-service';
@@ -9,10 +9,8 @@ import type { MemoryWithEvent } from '@/types/database';
 
 // ─── Helpers ───
 function relativeTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr); const now = new Date();
+  now.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
   const days = Math.round((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
   if (days === 0) return 'Hôm nay';
   if (days === 1) return 'Hôm qua';
@@ -47,9 +45,11 @@ function getDate(m: MemoryWithEvent): string {
   return m.EventDate || m.MemoryDate || m.CreatedDate;
 }
 
-const ITEM_HEIGHT = 90;
-const ARC_RADIUS_X = 28;
-const ARC_RADIUS_Y = 16;
+// ─── Arc carousel constants ───
+const ITEM_WIDTH = 85;       // % of container width each card takes
+const ITEM_SPACING = 130;    // px per virtual item (how far to swipe per item)
+const ARC_RADIUS = 220;      // radius of the circular arc
+const ARC_DEG = Math.PI / 9; // 20° arc angle between items
 const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
@@ -60,13 +60,13 @@ export default function MemoryShardsPage() {
   const [error, setError] = useState('');
   const [detailMemory, setDetailMemory] = useState<MemoryWithEvent | null>(null);
 
-  // offset drives card arc positions. During drag it stays frozen.
+  // offset drives circular arc positions. During drag it stays frozen.
   const [offset, setOffset] = useState(0);
   const offsetRef = useRef(0);
   const syncOffset = useCallback(() => setOffset(offsetRef.current), []);
 
-  // framer-motion drag transform — this alone handles ALL movement during drag
-  const dragY = useMotionValue(0);
+  // framer-motion dragX — handles ALL drag movement natively
+  const dragX = useMotionValue(0);
   const dragBlockedRef = useRef(false);
   const dragStartOffsetRef = useRef(0);
   const animRef = useRef<number | null>(null);
@@ -81,29 +81,26 @@ export default function MemoryShardsPage() {
       const data = await memoryService.getAllWithEvent();
       data.sort((a, b) => new Date(getDate(b)).getTime() - new Date(getDate(a)).getTime());
       setMemories(data);
-      offsetRef.current = 0;
-      setOffset(0);
-      dragY.set(0);
+      offsetRef.current = 0; setOffset(0); dragX.set(0);
     } catch (e: any) {
       setError(e.message || 'Không thể tải ký ức');
     } finally {
       setIsLoading(false);
     }
-  }, [dragY]);
-
+  }, [dragX]);
   useEffect(() => { loadMemories(); }, [loadMemories]);
 
   const total = memories.length;
 
   const getCenterVirtual = useCallback(() => {
     if (total === 0) return 0;
-    return -offsetRef.current / ITEM_HEIGHT;
+    return -offsetRef.current / ITEM_SPACING;
   }, [total]);
 
-  // ─── Snap animation (only for non-drag positioning) ───
+  // ─── Snap / Inertia ───
   const snapTo = useCallback((virtualTarget: number) => {
     if (total === 0) return;
-    const targetOffset = -virtualTarget * ITEM_HEIGHT;
+    const targetOffset = -virtualTarget * ITEM_SPACING;
     const start = offsetRef.current;
     const diff = targetOffset - start;
     if (Math.abs(diff) < 1) return;
@@ -115,18 +112,12 @@ export default function MemoryShardsPage() {
       const ease = 1 - Math.pow(1 - p, 3);
       offsetRef.current = start + diff * ease;
       syncOffset();
-      if (p < 1) {
-        animRef.current = requestAnimationFrame(step);
-      } else {
-        offsetRef.current = targetOffset;
-        syncOffset();
-        animRef.current = null;
-      }
+      if (p < 1) animRef.current = requestAnimationFrame(step);
+      else { offsetRef.current = targetOffset; syncOffset(); animRef.current = null; }
     };
     animRef.current = requestAnimationFrame(step);
   }, [total, syncOffset]);
 
-  // ─── Inertia ───
   const startInertia = useCallback((velocity: number) => {
     if (total === 0) return;
     animRef.current = requestAnimationFrame(function inertiaStep() {
@@ -142,10 +133,7 @@ export default function MemoryShardsPage() {
     });
   }, [total, getCenterVirtual, snapTo, syncOffset]);
 
-  // ─── FRAMER-MOTION DRAG callbacks ───
-  // The key insight: framer-motion DRAG handles ALL pointer/touch events internally.
-  // We only read info.offset to update our virtual position.
-
+  // ─── Framer-motion drag callbacks ───
   const handleDragStart = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
     if ((event.target as HTMLElement).closest('[data-play-btn]')) {
       dragBlockedRef.current = true;
@@ -156,57 +144,42 @@ export default function MemoryShardsPage() {
     dragStartOffsetRef.current = offsetRef.current;
   }, []);
 
-  const handleDrag = useCallback((_: any, info: { offset: { y: number } }) => {
+  const handleDrag = useCallback((_: any, info: { offset: { x: number } }) => {
     if (dragBlockedRef.current) return;
-    // Update ref for virtual center calculation; offset state stays frozen during drag
-    offsetRef.current = dragStartOffsetRef.current + info.offset.y;
+    offsetRef.current = dragStartOffsetRef.current + info.offset.x;
   }, []);
 
-  const handleDragEnd = useCallback((_: any, info: { offset: { y: number }; velocity: { y: number } }) => {
-    if (dragBlockedRef.current) {
-      dragBlockedRef.current = false;
-      return;
-    }
+  const handleDragEnd = useCallback((_: any, info: { offset: { x: number }; velocity: { x: number } }) => {
+    if (dragBlockedRef.current) { dragBlockedRef.current = false; return; }
 
-    const velocity = -info.velocity.y;   // positive = swipe down
-    const finalDragOffset = info.offset.y; // how far dragged
+    const velocity = info.velocity.x; // positive = swipe right
+    const finalDragX = info.offset.x;
 
     if (Math.abs(velocity) >= 200) {
-      // FAST SWIPE → inertia
-      dragY.set(0); // reset container transform instantly
-      offsetRef.current = dragStartOffsetRef.current + finalDragOffset;
+      dragX.set(0);
+      offsetRef.current = dragStartOffsetRef.current + finalDragX;
       syncOffset();
       startInertia(velocity * 0.3);
       return;
     }
 
-    // SLOW DRAG → animate both dragY and offset simultaneously so cards stay in place
-    const startDragY = finalDragOffset;
+    // Slow drag → animate dragX→0 and offset→target simultaneously
     const startOffset = dragStartOffsetRef.current;
-    const totalMovement = finalDragOffset; // = startOffset + totalMovement
-
+    const totalMove = finalDragX;
     const dur = 300;
     const t0 = performance.now();
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const step = (t: number) => {
       const p = Math.min(1, (t - t0) / dur);
       const ease = 1 - Math.pow(1 - p, 3);
-      // dragY goes from startDragY → 0
-      dragY.set(startDragY * (1 - ease));
-      // offset goes from startOffset → startOffset + totalMovement
-      offsetRef.current = startOffset + totalMovement * ease;
+      dragX.set(finalDragX * (1 - ease));
+      offsetRef.current = startOffset + totalMove * ease;
       syncOffset();
-      if (p < 1) {
-        animRef.current = requestAnimationFrame(step);
-      } else {
-        dragY.set(0);
-        offsetRef.current = startOffset + totalMovement;
-        syncOffset();
-        animRef.current = null;
-      }
+      if (p < 1) animRef.current = requestAnimationFrame(step);
+      else { dragX.set(0); offsetRef.current = startOffset + totalMove; syncOffset(); animRef.current = null; }
     };
     animRef.current = requestAnimationFrame(step);
-  }, [dragY, syncOffset, startInertia]);
+  }, [dragX, syncOffset, startInertia]);
 
   // ─── Wheel scroll ───
   useEffect(() => {
@@ -214,33 +187,27 @@ export default function MemoryShardsPage() {
     if (!el || total === 0) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      offsetRef.current -= e.deltaY * 0.5;
+      offsetRef.current -= e.deltaX || e.deltaY;
       syncOffset();
       if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
-      snapTimerRef.current = setTimeout(() => {
-        snapTo(Math.round(getCenterVirtual()));
-      }, 150);
+      snapTimerRef.current = setTimeout(() => snapTo(Math.round(getCenterVirtual())), 150);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      el.removeEventListener('wheel', onWheel);
-      if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
-    };
+    return () => { el.removeEventListener('wheel', onWheel); if (snapTimerRef.current) clearTimeout(snapTimerRef.current); };
   }, [total, getCenterVirtual, snapTo, syncOffset]);
 
-  // ─── Arc position helper ───
+  // ─── Arc position (circular carousel layout) ───
   const getSlotStyle = useCallback((rel: number) => {
-    const distAbs = Math.abs(rel);
-    const scale = Math.max(0.48, 1 - distAbs * 0.13);
-    const opacity = Math.max(0.25, 1 - distAbs * 0.15);
-    const angle = rel * (Math.PI / 4.5);
-    const x = Math.sin(angle) * ARC_RADIUS_X;
-    const y = rel * ITEM_HEIGHT - (1 - Math.cos(angle)) * ARC_RADIUS_Y;
-    const zIndex = 100 - Math.round(distAbs * 10);
+    const angle = rel * ARC_DEG;
+    const x = Math.sin(angle) * ARC_RADIUS;         // horizontal spread
+    const y = (1 - Math.cos(angle)) * ARC_RADIUS * 0.55; // items go up as they go around
+    const scale = Math.max(0.40, Math.cos(angle) * 0.6 + 0.4);
+    const opacity = Math.max(0.12, scale * 0.9);
+    const zIndex = 100 - Math.abs(rel) * 10;
     return { x, y, scale, opacity, zIndex, isActive: rel === 0 };
   }, []);
 
-  // ─── Build visible slots (virtual infinite loop) ───
+  // ─── Build visible slots ───
   const visibleSlots = useMemo(() => {
     if (total === 0) return [];
     const centerVirtual = getCenterVirtual();
@@ -275,7 +242,7 @@ export default function MemoryShardsPage() {
     setDetailMemory(mem);
   }, []);
 
-  // ─── Loading / Error / Empty ───
+  // ─── Loading / Error / Empty states ───
   if (isLoading) {
     return (
       <div className="page-content min-h-dvh flex flex-col">
@@ -323,13 +290,13 @@ export default function MemoryShardsPage() {
   }
 
   // ─── MAIN RENDER ───
-  // dragY handles ALL movement during drag. offset handles arc snap after drag.
-  // Cards use CSS transform with (offset + arcY) — offset freezes during drag.
-  // The motion.div drag transform (dragY) moves the entire group during drag.
+  // dragX handles ALL horizontal movement during drag via framer-motion.
+  // offset drives circular arc positions; frozen during drag.
+  // On drag end: dragX→0, offset→newValue, simultaneous → no visual jump.
   return (
     <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 px-1">
+      <div className="flex items-center justify-between mb-2 px-1">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()}
             className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93] transition-colors">
@@ -337,7 +304,7 @@ export default function MemoryShardsPage() {
           </button>
           <div>
             <h1 className="text-[20px] font-bold text-[#111] tracking-[-0.3px]">Mảnh Ký ức</h1>
-            <p className="text-[11px] text-[#8E8E93] mt-0.5">Vòng lặp vô tận · {total} ký ức</p>
+            <p className="text-[11px] text-[#8E8E93] mt-0.5">Carousel vòng tròn · {total} ký ức</p>
           </div>
         </div>
         <button onClick={loadMemories}
@@ -346,32 +313,32 @@ export default function MemoryShardsPage() {
         </button>
       </div>
 
-      {/* Drag Container — framer-motion handles ALL touch/pointer/mouse events */}
+      {/* Circular Carousel — framer-motion drag="x" handles ALL pointer/touch events */}
       <motion.div
         ref={containerRef}
-        className="flex-1 relative overflow-hidden"
+        className="flex-1 relative overflow-hidden flex items-center justify-center"
         style={{
-          minHeight: 300,
-          y: dragY,                    // ← critical: framer-motion writes drag offset here
+          minHeight: 260,
+          x: dragX,
           touchAction: 'none',
           userSelect: 'none',
         }}
-        drag="y"
+        drag="x"
         dragConstraints={false}
         dragMomentum={false}
         onDragStart={handleDragStart}
         onDrag={handleDrag}
         onDragEnd={handleDragEnd}
       >
-        {/* Center glow */}
+        {/* Centre glow */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
           style={{
-            width: 240, height: 240, borderRadius: '50%',
+            width: 280, height: 280, borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(0,0,0,0.02) 0%, transparent 70%)',
           }}
         />
 
-        {/* Cards */}
+        {/* Cards — arranged on a circular arc via CSS transform */}
         <div className="absolute inset-0 flex items-center justify-center">
           {visibleSlots.map((slot) => {
             const style = getSlotStyle(slot.rel);
@@ -379,18 +346,20 @@ export default function MemoryShardsPage() {
             return (
               <div
                 key={`${slot.virtualIdx}-${mem.MemoryID}`}
-                className="absolute left-1/2"
+                className="absolute"
                 style={{
-                  width: '85%', maxWidth: 320,
                   zIndex: style.zIndex,
-                  transform: `translate(calc(-50% + ${style.x}px), calc(50% + ${offset + style.y}px)) scale(${style.scale})`,
+                  // arc position: x=horizontal spread, y=vertical arc curve
+                  transform: `translate(calc(-50% + ${offset + style.x}px), calc(-50% + ${-style.y}px)) scale(${style.scale})`,
                   opacity: style.opacity,
-                  transition: 'transform 0.15s ease, opacity 0.15s ease',
+                  transition: 'transform 0.12s ease, opacity 0.12s ease',
                 }}
               >
+                {/* Card */}
                 <div
-                  className="w-full rounded-[20px] overflow-hidden"
+                  className="rounded-[20px] overflow-hidden"
                   style={{
+                    width: 260,
                     background: style.isActive
                       ? 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)'
                       : '#ffffff',
@@ -470,7 +439,7 @@ export default function MemoryShardsPage() {
         })}
       </div>
 
-      {/* Detail Panel */}
+      {/* ─── Detail Panel ─── */}
       <AnimatePresence>
         {detailMemory && (
           <motion.div
@@ -501,11 +470,7 @@ export default function MemoryShardsPage() {
               <div className="p-4 pt-2 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 60px)' }}>
                 <div className="flex items-start gap-3.5 mb-4">
                   <div className="w-[52px] h-[52px] rounded-[16px] flex items-center justify-center text-[24px] shrink-0"
-                    style={{
-                      background: `${moodColor(detailMemory.MoodEmoji)}15`,
-                      border: `1px solid ${moodColor(detailMemory.MoodEmoji)}25`,
-                    }}
-                  >
+                    style={{ background: `${moodColor(detailMemory.MoodEmoji)}15`, border: `1px solid ${moodColor(detailMemory.MoodEmoji)}25` }}>
                     {detailMemory.MoodEmoji || '🧠'}
                   </div>
                   <div className="min-w-0 flex-1">
