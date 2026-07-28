@@ -44,11 +44,6 @@ function getGradient(emoji?: string | null): string {
   return MOOD_GRADIENTS[emoji || ''] || 'linear-gradient(135deg, #8E8E93 0%, #AEAEB2 55%, #C7C7CC 100%)';
 }
 
-function getMoodBg(emoji?: string | null): string {
-  const c = moodColor(emoji);
-  return `${c}15`;
-}
-
 function getDate(m: MemoryWithEvent): string {
   return m.EventDate || m.MemoryDate || m.CreatedDate;
 }
@@ -81,6 +76,7 @@ export default function MemoryShardsPage() {
   const animRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playClickedRef = useRef(false);
 
   // ─── Data loading ───
   const loadMemories = useCallback(async () => {
@@ -107,10 +103,7 @@ export default function MemoryShardsPage() {
 
   const total = memories.length;
 
-  // ─── Infinite virtual index helpers ───
-  // virtualIndex = -(offset / ITEM_HEIGHT), continuous float
-  // We wrap virtualIndex modulo total to get the actual memory index
-
+  // ─── Virtual index helpers ───
   const getCenterVirtual = useCallback(() => {
     if (total === 0) return 0;
     return -offsetRef.current / ITEM_HEIGHT;
@@ -121,12 +114,7 @@ export default function MemoryShardsPage() {
     return ((Math.round(virtualIdx) % total) + total) % total;
   }, [total]);
 
-  const getCenterActual = useCallback(() => {
-    if (total === 0) return 0;
-    return virtualToActual(getCenterVirtual());
-  }, [getCenterVirtual, virtualToActual, total]);
-
-  // Snap: set offset so centerVirtual = index (wrap-aware)
+  // Snap to virtual index
   const snapTo = useCallback((virtualTarget: number) => {
     if (total === 0) return;
     const targetOffset = -virtualTarget * ITEM_HEIGHT;
@@ -151,7 +139,7 @@ export default function MemoryShardsPage() {
     animRef.current = requestAnimationFrame(step);
   }, [total, rerender]);
 
-  // Inertia — infinite
+  // Inertia
   const startInertia = useCallback((velocity: number) => {
     if (total === 0) return;
     animRef.current = requestAnimationFrame(function inertiaStep() {
@@ -168,52 +156,46 @@ export default function MemoryShardsPage() {
     });
   }, [total, getCenterVirtual, snapTo, rerender]);
 
-  // ─── Pointer events ───
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    // Ignore pointer events from within the detail overlay
-    if ((e.target as HTMLElement).closest('[data-detail-overlay]')) return;
+  // ─── Drag handling ───
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    playClickedRef.current = false;
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
     dragActive.current = true;
     dragStartY.current = e.clientY;
     dragOffsetStart.current = offsetRef.current;
     velocityRef.current = 0;
     lastMoveTime.current = performance.now();
+    // Capture pointer so we get move/up even outside
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }, []);
 
-  useEffect(() => {
-    if (total === 0) return;
-    const onMove = (e: PointerEvent) => {
-      if (!dragActive.current) return;
-      const dy = e.clientY - dragStartY.current;
-      offsetRef.current = dragOffsetStart.current + dy;
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragActive.current) return;
+    const dy = e.clientY - dragStartY.current;
+    offsetRef.current = dragOffsetStart.current + dy;
+    const now = performance.now();
+    const dt = Math.max(1, now - lastMoveTime.current);
+    const instantV = -dy * (16.67 / dt);
+    velocityRef.current = velocityRef.current * 0.5 + instantV * 0.5;
+    lastMoveTime.current = now;
+    rerender();
+  }, [rerender]);
 
-      const now = performance.now();
-      const dt = Math.max(1, now - lastMoveTime.current);
-      const instantV = -dy * (16.67 / dt);
-      velocityRef.current = velocityRef.current * 0.5 + instantV * 0.5;
-      lastMoveTime.current = now;
-      rerender();
-    };
-    const onUp = () => {
-      if (!dragActive.current) return;
-      dragActive.current = false;
-      const v = velocityRef.current;
-      if (Math.abs(v) >= 0.8) {
-        startInertia(v);
-      } else {
-        const center = getCenterVirtual();
-        snapTo(Math.round(center));
-      }
-    };
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-  }, [total, getCenterVirtual, snapTo, startInertia, rerender]);
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!dragActive.current) return;
+    dragActive.current = false;
+    // If play was clicked, don't snap
+    if (playClickedRef.current) return;
+    const v = velocityRef.current;
+    if (Math.abs(v) >= 0.8) {
+      startInertia(v);
+    } else {
+      const center = getCenterVirtual();
+      snapTo(Math.round(center));
+    }
+  }, [getCenterVirtual, snapTo, startInertia]);
 
-  // ─── Wheel scroll support ───
+  // ─── Wheel scroll ───
   useEffect(() => {
     const el = containerRef.current;
     if (!el || total === 0) return;
@@ -234,8 +216,7 @@ export default function MemoryShardsPage() {
     };
   }, [total, getCenterVirtual, snapTo, rerender]);
 
-  // ─── Arc position for a relative slot ───
-  // rel = 0 is center, positive = below, negative = above
+  // ─── Arc position ───
   const getSlotStyle = useCallback((rel: number) => {
     const distAbs = Math.abs(rel);
     const scale = Math.max(0.48, 1 - distAbs * 0.13);
@@ -252,45 +233,44 @@ export default function MemoryShardsPage() {
     if (total === 0) return [];
     const centerVirtual = getCenterVirtual();
     const centerRounded = Math.round(centerVirtual);
-    const slots: { rel: number; memory: MemoryWithEvent; virtualIdx: number; actualIdx: number }[] = [];
-
+    const slots: { rel: number; memory: MemoryWithEvent; virtualIdx: number }[] = [];
     for (let rel = -HALF_VISIBLE; rel <= HALF_VISIBLE; rel++) {
       const virtualIdx = centerRounded + rel;
       const actualIdx = ((virtualIdx % total) + total) % total;
-      slots.push({
-        rel,
-        memory: memories[actualIdx],
-        virtualIdx,
-        actualIdx,
-      });
+      slots.push({ rel, memory: memories[actualIdx], virtualIdx });
     }
     return slots;
   }, [memories, total, getCenterVirtual]);
 
-  // ─── Current focused memory ───
   const focusedMemory = useMemo(() => {
     if (total === 0 || visibleSlots.length === 0) return null;
     return visibleSlots.find(s => s.rel === 0) || visibleSlots[Math.floor(visibleSlots.length / 2)];
   }, [visibleSlots, total]);
 
-  // ─── Page dots from visible slots ───
+  // ─── Page dots ───
   const dotSlots = useMemo(() => {
     if (total === 0 || !focusedMemory) return [];
     const range = 3;
     const dots = [];
     for (let rel = -range; rel <= range; rel++) {
-      const virtualIdx = focusedMemory.virtualIdx + rel;
-      const actualIdx = ((virtualIdx % total) + total) % total;
+      const actualIdx = ((focusedMemory.virtualIdx + rel) % total + total) % total;
       dots.push({ rel, actualIdx, memory: memories[actualIdx] });
     }
     return dots;
   }, [focusedMemory, memories, total]);
 
+  // ─── Handle play click ───
+  const handlePlay = useCallback((e: React.MouseEvent, mem: MemoryWithEvent) => {
+    e.stopPropagation();
+    playClickedRef.current = true;
+    setDetailMemory(mem);
+  }, []);
+
   // ─── Render ───
   if (isLoading) {
     return (
       <div className="page-content min-h-dvh flex flex-col">
-        <Header onBack={() => router.back()} total={0} onRefresh={loadMemories} />
+        <Header onBack={() => router.back()} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="w-10 h-10 border-2 border-[#8E8E93]/20 border-t-[#8E8E93] rounded-full animate-spin mx-auto mb-3" />
@@ -304,7 +284,7 @@ export default function MemoryShardsPage() {
   if (error) {
     return (
       <div className="page-content min-h-dvh flex flex-col">
-        <Header onBack={() => router.back()} total={0} onRefresh={loadMemories} />
+        <Header onBack={() => router.back()} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-[13px] text-[#E6002D] font-medium mb-3">{error}</p>
@@ -321,7 +301,7 @@ export default function MemoryShardsPage() {
   if (total === 0) {
     return (
       <div className="page-content min-h-dvh flex flex-col">
-        <Header onBack={() => router.back()} total={0} onRefresh={loadMemories} />
+        <Header onBack={() => router.back()} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-[240px]">
             <div className="w-[72px] h-[72px] rounded-full bg-[rgba(0,0,0,0.03)] mx-auto mb-4 flex items-center justify-center">
@@ -329,7 +309,7 @@ export default function MemoryShardsPage() {
             </div>
             <p className="text-[15px] font-semibold text-[#6B7280] mb-1">Chưa có mảnh ký ức</p>
             <p className="text-[12px] text-[#8E8E93] leading-relaxed">
-              Ký ức sẽ xuất hiện tại đây dưới dạng những mảnh ghép đầy màu sắc
+              Ký ức sẽ xuất hiện tại đây dưới dạng những mảnh ghép
             </p>
           </div>
         </div>
@@ -338,7 +318,7 @@ export default function MemoryShardsPage() {
   }
 
   return (
-    <div className="page-content min-h-dvh flex flex-col overflow-hidden" style={{ touchAction: 'none' }}>
+    <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
@@ -357,27 +337,26 @@ export default function MemoryShardsPage() {
         </button>
       </div>
 
-      {/* Arc Carousel */}
+      {/* Arc Carousel — drag directly on this element */}
       <div
         ref={containerRef}
         className="flex-1 relative overflow-hidden"
-        style={{ minHeight: 300 }}
-        onPointerDown={onPointerDown}
+        style={{ minHeight: 300, touchAction: 'none' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onPointerCancel={() => { dragActive.current = false; }}
       >
-        {/* Soft center glow */}
-        <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+        {/* Center glow */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
           style={{
-            width: 240,
-            height: 240,
-            borderRadius: '50%',
+            width: 240, height: 240, borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(0,0,0,0.02) 0%, transparent 70%)',
           }}
         />
 
-        {/* Cards — absolutely positioned */}
-        <div className="absolute inset-0 flex items-center justify-center" style={{ pointerEvents: 'none' }}>
+        {/* Cards */}
+        <div className="absolute inset-0 flex items-center justify-center">
           {visibleSlots.map((slot) => {
             const style = getSlotStyle(slot.rel);
             const mem = slot.memory;
@@ -386,10 +365,8 @@ export default function MemoryShardsPage() {
                 key={`${slot.virtualIdx}-${mem.MemoryID}`}
                 className="absolute left-1/2"
                 style={{
-                  width: '85%',
-                  maxWidth: 320,
+                  width: '85%', maxWidth: 320,
                   zIndex: style.zIndex,
-                  pointerEvents: 'auto',
                 }}
                 animate={{
                   x: `calc(-50% + ${style.x}px)`,
@@ -417,7 +394,7 @@ export default function MemoryShardsPage() {
                       style={{
                         background: style.isActive
                           ? getGradient(mem.MoodEmoji)
-                          : getMoodBg(mem.MoodEmoji),
+                          : `${moodColor(mem.MoodEmoji)}15`,
                       }}
                     >
                       {mem.MoodEmoji || '🧠'}
@@ -451,10 +428,12 @@ export default function MemoryShardsPage() {
 
                     {/* Play button */}
                     <button
-                      onClick={(e) => {
+                      onPointerDown={(e) => {
+                        // Stop pointer down from starting a drag
                         e.stopPropagation();
-                        setDetailMemory(mem);
+                        playClickedRef.current = true;
                       }}
+                      onClick={(e) => handlePlay(e, mem)}
                       className="shrink-0 w-[34px] h-[34px] rounded-[12px] flex items-center justify-center transition-all duration-200"
                       style={{
                         background: style.isActive
@@ -476,22 +455,17 @@ export default function MemoryShardsPage() {
         </div>
       </div>
 
-      {/* Page dots — wrap indicator */}
+      {/* Page dots */}
       <div className="flex items-center justify-center gap-1.5 py-3">
         {dotSlots.map((dot) => {
           const isActive = dot.rel === 0;
           return (
-            <button
-              key={dot.rel}
-              onClick={() => {
-                if (focusedMemory) {
-                  snapTo(focusedMemory.virtualIdx + dot.rel);
-                }
-              }}
+            <button key={dot.rel} onClick={() => {
+              if (focusedMemory) snapTo(focusedMemory.virtualIdx + dot.rel);
+            }}
               className="rounded-full transition-all duration-300"
               style={{
-                width: isActive ? 22 : 6,
-                height: 6,
+                width: isActive ? 22 : 6, height: 6,
                 background: isActive ? moodColor(dot.memory.MoodEmoji) : 'rgba(0,0,0,0.1)',
               }}
             />
@@ -509,7 +483,6 @@ export default function MemoryShardsPage() {
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[200] flex items-end justify-center bg-black/20 backdrop-blur-[2px]"
             onClick={() => setDetailMemory(null)}
-            data-detail-overlay
           >
             <motion.div
               initial={{ translateY: '100%' }}
@@ -532,7 +505,6 @@ export default function MemoryShardsPage() {
                 </button>
               </div>
               <div className="p-4 pt-2 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 60px)' }}>
-                {/* Mood + title */}
                 <div className="flex items-start gap-3.5 mb-4">
                   <div
                     className="w-[52px] h-[52px] rounded-[16px] flex items-center justify-center text-[24px] shrink-0"
@@ -589,9 +561,8 @@ export default function MemoryShardsPage() {
 }
 
 // ─── Header ───
-function Header({ onBack, total, onRefresh }: {
+function Header({ onBack, onRefresh }: {
   onBack: () => void;
-  total: number;
   onRefresh: () => void;
 }) {
   return (
@@ -603,7 +574,6 @@ function Header({ onBack, total, onRefresh }: {
         </button>
         <div>
           <h1 className="text-[20px] font-bold text-[#111] tracking-[-0.3px]">Mảnh Ký ức</h1>
-          {total > 0 && <p className="text-[11px] text-[#8E8E93] mt-0.5">Vòng lặp vô tận · {total} ký ức</p>}
         </div>
       </div>
       <button onClick={onRefresh}
