@@ -84,7 +84,15 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
           <nav className="flex-1 overflow-y-auto py-1 px-2 space-y-0.5">
             {NAV_ITEMS.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const isActive = pathname === item.href || (
+                pathname.startsWith(item.href + '/') &&
+                // Avoid matching parent path when a more specific child nav exists
+                !NAV_ITEMS.some(other =>
+                  other.href !== item.href &&
+                  other.href.startsWith(item.href + '/') &&
+                  pathname.startsWith(other.href + '/')
+                )
+              );
               return (
                 <button key={item.href} onClick={() => router.push(item.href)}
                   className={`w-full flex items-center gap-2.5 px-3 py-[7px] rounded-[8px] text-[13px] font-medium transition-all text-left ${

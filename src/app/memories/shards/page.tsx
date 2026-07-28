@@ -36,7 +36,6 @@ const MOOD_GRADIENTS: Record<string, string> = {
   '😊': 'linear-gradient(135deg, #F59E0B 0%, #FF9500 55%, #FFB340 100%)',
   '🤩': 'linear-gradient(135deg, #D60032 0%, #FF2D55 55%, #FF5E7A 100%)',
   '😌': 'linear-gradient(135deg, #1EA84B 0%, #34C759 55%, #5DDC7F 100%)',
-  '😢': 'linear-gradient(135deg, #3B3BB5 0%, #5856D6 55%, #7A78E0 100%)',
   '😤': 'linear-gradient(135deg, #B30024 0%, #E6002D 55%, #FF3355 100%)',
   '😴': 'linear-gradient(135deg, #5C5E63 0%, #8E8E93 55%, #AEAEB2 100%)',
 };
@@ -47,7 +46,7 @@ function getGradient(emoji?: string | null): string {
 
 function getMoodBg(emoji?: string | null): string {
   const c = moodColor(emoji);
-  return `${c}12`;
+  return `${c}15`;
 }
 
 function getDate(m: MemoryWithEvent): string {
@@ -57,20 +56,18 @@ function getDate(m: MemoryWithEvent): string {
 // ─── Constants ───
 const ITEM_HEIGHT = 90;
 const ARC_RADIUS_X = 28;
-const ARC_RADIUS_Y = 18;
-const VISIBLE_ITEMS = 7; // how many items we render
+const ARC_RADIUS_Y = 16;
+const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
-const SNAP_THRESHOLD = 0.35;
 
 export default function MemoryShardsPage() {
   const router = useRouter();
   const [memories, setMemories] = useState<MemoryWithEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0); // index into memories[]
   const [detailMemory, setDetailMemory] = useState<MemoryWithEvent | null>(null);
 
-  // Animation offset — drives the carousel
+  // ─── Infinite carousel offset ───
   const offsetRef = useRef(0);
   const [renderTick, setRenderTick] = useState(0);
   const rerender = useCallback(() => setRenderTick(t => t + 1), []);
@@ -83,6 +80,7 @@ export default function MemoryShardsPage() {
   const lastMoveTime = useRef(0);
   const animRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Data loading ───
   const loadMemories = useCallback(async () => {
@@ -93,32 +91,45 @@ export default function MemoryShardsPage() {
       data.sort((a, b) => {
         const aDate = getDate(a);
         const bDate = getDate(b);
-        return new Date(bDate).getTime() - new Date(aDate).getTime(); // newest first
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
       });
       setMemories(data);
-      setActiveIndex(0);
       offsetRef.current = 0;
+      rerender();
     } catch (e: any) {
       setError(e.message || 'Không thể tải ký ức');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [rerender]);
 
   useEffect(() => { loadMemories(); }, [loadMemories]);
 
-  // ─── Compute active index from offset ───
   const total = memories.length;
-  const computeActive = useCallback((offset: number) => {
+
+  // ─── Infinite virtual index helpers ───
+  // virtualIndex = -(offset / ITEM_HEIGHT), continuous float
+  // We wrap virtualIndex modulo total to get the actual memory index
+
+  const getCenterVirtual = useCallback(() => {
     if (total === 0) return 0;
-    const idx = Math.round(-offset / ITEM_HEIGHT);
-    return Math.max(0, Math.min(total - 1, idx));
+    return -offsetRef.current / ITEM_HEIGHT;
   }, [total]);
 
-  // Snap to index
-  const snapTo = useCallback((index: number) => {
+  const virtualToActual = useCallback((virtualIdx: number): number => {
+    if (total === 0) return 0;
+    return ((Math.round(virtualIdx) % total) + total) % total;
+  }, [total]);
+
+  const getCenterActual = useCallback(() => {
+    if (total === 0) return 0;
+    return virtualToActual(getCenterVirtual());
+  }, [getCenterVirtual, virtualToActual, total]);
+
+  // Snap: set offset so centerVirtual = index (wrap-aware)
+  const snapTo = useCallback((virtualTarget: number) => {
     if (total === 0) return;
-    const targetOffset = -index * ITEM_HEIGHT;
+    const targetOffset = -virtualTarget * ITEM_HEIGHT;
     const start = offsetRef.current;
     const diff = targetOffset - start;
     if (Math.abs(diff) < 1) return;
@@ -134,33 +145,33 @@ export default function MemoryShardsPage() {
       } else {
         offsetRef.current = targetOffset;
         animRef.current = null;
-        setActiveIndex(index);
       }
       rerender();
     };
     animRef.current = requestAnimationFrame(step);
   }, [total, rerender]);
 
-  // Inertia deceleration
+  // Inertia — infinite
   const startInertia = useCallback((velocity: number) => {
     if (total === 0) return;
     animRef.current = requestAnimationFrame(function inertiaStep() {
       velocity *= 0.96;
       if (Math.abs(velocity) < 0.3) {
         animRef.current = null;
-        const idx = computeActive(offsetRef.current);
-        setActiveIndex(idx);
-        snapTo(idx);
+        const center = getCenterVirtual();
+        snapTo(Math.round(center));
         return;
       }
       offsetRef.current += velocity;
       rerender();
       animRef.current = requestAnimationFrame(inertiaStep);
     });
-  }, [total, snapTo, computeActive, rerender]);
+  }, [total, getCenterVirtual, snapTo, rerender]);
 
   // ─── Pointer events ───
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    // Ignore pointer events from within the detail overlay
+    if ((e.target as HTMLElement).closest('[data-detail-overlay]')) return;
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
     dragActive.current = true;
     dragStartY.current = e.clientY;
@@ -170,18 +181,15 @@ export default function MemoryShardsPage() {
   }, []);
 
   useEffect(() => {
+    if (total === 0) return;
     const onMove = (e: PointerEvent) => {
       if (!dragActive.current) return;
       const dy = e.clientY - dragStartY.current;
-      const newOffset = dragOffsetStart.current + dy;
-      // Clamp
-      const maxOffset = 0;
-      const minOffset = -(total - 1) * ITEM_HEIGHT;
-      offsetRef.current = Math.max(minOffset, Math.min(maxOffset, newOffset));
+      offsetRef.current = dragOffsetStart.current + dy;
 
       const now = performance.now();
       const dt = Math.max(1, now - lastMoveTime.current);
-      const instantV = -dy * (16.67 / dt); // dy inverted for direction
+      const instantV = -dy * (16.67 / dt);
       velocityRef.current = velocityRef.current * 0.5 + instantV * 0.5;
       lastMoveTime.current = now;
       rerender();
@@ -193,9 +201,8 @@ export default function MemoryShardsPage() {
       if (Math.abs(v) >= 0.8) {
         startInertia(v);
       } else {
-        const idx = computeActive(offsetRef.current);
-        setActiveIndex(idx);
-        snapTo(idx);
+        const center = getCenterVirtual();
+        snapTo(Math.round(center));
       }
     };
     window.addEventListener('pointermove', onMove, { passive: false });
@@ -204,84 +211,85 @@ export default function MemoryShardsPage() {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, [total, computeActive, snapTo, startInertia, rerender]);
+  }, [total, getCenterVirtual, snapTo, startInertia, rerender]);
 
   // ─── Wheel scroll support ───
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || total === 0) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       offsetRef.current -= e.deltaY * 0.5;
-      const maxOffset = 0;
-      const minOffset = -(total - 1) * ITEM_HEIGHT;
-      offsetRef.current = Math.max(minOffset, Math.min(maxOffset, offsetRef.current));
       rerender();
-      clearTimeout((el as any).__scrollTimer);
-      (el as any).__scrollTimer = setTimeout(() => {
-        const idx = computeActive(offsetRef.current);
-        setActiveIndex(idx);
-        snapTo(idx);
+      if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
+      snapTimerRef.current = setTimeout(() => {
+        const center = getCenterVirtual();
+        snapTo(Math.round(center));
       }, 150);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [total, computeActive, snapTo, rerender]);
-
-  // ─── Item arc positioning ───
-  const getItemStyle = useCallback((memoryIndex: number, totalMemories: number) => {
-    // Where this item would be if at center
-    const idealOffset = -memoryIndex * ITEM_HEIGHT;
-    const currentOffset = offsetRef.current;
-    const dist = (idealOffset - currentOffset) / ITEM_HEIGHT; // distance in items from center
-
-    // Clamp display range
-    const maxShow = HALF_VISIBLE;
-    if (Math.abs(dist) > maxShow + 0.5) return null; // don't render
-
-    // Arc position: items curve away from center
-    const normalizedDist = dist / maxShow; // -1 to 1
-    const angle = normalizedDist * (Math.PI / 3); // max ±60 degrees
-    const arcX = Math.sin(angle) * ARC_RADIUS_X;
-    const arcY = dist * ITEM_HEIGHT - (1 - Math.cos(angle)) * ARC_RADIUS_Y;
-
-    // Scale and opacity based on distance from center
-    const distAbs = Math.abs(dist);
-    const scale = Math.max(0.5, 1 - distAbs * 0.12);
-    const opacity = Math.max(0.3, 1 - distAbs * 0.14);
-
-    // Is this the center-most item?
-    const nearest = Math.round(-currentOffset / ITEM_HEIGHT);
-    const isActive = memoryIndex === Math.max(0, Math.min(totalMemories - 1, nearest));
-
-    // Z-index: items nearer to center on top
-    const zIndex = 100 - Math.round(distAbs * 10);
-
-    return {
-      x: arcX,
-      y: arcY,
-      scale,
-      opacity,
-      isActive,
-      zIndex,
-      distAbs,
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
     };
+  }, [total, getCenterVirtual, snapTo, rerender]);
+
+  // ─── Arc position for a relative slot ───
+  // rel = 0 is center, positive = below, negative = above
+  const getSlotStyle = useCallback((rel: number) => {
+    const distAbs = Math.abs(rel);
+    const scale = Math.max(0.48, 1 - distAbs * 0.13);
+    const opacity = Math.max(0.25, 1 - distAbs * 0.15);
+    const angle = rel * (Math.PI / 4.5);
+    const x = Math.sin(angle) * ARC_RADIUS_X;
+    const y = rel * ITEM_HEIGHT - (1 - Math.cos(angle)) * ARC_RADIUS_Y;
+    const zIndex = 100 - Math.round(distAbs * 10);
+    return { x, y, scale, opacity, zIndex, isActive: rel === 0 };
   }, []);
 
-  // ─── Current memory (nearest to center) ───
+  // ─── Build visible slots ───
+  const visibleSlots = useMemo(() => {
+    if (total === 0) return [];
+    const centerVirtual = getCenterVirtual();
+    const centerRounded = Math.round(centerVirtual);
+    const slots: { rel: number; memory: MemoryWithEvent; virtualIdx: number; actualIdx: number }[] = [];
+
+    for (let rel = -HALF_VISIBLE; rel <= HALF_VISIBLE; rel++) {
+      const virtualIdx = centerRounded + rel;
+      const actualIdx = ((virtualIdx % total) + total) % total;
+      slots.push({
+        rel,
+        memory: memories[actualIdx],
+        virtualIdx,
+        actualIdx,
+      });
+    }
+    return slots;
+  }, [memories, total, getCenterVirtual]);
+
+  // ─── Current focused memory ───
   const focusedMemory = useMemo(() => {
-    if (total === 0) return null;
-    const nearest = Math.round(-offsetRef.current / ITEM_HEIGHT);
-    const idx = Math.max(0, Math.min(total - 1, nearest));
-    return { memory: memories[idx], index: idx };
-  }, [memories, total]);
+    if (total === 0 || visibleSlots.length === 0) return null;
+    return visibleSlots.find(s => s.rel === 0) || visibleSlots[Math.floor(visibleSlots.length / 2)];
+  }, [visibleSlots, total]);
+
+  // ─── Page dots from visible slots ───
+  const dotSlots = useMemo(() => {
+    if (total === 0 || !focusedMemory) return [];
+    const range = 3;
+    const dots = [];
+    for (let rel = -range; rel <= range; rel++) {
+      const virtualIdx = focusedMemory.virtualIdx + rel;
+      const actualIdx = ((virtualIdx % total) + total) % total;
+      dots.push({ rel, actualIdx, memory: memories[actualIdx] });
+    }
+    return dots;
+  }, [focusedMemory, memories, total]);
 
   // ─── Render ───
-
-  // Loading state
   if (isLoading) {
     return (
-      <div className="page-content min-h-screen flex flex-col">
+      <div className="page-content min-h-dvh flex flex-col">
         <Header onBack={() => router.back()} total={0} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -293,10 +301,9 @@ export default function MemoryShardsPage() {
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div className="page-content min-h-screen flex flex-col">
+      <div className="page-content min-h-dvh flex flex-col">
         <Header onBack={() => router.back()} total={0} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -311,10 +318,9 @@ export default function MemoryShardsPage() {
     );
   }
 
-  // Empty state
   if (total === 0) {
     return (
-      <div className="page-content min-h-screen flex flex-col">
+      <div className="page-content min-h-dvh flex flex-col">
         <Header onBack={() => router.back()} total={0} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-[240px]">
@@ -332,9 +338,9 @@ export default function MemoryShardsPage() {
   }
 
   return (
-    <div className="page-content min-h-screen min-h-dvh flex flex-col overflow-hidden select-none touch-none">
+    <div className="page-content min-h-dvh flex flex-col overflow-hidden" style={{ touchAction: 'none' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()}
             className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93] transition-colors">
@@ -342,7 +348,7 @@ export default function MemoryShardsPage() {
           </button>
           <div>
             <h1 className="text-[20px] font-bold text-[#111] tracking-[-0.3px]">Mảnh Ký ức</h1>
-            <p className="text-[11px] text-[#8E8E93] mt-0.5">{total} ký ức</p>
+            <p className="text-[11px] text-[#8E8E93] mt-0.5">Vòng lặp vô tận · {total} ký ức</p>
           </div>
         </div>
         <button onClick={loadMemories}
@@ -355,55 +361,53 @@ export default function MemoryShardsPage() {
       <div
         ref={containerRef}
         className="flex-1 relative overflow-hidden"
-        style={{ minHeight: 320 }}
+        style={{ minHeight: 300 }}
         onPointerDown={onPointerDown}
         onPointerCancel={() => { dragActive.current = false; }}
       >
-        {/* Background subtle glow at center */}
+        {/* Soft center glow */}
         <div
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
           style={{
-            width: 220,
-            height: 220,
+            width: 240,
+            height: 240,
             borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(0,0,0,0.02) 0%, transparent 70%)',
           }}
         />
 
-        {/* Items */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          {memories.map((m, i) => {
-            const pos = getItemStyle(i, total);
-            if (!pos) return null;
-
+        {/* Cards — absolutely positioned */}
+        <div className="absolute inset-0 flex items-center justify-center" style={{ pointerEvents: 'none' }}>
+          {visibleSlots.map((slot) => {
+            const style = getSlotStyle(slot.rel);
+            const mem = slot.memory;
             return (
               <motion.div
-                key={m.MemoryID}
+                key={`${slot.virtualIdx}-${mem.MemoryID}`}
                 className="absolute left-1/2"
                 style={{
                   width: '85%',
                   maxWidth: 320,
-                  zIndex: pos.zIndex,
+                  zIndex: style.zIndex,
+                  pointerEvents: 'auto',
                 }}
                 animate={{
-                  x: `calc(-50% + ${pos.x}px)`,
-                  y: `calc(50% + ${pos.y}px)`,
-                  scale: pos.scale,
-                  opacity: pos.opacity,
+                  x: `calc(-50% + ${style.x}px)`,
+                  y: `calc(50% + ${style.y}px)`,
+                  scale: style.scale,
+                  opacity: style.opacity,
                 }}
-                transition={{ duration: 0.08, ease: 'linear' }}
+                transition={{ duration: 0.06, ease: 'linear' }}
               >
-                {/* Card */}
                 <div
-                  className="w-full rounded-[20px] overflow-hidden transition-shadow duration-300"
+                  className="w-full rounded-[20px] overflow-hidden transition-shadow duration-200"
                   style={{
-                    background: pos.isActive
+                    background: style.isActive
                       ? 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)'
                       : '#ffffff',
-                    boxShadow: pos.isActive
+                    boxShadow: style.isActive
                       ? '0 12px 40px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02)'
                       : '0 4px 16px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02), 0 0 0 1px rgba(0,0,0,0.02)',
-                    cursor: 'grab',
                   }}
                 >
                   <div className="flex items-center gap-3 p-3.5">
@@ -411,58 +415,58 @@ export default function MemoryShardsPage() {
                     <div
                       className="w-[38px] h-[38px] rounded-[12px] flex items-center justify-center text-[18px] shrink-0"
                       style={{
-                        background: pos.isActive
-                          ? getGradient(m.MoodEmoji)
-                          : getMoodBg(m.MoodEmoji),
+                        background: style.isActive
+                          ? getGradient(mem.MoodEmoji)
+                          : getMoodBg(mem.MoodEmoji),
                       }}
                     >
-                      {m.MoodEmoji || '🧠'}
+                      {mem.MoodEmoji || '🧠'}
                     </div>
 
-                    {/* Content */}
+                    {/* Text */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        {pos.isActive && (
+                        {style.isActive && (
                           <span className="w-[6px] h-[6px] rounded-full shrink-0"
-                            style={{ background: moodColor(m.MoodEmoji) }} />
+                            style={{ background: moodColor(mem.MoodEmoji) }} />
                         )}
                         <span className="text-[12px] font-semibold text-[#111] truncate">
-                          {m.Title}
+                          {mem.Title}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[9px] text-[#8E8E93] font-medium">
-                          {relativeTime(getDate(m))}
+                          {relativeTime(getDate(mem))}
                         </span>
-                        {m.EventTitle && (
+                        {mem.EventTitle && (
                           <>
                             <span className="text-[#8E8E93] text-[8px]">·</span>
                             <span className="text-[9px] text-[#5856D6] font-medium truncate max-w-[100px]">
-                              {m.EventTitle}
+                              {mem.EventTitle}
                             </span>
                           </>
                         )}
                       </div>
                     </div>
 
-                    {/* Play button — only visible on center items */}
+                    {/* Play button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDetailMemory(m);
+                        setDetailMemory(mem);
                       }}
                       className="shrink-0 w-[34px] h-[34px] rounded-[12px] flex items-center justify-center transition-all duration-200"
                       style={{
-                        background: pos.isActive
-                          ? `linear-gradient(135deg, ${moodColor(m.MoodEmoji)}, ${moodColor(m.MoodEmoji)}cc)`
+                        background: style.isActive
+                          ? `linear-gradient(135deg, ${moodColor(mem.MoodEmoji)}, ${moodColor(mem.MoodEmoji)}cc)`
                           : 'rgba(0,0,0,0.04)',
-                        opacity: pos.isActive ? 1 : 0,
-                        transform: pos.isActive ? 'scale(1)' : 'scale(0.8)',
-                        boxShadow: pos.isActive ? '0 4px 12px rgba(0,0,0,0.12)' : 'none',
+                        opacity: style.isActive ? 1 : 0,
+                        transform: style.isActive ? 'scale(1)' : 'scale(0.8)',
+                        boxShadow: style.isActive ? '0 4px 12px rgba(0,0,0,0.12)' : 'none',
                       }}
                     >
-                      <Play size={14} className={pos.isActive ? 'text-white' : 'text-[#8E8E93]'}
-                        fill={pos.isActive ? 'white' : 'transparent'} />
+                      <Play size={14} className={style.isActive ? 'text-white' : 'text-[#8E8E93]'}
+                        fill={style.isActive ? 'white' : 'transparent'} />
                     </button>
                   </div>
                 </div>
@@ -472,30 +476,30 @@ export default function MemoryShardsPage() {
         </div>
       </div>
 
-      {/* Bottom indicator: page dots */}
-      <div className="flex items-center justify-center gap-1 py-3">
-        {memories.slice(
-          Math.max(0, focusedMemory ? focusedMemory.index - 2 : 0),
-          Math.min(total, focusedMemory ? focusedMemory.index + 3 : 5)
-        ).map((m, i) => {
-          const globalIdx = Math.max(0, (focusedMemory?.index || 0) - 2) + i;
-          const isActive = globalIdx === (focusedMemory?.index ?? 0);
+      {/* Page dots — wrap indicator */}
+      <div className="flex items-center justify-center gap-1.5 py-3">
+        {dotSlots.map((dot) => {
+          const isActive = dot.rel === 0;
           return (
             <button
-              key={m.MemoryID}
-              onClick={() => snapTo(globalIdx)}
+              key={dot.rel}
+              onClick={() => {
+                if (focusedMemory) {
+                  snapTo(focusedMemory.virtualIdx + dot.rel);
+                }
+              }}
               className="rounded-full transition-all duration-300"
               style={{
-                width: isActive ? 20 : 6,
+                width: isActive ? 22 : 6,
                 height: 6,
-                background: isActive ? moodColor(m.MoodEmoji) : 'rgba(0,0,0,0.1)',
+                background: isActive ? moodColor(dot.memory.MoodEmoji) : 'rgba(0,0,0,0.1)',
               }}
             />
           );
         })}
       </div>
 
-      {/* ─── Detail Panel Overlay ─── */}
+      {/* ─── Detail Panel ─── */}
       <AnimatePresence>
         {detailMemory && (
           <motion.div
@@ -505,6 +509,7 @@ export default function MemoryShardsPage() {
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[200] flex items-end justify-center bg-black/20 backdrop-blur-[2px]"
             onClick={() => setDetailMemory(null)}
+            data-detail-overlay
           >
             <motion.div
               initial={{ translateY: '100%' }}
@@ -518,24 +523,16 @@ export default function MemoryShardsPage() {
                 maxHeight: '85vh',
               }}
             >
-              {/* Handle */}
               <div className="w-[36px] h-[4px] bg-[rgba(0,0,0,0.1)] rounded-full mx-auto mt-3 mb-2" />
-
-              {/* Close button */}
               <div className="flex items-center justify-between px-4">
-                <span className="text-[9px] font-bold text-[#8E8E93] uppercase tracking-[1px]">
-                  CHI TIẾT KÝ ỨC
-                </span>
-                <button
-                  onClick={() => setDetailMemory(null)}
-                  className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"
-                >
+                <span className="text-[9px] font-bold text-[#8E8E93] uppercase tracking-[1px]">CHI TIẾT KÝ ỨC</span>
+                <button onClick={() => setDetailMemory(null)}
+                  className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]">
                   <X size={16} />
                 </button>
               </div>
-
               <div className="p-4 pt-2 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 60px)' }}>
-                {/* Header: mood + title */}
+                {/* Mood + title */}
                 <div className="flex items-start gap-3.5 mb-4">
                   <div
                     className="w-[52px] h-[52px] rounded-[16px] flex items-center justify-center text-[24px] shrink-0"
@@ -556,40 +553,24 @@ export default function MemoryShardsPage() {
                     </h2>
                   </div>
                 </div>
-
-                {/* Content */}
                 {detailMemory.Content && (
                   <div className="text-[13px] text-[#5F6368] leading-relaxed mb-4 whitespace-pre-wrap
                     bg-[rgba(0,0,0,0.02)] rounded-[14px] p-3.5">
                     {detailMemory.Content}
                   </div>
                 )}
-
-                {/* Image */}
                 {detailMemory.Image && (
                   <div className="mb-4 rounded-[14px] overflow-hidden bg-[rgba(0,0,0,0.02)]">
-                    <img
-                      src={detailMemory.Image}
-                      alt=""
-                      className="w-full h-[180px] object-cover"
-                      style={{ borderRadius: 14 }}
-                    />
+                    <img src={detailMemory.Image} alt="" className="w-full h-[180px] object-cover" style={{ borderRadius: 14 }} />
                   </div>
                 )}
-
-                {/* Event link */}
                 {detailMemory.EventTitle && (
                   <div className="flex items-center gap-2 mb-4 p-3 rounded-[12px] bg-[rgba(88,86,214,0.06)]"
-                    style={{ border: '1px solid rgba(88,86,214,0.08)' }}
-                  >
+                    style={{ border: '1px solid rgba(88,86,214,0.08)' }}>
                     <LinkIcon size={13} className="text-[#5856D6] shrink-0" />
-                    <span className="text-[12px] text-[#5856D6] font-medium line-clamp-1">
-                      🔗 {detailMemory.EventTitle}
-                    </span>
+                    <span className="text-[12px] text-[#5856D6] font-medium line-clamp-1">🔗 {detailMemory.EventTitle}</span>
                   </div>
                 )}
-
-                {/* Date */}
                 <div className="flex items-center gap-1.5 pt-3 border-t border-[rgba(0,0,0,0.04)]">
                   <Calendar size={13} className="text-[#8E8E93] shrink-0" />
                   <span className="text-[11px] text-[#8E8E93] font-medium">
@@ -607,14 +588,14 @@ export default function MemoryShardsPage() {
   );
 }
 
-// ─── Header component ───
+// ─── Header ───
 function Header({ onBack, total, onRefresh }: {
   onBack: () => void;
   total: number;
   onRefresh: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between mb-3">
+    <div className="flex items-center justify-between mb-3 px-1">
       <div className="flex items-center gap-2">
         <button onClick={onBack}
           className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93] transition-colors">
@@ -622,7 +603,7 @@ function Header({ onBack, total, onRefresh }: {
         </button>
         <div>
           <h1 className="text-[20px] font-bold text-[#111] tracking-[-0.3px]">Mảnh Ký ức</h1>
-          {total > 0 && <p className="text-[11px] text-[#8E8E93] mt-0.5">{total} ký ức</p>}
+          {total > 0 && <p className="text-[11px] text-[#8E8E93] mt-0.5">Vòng lặp vô tận · {total} ký ức</p>}
         </div>
       </div>
       <button onClick={onRefresh}
