@@ -278,7 +278,7 @@ export default function StatisticalPage() {
         style={{ transitionTimingFunction: 'cubic-bezier(.34,1.4,.64,1)' }} />
       <style>{`#stat-toast.show{opacity:1;transform:translateX(-50%)translateY(0)scale(1)}`}</style>
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto px-4 md:px-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>

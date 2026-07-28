@@ -285,13 +285,15 @@ export default function SettingsPage() {
         style={{ transitionTimingFunction: 'cubic-bezier(.34,1.4,.64,1)' }} />
       <style>{`#s-toast.show{opacity:1;transform:translateX(-50%)translateY(0)scale(1)}`}</style>
 
+      <div className="page-content">
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[19px] font-extrabold tracking-[-.3px]">Cài đặt</h1>
+        <h1 className="text-[22px] font-bold text-[#111] tracking-tight">Cài đặt</h1>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[#EDEDF1] overflow-x-auto mb-5">
+      <div className="flex gap-1 border-b border-[#EDEDF1] overflow-x-auto overflow-y-hidden mb-5 flex-nowrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`relative bg-transparent border-none px-1 pb-3 mr-[22px] text-[13.5px] font-semibold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
@@ -677,6 +679,7 @@ export default function SettingsPage() {
       {/* Export/Import Modals */}
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
       {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} />}
+      </div>
     </>
   );
 }
