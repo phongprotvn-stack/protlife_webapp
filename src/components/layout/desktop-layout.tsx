@@ -16,7 +16,7 @@ import { DashboardContactPanel } from '@/components/dashboard/contact-panel';
 import {
   LayoutDashboard, Users, CalendarDays, Timeline, Map, Building2,
   FileText, Target, BarChart3, Cpu, Settings, Plus, LogOut,
-  Sparkles, BookHeart
+  Sparkles, BookHeart, Disc3
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { label: 'Sự kiện',     icon: CalendarDays,     href: '/events' },
   { label: 'Dòng thời gian', icon: Timeline,      href: '/timeline' },
   { label: 'Ký ức',       icon: BookHeart,        href: '/memories' },
+  { label: 'Mảnh Ký ức', icon: Disc3,             href: '/memories/shards' },
   { label: 'Bản đồ',      icon: Map,              href: '/map' },
   { label: 'Tổ chức',     icon: Building2,        href: '/organizations' },
   { label: 'Tài liệu',    icon: FileText,         href: '/documents' },

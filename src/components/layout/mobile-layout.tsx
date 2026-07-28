@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, CalendarDays,
-  BookHeart, MoreHorizontal, X,
+  BookHeart, MoreHorizontal, X, Disc3,
   Timeline, Map, Building2,
   FileText, Target, BarChart3,
   Cpu, Settings,
@@ -21,6 +21,7 @@ const PRIMARY_TABS = [
 
 const MORE_TABS = [
   { id: 'timeline',       label: 'Dòng thời gian', icon: Timeline,    href: '/timeline' },
+  { id: 'shards',         label: 'Mảnh Ký ức',     icon: Disc3,       href: '/memories/shards' },
   { id: 'map',            label: 'Bản đồ',         icon: Map,         href: '/map' },
   { id: 'organizations',  label: 'Tổ chức',        icon: Building2,   href: '/organizations' },
   { id: 'documents',      label: 'Tài liệu',       icon: FileText,    href: '/documents' },
