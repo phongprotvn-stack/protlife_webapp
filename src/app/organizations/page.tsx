@@ -31,14 +31,48 @@ export default function OrganizationsPage() {
       <div className="page-content">
         <div className="flex items-center justify-between mb-4">
           <div><h1 className="text-[22px] font-bold text-[#111] tracking-tight">Tổ chức</h1><p className="text-[12px] text-[#8E8E93] mt-0.5">{orgs.length} tổ chức</p></div>
-        </div>
-        <div className="glass-card p-10 text-center">
-          <div className="w-14 h-14 rounded-full bg-[#5856D6]/5 mx-auto mb-3 flex items-center justify-center">
-            <Building2 size={24} className="text-[#5856D6]/30" />
+          <div className="flex items-center gap-2">
+            <button onClick={loadOrgs} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
+              <RefreshCw size={15} className="text-[#8E8E93]" />
+            </button>
+            <button onClick={() => router.push('/organizations/add')}
+              className="w-[38px] h-[38px] rounded-[10px] bg-[#E6002D] text-white flex items-center justify-center shadow-md active:scale-90 transition-all">
+              <Plus size={18} strokeWidth={2.5} />
+            </button>
           </div>
-          <p className="text-[14px] font-medium text-[#6B7280]">{loading ? 'Đang tải...' : 'Chưa có tổ chức nào'}</p>
-          <p className="text-[12px] text-[#9CA3AF] mt-1">Quản lý công ty, câu lạc bộ, nhóm của bạn</p>
         </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-6 h-6 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" />
+          </div>
+        ) : orgs.length === 0 ? (
+          <div className="glass-card p-10 text-center">
+            <div className="w-14 h-14 rounded-full bg-[#5856D6]/5 mx-auto mb-3 flex items-center justify-center">
+              <Building2 size={24} className="text-[#5856D6]/30" />
+            </div>
+            <p className="text-[14px] font-medium text-[#6B7280]">Chưa có tổ chức nào</p>
+            <p className="text-[12px] text-[#9CA3AF] mt-1">Nhấn + để thêm tổ chức mới</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {orgs.map((org) => (
+              <div key={org.OrganizationID}
+                className="glass-card p-3.5 rounded-[14px] flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+                onClick={() => router.push(`/organizations/${org.OrganizationID}`)}>
+                <div className="w-9 h-9 rounded-full bg-[rgba(88,86,214,0.08)] flex items-center justify-center shrink-0">
+                  <Building2 size={16} className="text-[#5856D6]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14px] font-semibold text-[#111] truncate">{org.Name}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-block px-1.5 py-0.5 rounded-[4px] text-[9px] font-medium bg-[rgba(0,0,0,0.04)] text-[#5F6368]">{org.Contact || '—'}</span>
+                    <span className="text-[11px] text-[#8E8E93]">{org.Address || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
