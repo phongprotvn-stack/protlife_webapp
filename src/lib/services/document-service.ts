@@ -1,4 +1,6 @@
-// Stub document service - in-memory + localStorage backed
+// Document service - Supabase-backed CRUD operations
+import { supabase } from '@/lib/supabase/client';
+
 export interface Document {
   DocumentID: string;
   Title: string;
@@ -10,60 +12,82 @@ export interface Document {
 
 export interface DocumentFormData {
   Title: string;
-  Type: string;
-  Date: string;
+  Type?: string;
+  Date?: string;
   Size?: string;
   Notes?: string;
 }
 
-function getDocuments(): Document[] {
-  if (typeof window === 'undefined') return [];
-  const raw = localStorage.getItem('protlife_documents');
-  return raw ? JSON.parse(raw) : [];
-}
-
-function saveDocuments(items: Document[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('protlife_documents', JSON.stringify(items));
-}
-
 export const documentService = {
   async getAll(): Promise<Document[]> {
-    return getDocuments();
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .order('Title', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   },
 
   async getById(id: string): Promise<Document | null> {
-    const items = getDocuments();
-    return items.find((d) => d.DocumentID === id) || null;
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('DocumentID', id)
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   async create(data: DocumentFormData): Promise<Document> {
-    const items = getDocuments();
-    const nextNum = items.length + 1;
-    const doc: Document = {
-      DocumentID: `DOC${String(nextNum).padStart(4, '0')}`,
-      Title: data.Title,
-      Type: data.Type,
-      Date: data.Date,
-      Size: data.Size || '',
-      Notes: data.Notes || '',
-    };
-    items.push(doc);
-    saveDocuments(items);
+    // Generate DocumentID: DOC + 4-digit sequential
+    const { data: maxId } = await supabase
+      .from('documents')
+      .select('DocumentID')
+      .order('DocumentID', { ascending: false })
+      .limit(1);
+
+    const nextNum = maxId && maxId.length > 0
+      ? parseInt(maxId[0].DocumentID.replace('DOC', ''), 10) + 1
+      : 1;
+    const docId = `DOC${String(nextNum).padStart(4, '0')}`;
+
+    const { data: doc, error } = await supabase
+      .from('documents')
+      .insert([{
+        DocumentID: docId,
+        Title: data.Title,
+        Type: data.Type || '',
+        Date: data.Date || '',
+        Size: data.Size || '',
+        Notes: data.Notes || '',
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
     return doc;
   },
 
   async update(id: string, data: Partial<DocumentFormData>): Promise<Document> {
-    const items = getDocuments();
-    const idx = items.findIndex((d) => d.DocumentID === id);
-    if (idx === -1) throw new Error('Không tìm thấy tài liệu');
-    items[idx] = { ...items[idx], ...data };
-    saveDocuments(items);
-    return items[idx];
+    const { data: doc, error } = await supabase
+      .from('documents')
+      .update({ ...data, UpdatedDate: new Date().toISOString() })
+      .eq('DocumentID', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return doc;
   },
 
   async delete(id: string): Promise<void> {
-    const items = getDocuments();
-    saveDocuments(items.filter((d) => d.DocumentID !== id));
+    const { error } = await supabase
+      .from('documents')
+      .delete()
+      .eq('DocumentID', id);
+
+    if (error) throw error;
   },
 };

@@ -1,4 +1,6 @@
-// Stub goal service - in-memory + localStorage backed
+// Goal service - Supabase-backed CRUD operations
+import { supabase } from '@/lib/supabase/client';
+
 export interface Goal {
   GoalID: string;
   Title: string;
@@ -18,55 +20,77 @@ export interface GoalFormData {
   Notes?: string;
 }
 
-function getGoals(): Goal[] {
-  if (typeof window === 'undefined') return [];
-  const raw = localStorage.getItem('protlife_goals');
-  return raw ? JSON.parse(raw) : [];
-}
-
-function saveGoals(items: Goal[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('protlife_goals', JSON.stringify(items));
-}
-
 export const goalService = {
   async getAll(): Promise<Goal[]> {
-    return getGoals();
+    const { data, error } = await supabase
+      .from('goals')
+      .select('*')
+      .order('Title', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   },
 
   async getById(id: string): Promise<Goal | null> {
-    const items = getGoals();
-    return items.find((g) => g.GoalID === id) || null;
+    const { data, error } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('GoalID', id)
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   async create(data: GoalFormData): Promise<Goal> {
-    const items = getGoals();
-    const nextNum = items.length + 1;
-    const goal: Goal = {
-      GoalID: `GL${String(nextNum).padStart(4, '0')}`,
-      Title: data.Title,
-      Status: data.Status || 'Not Started',
-      Deadline: data.Deadline || '',
-      Priority: data.Priority || 'Medium',
-      Progress: data.Progress || 0,
-      Notes: data.Notes || '',
-    };
-    items.push(goal);
-    saveGoals(items);
+    // Generate GoalID: GL + 4-digit sequential
+    const { data: maxId } = await supabase
+      .from('goals')
+      .select('GoalID')
+      .order('GoalID', { ascending: false })
+      .limit(1);
+
+    const nextNum = maxId && maxId.length > 0
+      ? parseInt(maxId[0].GoalID.replace('GL', ''), 10) + 1
+      : 1;
+    const goalId = `GL${String(nextNum).padStart(4, '0')}`;
+
+    const { data: goal, error } = await supabase
+      .from('goals')
+      .insert([{
+        GoalID: goalId,
+        Title: data.Title,
+        Status: data.Status || 'Not Started',
+        Deadline: data.Deadline || '',
+        Priority: data.Priority || 'Medium',
+        Progress: data.Progress || 0,
+        Notes: data.Notes || '',
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
     return goal;
   },
 
   async update(id: string, data: Partial<GoalFormData>): Promise<Goal> {
-    const items = getGoals();
-    const idx = items.findIndex((g) => g.GoalID === id);
-    if (idx === -1) throw new Error('Không tìm thấy mục tiêu');
-    items[idx] = { ...items[idx], ...data };
-    saveGoals(items);
-    return items[idx];
+    const { data: goal, error } = await supabase
+      .from('goals')
+      .update({ ...data, UpdatedDate: new Date().toISOString() })
+      .eq('GoalID', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return goal;
   },
 
   async delete(id: string): Promise<void> {
-    const items = getGoals();
-    saveGoals(items.filter((g) => g.GoalID !== id));
+    const { error } = await supabase
+      .from('goals')
+      .delete()
+      .eq('GoalID', id);
+
+    if (error) throw error;
   },
 };
