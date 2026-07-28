@@ -282,8 +282,8 @@ export default function StatisticalPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
-            <h1 className="text-[26px] font-extrabold tracking-[-.3px]">Thống kê</h1>
-            <p className="text-[13px] text-[#6B7280] mt-0.5">Báo cáo và phân tích dữ liệu</p>
+            <h1 className="text-[22px] font-bold text-[#111] tracking-tight">Thống kê</h1>
+            <p className="text-[12px] text-[#8E8E93] mt-0.5">Báo cáo và phân tích dữ liệu</p>
           </div>
           <div className="flex gap-2">
             <button onClick={loadStats} disabled={loading}

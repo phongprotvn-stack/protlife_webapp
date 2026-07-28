@@ -340,7 +340,7 @@ export default function TimelinePage() {
     return (
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-[26px] font-bold text-[#111] tracking-tight flex items-center gap-3">
+          <h1 className="text-[22px] font-bold text-[#111] tracking-tight flex items-center gap-3">
             <div className="w-9 h-9 rounded-[12px] bg-[#5856D6]/10 flex items-center justify-center">
               <img src="/images/old-scroll-purple.png" alt="" className="w-5 h-5" />
             </div>
@@ -359,7 +359,7 @@ export default function TimelinePage() {
     return (
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-[26px] font-bold text-[#111] tracking-tight flex items-center gap-3">
+          <h1 className="text-[22px] font-bold text-[#111] tracking-tight flex items-center gap-3">
             <div className="w-9 h-9 rounded-[12px] bg-[#5856D6]/10 flex items-center justify-center">
               <img src="/images/old-scroll-purple.png" alt="" className="w-5 h-5" />
             </div>
@@ -381,7 +381,7 @@ export default function TimelinePage() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-[26px] font-bold text-[#111] tracking-tight flex items-center gap-3">
+        <h1 className="text-[22px] font-bold text-[#111] tracking-tight flex items-center gap-3">
           <div className="w-9 h-9 rounded-[12px] bg-[#5856D6]/10 flex items-center justify-center">
             <img src="/images/old-scroll-purple.png" alt="" className="w-5 h-5" />
           </div>

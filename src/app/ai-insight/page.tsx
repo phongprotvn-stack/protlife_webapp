@@ -152,11 +152,11 @@ export default function AIInsightPage() {
       {/* Header */}
       <div className="page-header">
         <div>
-          <h1 className="flex items-center gap-3">
+          <h1 className="flex items-center gap-3 text-[22px] font-bold text-[#111] tracking-tight">
             <BrainCircuit size={28} className="text-[#AF52DE]" />
             AI Insight
           </h1>
-          <p className="text-[13px] text-[#8E8E93] mt-1">
+          <p className="text-[12px] text-[#8E8E93] mt-0.5">
             Phân tích thông minh về mối quan hệ và sự kiện
           </p>
         </div>

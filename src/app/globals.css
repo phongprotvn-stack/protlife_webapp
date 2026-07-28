@@ -280,3 +280,10 @@ html {
 ::selection {
   background: rgba(var(--color-primary-rgb), 0.2);
 }
+
+/* ─── Prevent iOS Safari zoom on input focus ─── */
+@media (max-width: 767px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
