@@ -157,43 +157,67 @@ export default function MemoryShardsPage() {
   }, [total, getCenterVirtual, snapTo, rerender]);
 
   // ─── Drag handling ───
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    playClickedRef.current = false;
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-    dragActive.current = true;
-    dragStartY.current = e.clientY;
-    dragOffsetStart.current = offsetRef.current;
-    velocityRef.current = 0;
-    lastMoveTime.current = performance.now();
-    // Capture pointer so we get move/up even outside
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, []);
+  // Use native DOM events for reliable pointer capture
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || total === 0) return;
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragActive.current) return;
-    const dy = e.clientY - dragStartY.current;
-    offsetRef.current = dragOffsetStart.current + dy;
-    const now = performance.now();
-    const dt = Math.max(1, now - lastMoveTime.current);
-    const instantV = -dy * (16.67 / dt);
-    velocityRef.current = velocityRef.current * 0.5 + instantV * 0.5;
-    lastMoveTime.current = now;
-    rerender();
-  }, [rerender]);
+    const onDown = (e: PointerEvent) => {
+      // Ignore if play button was the target
+      if ((e.target as HTMLElement).closest('[data-play-btn]')) return;
+      playClickedRef.current = false;
+      if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+      dragActive.current = true;
+      dragStartY.current = e.clientY;
+      dragOffsetStart.current = offsetRef.current;
+      velocityRef.current = 0;
+      lastMoveTime.current = performance.now();
+      el.setPointerCapture(e.pointerId);
+    };
 
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    if (!dragActive.current) return;
-    dragActive.current = false;
-    // If play was clicked, don't snap
-    if (playClickedRef.current) return;
-    const v = velocityRef.current;
-    if (Math.abs(v) >= 0.8) {
-      startInertia(v);
-    } else {
-      const center = getCenterVirtual();
-      snapTo(Math.round(center));
-    }
-  }, [getCenterVirtual, snapTo, startInertia]);
+    const onMove = (e: PointerEvent) => {
+      if (!dragActive.current) return;
+      e.preventDefault();
+      const dy = e.clientY - dragStartY.current;
+      offsetRef.current = dragOffsetStart.current + dy;
+      const now = performance.now();
+      const dt = Math.max(1, now - lastMoveTime.current);
+      const instantV = -dy * (16.67 / dt);
+      velocityRef.current = velocityRef.current * 0.5 + instantV * 0.5;
+      lastMoveTime.current = now;
+      rerender();
+    };
+
+    const onUp = (e: PointerEvent) => {
+      if (!dragActive.current) return;
+      dragActive.current = false;
+      if (playClickedRef.current) return;
+      const v = velocityRef.current;
+      if (Math.abs(v) >= 0.8) {
+        startInertia(v);
+      } else {
+        const center = getCenterVirtual();
+        snapTo(Math.round(center));
+      }
+    };
+
+    const onCancel = () => {
+      dragActive.current = false;
+    };
+
+    el.addEventListener('pointerdown', onDown);
+    // Use target with pointer capture (captured events are guaranteed on el)
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onCancel);
+
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onCancel);
+    };
+  }, [total, getCenterVirtual, snapTo, startInertia, rerender]);
 
   // ─── Wheel scroll ───
   useEffect(() => {
@@ -341,11 +365,7 @@ export default function MemoryShardsPage() {
       <div
         ref={containerRef}
         className="flex-1 relative overflow-hidden"
-        style={{ minHeight: 300, touchAction: 'none' }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={() => { dragActive.current = false; }}
+        style={{ minHeight: 300, touchAction: 'none', userSelect: 'none' }}
       >
         {/* Center glow */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -428,11 +448,7 @@ export default function MemoryShardsPage() {
 
                     {/* Play button */}
                     <button
-                      onPointerDown={(e) => {
-                        // Stop pointer down from starting a drag
-                        e.stopPropagation();
-                        playClickedRef.current = true;
-                      }}
+                      data-play-btn
                       onClick={(e) => handlePlay(e, mem)}
                       className="shrink-0 w-[34px] h-[34px] rounded-[12px] flex items-center justify-center transition-all duration-200"
                       style={{
