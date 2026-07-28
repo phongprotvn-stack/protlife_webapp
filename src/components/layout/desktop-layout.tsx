@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/stores/auth-store';
+import { supabase } from '@/lib/supabase/client';
 import { useAppStore } from '@/stores/app-store';
 import { ContactDetail } from '@/components/contacts/contact-detail';
 import { EventDetail } from '@/components/events/event-detail';
@@ -58,7 +59,8 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { clearSelection(); }, [pathname, clearSelection]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
     logout(); router.push('/login');
   }, [logout, router]);
 
