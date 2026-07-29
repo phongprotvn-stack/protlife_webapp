@@ -478,7 +478,7 @@ export default function MemoryShardsPage() {
                       zIndex: 2,
                       width: style.avatarSize,
                       height: style.avatarSize,
-                      background: `${color}44`,
+                      background: `${color}CC`,
                       clipPath: 'circle(50%)',
                       transition: 'width 0.3s ease, height 0.3s ease',
                     }}
