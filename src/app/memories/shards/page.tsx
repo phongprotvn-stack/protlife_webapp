@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence, useMotionValue, animate as fmAnimate } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Play, Calendar, Link as LinkIcon, X, Sparkles, Disc3 } from 'lucide-react';
 import { memoryService } from '@/lib/services/memory-service';
@@ -60,13 +60,11 @@ export default function MemoryShardsPage() {
   const [error, setError] = useState('');
   const [detailMemory, setDetailMemory] = useState<MemoryWithEvent | null>(null);
 
-  // offset drives card arc positions. During drag it stays frozen.
+  // offset is the single source of truth for arc positions
   const [offset, setOffset] = useState(0);
   const offsetRef = useRef(0);
   const syncOffset = useCallback(() => setOffset(offsetRef.current), []);
 
-  // framer-motion drag transform for visual output (set manually via pointer events)
-  const dragY = useMotionValue(0);
   const animRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,13 +79,12 @@ export default function MemoryShardsPage() {
       setMemories(data);
       offsetRef.current = 0;
       setOffset(0);
-      dragY.set(0);
     } catch (e: any) {
       setError(e.message || 'Không thể tải ký ức');
     } finally {
       setIsLoading(false);
     }
-  }, [dragY]);
+  }, []); // stable — only uses state setters and module-level imports
 
   useEffect(() => { loadMemories(); }, [loadMemories]);
 
@@ -193,9 +190,9 @@ export default function MemoryShardsPage() {
       e.preventDefault();
       const deltaY = e.clientY - state.startY;
 
-      // Update position refs (state is frozen, no React re-render here)
+      // Update offset AND trigger React re-render so cards reposition along arc
       offsetRef.current = state.startOffset + deltaY;
-      dragY.set(deltaY);
+      syncOffset();
 
       // Track velocity for inertia
       const now = performance.now();
@@ -213,45 +210,18 @@ export default function MemoryShardsPage() {
       state.isDragging = false;
 
       const velocity = Math.abs(state.velocity) >= 0.5 ? state.velocity : 0;
-      const finalDragY = dragY.get(); // px of drag displacement
-      const currentOffset = offsetRef.current; // startOffset + finalDragY
+      const currentOffset = offsetRef.current;
 
       if (Math.abs(velocity) >= 200) {
-        // FAST SWIPE → inertia. Transfer dragY into offset so visual stays constant.
-        dragY.set(0);
-        offsetRef.current = currentOffset + finalDragY;
-        syncOffset();
+        // FAST SWIPE → inertia
         startInertia(velocity * 0.3);
         return;
       }
 
-      // SLOW DRAG → snap to nearest item.
-      // Animate dragY→0 and offset→target simultaneously so cards don't jump.
+      // SLOW DRAG → snap to nearest item
       const centerVirtual = -currentOffset / ITEM_HEIGHT;
       const targetVirtual = Math.round(centerVirtual);
-      const targetOffset = -targetVirtual * ITEM_HEIGHT;
-      const offsetStart = currentOffset;
-      const offsetDiff = targetOffset - offsetStart;
-
-      const dur = 300;
-      const t0 = performance.now();
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      const step = (t: number) => {
-        const p = Math.min(1, (t - t0) / dur);
-        const ease = 1 - Math.pow(1 - p, 3);
-        dragY.set(finalDragY * (1 - ease));
-        offsetRef.current = offsetStart + offsetDiff * ease;
-        syncOffset();
-        if (p < 1) {
-          animRef.current = requestAnimationFrame(step);
-        } else {
-          dragY.set(0);
-          offsetRef.current = targetOffset;
-          syncOffset();
-          animRef.current = null;
-        }
-      };
-      animRef.current = requestAnimationFrame(step);
+      snapTo(targetVirtual);
     };
 
     el.addEventListener('pointerdown', onPointerDown);
@@ -265,7 +235,7 @@ export default function MemoryShardsPage() {
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [total, dragY, syncOffset, startInertia]);
+  }, [total, syncOffset, startInertia]);
 
   // ─── Wheel scroll ───
   useEffect(() => {
@@ -382,9 +352,9 @@ export default function MemoryShardsPage() {
   }
 
   // ─── MAIN RENDER ───
-  // dragY handles ALL movement during drag. offset handles arc snap after drag.
-  // Cards use CSS transform with (offset + arcY) — offset freezes during drag.
-  // The motion.div drag transform (dragY) moves the entire group during drag.
+  // offset is the single source of truth for arc positions.
+  // During drag, offset changes on every pointermove → syncOffset() triggers
+  // React re-render → cards reposition individually along the arc.
   return (
     <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none">
       {/* Header */}
@@ -422,8 +392,8 @@ export default function MemoryShardsPage() {
           }}
         />
 
-        {/* Cards — wrapped in motion.div for dragY visual transform */}
-        <motion.div className="absolute inset-0 flex items-center justify-center" style={{ y: dragY }}>
+        {/* Cards — reposition individually along arc via offset */}
+        <div className="absolute inset-0 flex items-center justify-center">
           {visibleSlots.map((slot) => {
             const style = getSlotStyle(slot.rel);
             const mem = slot.memory;
@@ -500,7 +470,7 @@ export default function MemoryShardsPage() {
               </div>
             );
           })}
-        </motion.div>
+        </div>
       </div>
 
       {/* Page dots */}
