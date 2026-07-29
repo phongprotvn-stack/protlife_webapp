@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Play, Calendar, Link as LinkIcon, X, Sparkles, Disc3 } from 'lucide-react';
+import { ArrowLeft, Calendar, Link as LinkIcon, X, Sparkles, Disc3 } from 'lucide-react';
 import { memoryService } from '@/lib/services/memory-service';
 import type { MemoryWithEvent } from '@/types/database';
 
@@ -31,18 +31,6 @@ function moodColor(emoji?: string | null): string {
   return colors[emoji || ''] || '#8E8E93';
 }
 
-const MOOD_GRADIENTS: Record<string, string> = {
-  '😊': 'linear-gradient(135deg, #F59E0B 0%, #FF9500 55%, #FFB340 100%)',
-  '🤩': 'linear-gradient(135deg, #D60032 0%, #FF2D55 55%, #FF5E7A 100%)',
-  '😌': 'linear-gradient(135deg, #1EA84B 0%, #34C759 55%, #5DDC7F 100%)',
-  '😤': 'linear-gradient(135deg, #B30024 0%, #E6002D 55%, #FF3355 100%)',
-  '😴': 'linear-gradient(135deg, #5C5E63 0%, #8E8E93 55%, #AEAEB2 100%)',
-};
-
-function getGradient(emoji?: string | null): string {
-  return MOOD_GRADIENTS[emoji || ''] || 'linear-gradient(135deg, #8E8E93 0%, #AEAEB2 55%, #C7C7CC 100%)';
-}
-
 function getDate(m: MemoryWithEvent): string {
   return m.EventDate || m.MemoryDate || m.CreatedDate;
 }
@@ -52,8 +40,8 @@ const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
 // ─── Left-centered wheel arc constants ───
-const WHEEL_RADIUS = 280;        // arc radius (larger → fills more screen)
-const WHEEL_CENTER_X = -300;     // so rel=0 maps to x=-20 → active card closer to left edge
+const WHEEL_RADIUS = 280;
+const WHEEL_CENTER_X = -280;     // rel=0 → x=0 → active card centered (equal margins)
 const ANGLE_STEP = Math.PI / 12; // 15° per item → gentle visible arc
 
 export default function MemoryShardsPage() {
@@ -299,11 +287,6 @@ export default function MemoryShardsPage() {
     return dots;
   }, [focusedMemory, memories, total]);
 
-  const handlePlay = useCallback((e: React.MouseEvent, mem: MemoryWithEvent) => {
-    e.stopPropagation();
-    setDetailMemory(mem);
-  }, []);
-
   // ─── Loading ───
   if (isLoading) {
     return (
@@ -440,83 +423,45 @@ export default function MemoryShardsPage() {
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
-                {/* Card body */}
-                <div
-                  className="w-full rounded-[22px] overflow-hidden backdrop-blur-[8px]"
-                  style={{
-                    background: style.isActive
-                      ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
-                      : 'rgba(255,255,255,0.04)',
-                    border: style.isActive
-                      ? `1px solid ${color}44`
-                      : '1px solid rgba(255,255,255,0.06)',
-                    boxShadow: style.isActive
-                      ? `0 0 40px ${color}22, 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)`
-                      : '0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
-                  }}
-                >
-                  <div className="flex items-center gap-3 p-3">
-                    {/* Mood circle */}
-                    <div
-                      className="w-[40px] h-[40px] rounded-[14px] flex items-center justify-center text-[20px] shrink-0"
-                      style={{
-                        background: style.isActive
-                          ? getGradient(mem.MoodEmoji)
-                          : `${color}18`,
-                        boxShadow: style.isActive
-                          ? `0 0 20px ${color}44`
-                          : 'none',
-                      }}
-                    >
-                      {mem.MoodEmoji || '🧠'}
-                    </div>
+                {/* Card body — pill-shaped, large circular avatar */}
+                  <div
+                    className="w-full rounded-[22px] backdrop-blur-[8px] overflow-hidden"
+                    style={{
+                      background: style.isActive
+                        ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
+                        : 'rgba(255,255,255,0.035)',
+                      border: style.isActive
+                        ? `1.5px solid ${color}55`
+                        : 'none',
+                      boxShadow: style.isActive
+                        ? `0 0 50px ${color}22, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.10)`
+                        : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
+                    }}
+                  >
+                    <div className="flex items-center gap-3 p-[10px]">
+                      {/* Large circular avatar — pure circle, no frame, emoji fills it */}
+                      <div
+                        className="w-[68px] h-[68px] rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+                        style={{
+                          background: `${color}22`,
+                        }}
+                      >
+                        <span className="text-[34px] leading-none select-none">
+                          {mem.MoodEmoji || '🧠'}
+                        </span>
+                      </div>
 
-                    {/* Text */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        {style.isActive && (
-                          <span className="w-[6px] h-[6px] rounded-full shrink-0"
-                            style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
-                        )}
-                        <span className="text-[12px] font-semibold text-white/90 truncate tracking-[-0.2px]">
+                      {/* Text: only Title + relativeTime */}
+                      <div className="flex-1 min-w-0 py-1">
+                        <div className="text-[14px] font-bold text-white/90 leading-tight mb-[3px] line-clamp-2">
                           {mem.Title}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-white/40 font-medium">
+                        </div>
+                        <div className="text-[11px] text-white/40 font-medium">
                           {relativeTime(getDate(mem))}
-                        </span>
-                        {mem.EventTitle && (
-                          <>
-                            <span className="text-white/20 text-[8px]">·</span>
-                            <span className="text-[9px] font-medium truncate max-w-[100px]"
-                              style={{ color: `${color}aa` }}>{mem.EventTitle}</span>
-                          </>
-                        )}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Play button */}
-                    <button
-                      data-play-btn
-                      onClick={(e) => handlePlay(e, mem)}
-                      className="shrink-0 w-[36px] h-[36px] rounded-[12px] flex items-center justify-center transition-all duration-300"
-                      style={{
-                        background: style.isActive
-                          ? `linear-gradient(135deg, ${color}, ${color}bb)`
-                          : 'rgba(255,255,255,0.04)',
-                        opacity: style.isActive ? 1 : 0,
-                        transform: style.isActive ? 'scale(1)' : 'scale(0.7)',
-                        boxShadow: style.isActive
-                          ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
-                          : 'none',
-                      }}
-                    >
-                      <Play size={15} className={style.isActive ? 'text-white' : 'text-white/30'}
-                        fill={style.isActive ? 'white' : 'transparent'} />
-                    </button>
                   </div>
-                </div>
               </div>
             );
           })}
