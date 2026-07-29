@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Link as LinkIcon, X, Sparkles, Disc3 } from 'lucide-react';
+import { ArrowLeft, Play, Calendar, Link as LinkIcon, X, Sparkles, Disc3 } from 'lucide-react';
 import { memoryService } from '@/lib/services/memory-service';
 import type { MemoryWithEvent } from '@/types/database';
 
@@ -35,14 +35,14 @@ function getDate(m: MemoryWithEvent): string {
   return m.EventDate || m.MemoryDate || m.CreatedDate;
 }
 
-const ITEM_HEIGHT = 100;
+const ITEM_HEIGHT = 110;
 const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
 // ─── Left-centered wheel arc constants ───
-const WHEEL_RADIUS = 280;
+const WHEEL_RADIUS = 330;        // larger radius → items spread vertically to fill content
 const WHEEL_CENTER_X = -280;     // rel=0 → x=0 → active card centered (equal margins)
-const ANGLE_STEP = Math.PI / 12; // 15° per item → gentle visible arc
+const ANGLE_STEP = Math.PI / 10; // 18° per item → wider arc, less overlap
 
 export default function MemoryShardsPage() {
   const router = useRouter();
@@ -239,7 +239,8 @@ export default function MemoryShardsPage() {
   const getSlotStyle = useCallback((rel: number) => {
     const distAbs = Math.abs(rel);
     const scale = Math.max(0.40, 1 - distAbs * 0.14);
-    const opacity = Math.max(0.12, 1 - distAbs * 0.16);
+    const opacity = Math.max(0.08, 1 - distAbs * 0.20);
+    const textOpacity = Math.max(0.08, 1 - distAbs * 0.24);
 
     // Position along a wheel with center on the LEFT
     const angle = rel * ANGLE_STEP;
@@ -254,7 +255,18 @@ export default function MemoryShardsPage() {
     const tiltDeg = -rel * 5 * (1 + distAbs * 0.3); // ±6.5° at rel=1, ±16° at rel=2, ±28.5° at rel=3
     const depthZ = -Math.pow(distAbs, 1.6) * 25;    // -25px at rel=1, -81px at rel=2, -172px at rel=3
 
-    return { x, y, scale, opacity, zIndex, isActive: rel === 0, glowR, tiltDeg, depthZ };
+    // Dynamic avatar size: center=74px, edges=62px
+    const avatarSize = Math.round(74 - distAbs * 4);
+
+    // Emoji size: fill the avatar circle proportionally
+    const emojiSize = Math.round(avatarSize * 0.6);
+
+    return { x, y, scale, opacity, zIndex, isActive: rel === 0, glowR, tiltDeg, depthZ, avatarSize, emojiSize, textOpacity };
+  }, []);
+
+  const handlePlay = useCallback((e: React.MouseEvent, mem: MemoryWithEvent) => {
+    e.stopPropagation();
+    setDetailMemory(mem);
   }, []);
 
   // ─── Build visible slots ───
@@ -438,21 +450,26 @@ export default function MemoryShardsPage() {
                         : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
                     }}
                   >
-                    <div className="flex items-center gap-3 p-[10px]">
-                      {/* Large circular avatar — pure circle, no frame, emoji fills it */}
+                    <div className="flex items-center gap-[10px] p-[10px]">
+                      {/* Large circular avatar — dynamic size, bigger emoji */}
                       <div
-                        className="w-[68px] h-[68px] rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+                        className="rounded-full flex items-center justify-center shrink-0 overflow-hidden transition-[width,height] duration-300"
                         style={{
+                          width: style.avatarSize,
+                          height: style.avatarSize,
                           background: `${color}22`,
                         }}
                       >
-                        <span className="text-[34px] leading-none select-none">
+                        <span
+                          className="leading-none select-none transition-[font-size] duration-300"
+                          style={{ fontSize: style.emojiSize }}
+                        >
                           {mem.MoodEmoji || '🧠'}
                         </span>
                       </div>
 
-                      {/* Text: only Title + relativeTime */}
-                      <div className="flex-1 min-w-0 py-1">
+                      {/* Text: only Title + relativeTime — fades with distance */}
+                      <div className="flex-1 min-w-0 py-1" style={{ opacity: style.textOpacity }}>
                         <div className="text-[14px] font-bold text-white/90 leading-tight mb-[3px] line-clamp-2">
                           {mem.Title}
                         </div>
@@ -460,6 +477,26 @@ export default function MemoryShardsPage() {
                           {relativeTime(getDate(mem))}
                         </div>
                       </div>
+
+                      {/* Play button */}
+                      <button
+                        data-play-btn
+                        onClick={(e) => handlePlay(e, mem)}
+                        className="shrink-0 w-[36px] h-[36px] rounded-[12px] flex items-center justify-center transition-all duration-300"
+                        style={{
+                          background: style.isActive
+                            ? `linear-gradient(135deg, ${color}, ${color}bb)`
+                            : 'rgba(255,255,255,0.04)',
+                          opacity: style.isActive ? 1 : 0,
+                          transform: style.isActive ? 'scale(1)' : 'scale(0.7)',
+                          boxShadow: style.isActive
+                            ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
+                            : 'none',
+                        }}
+                      >
+                        <Play size={15} className={style.isActive ? 'text-white' : 'text-white/30'}
+                          fill={style.isActive ? 'white' : 'transparent'} />
+                      </button>
                     </div>
                   </div>
               </div>
