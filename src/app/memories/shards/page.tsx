@@ -52,8 +52,8 @@ const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
 // ─── Left-centered wheel arc constants ───
-const WHEEL_RADIUS = 260;        // arc radius
-const WHEEL_CENTER_X = -260;     // so rel=0 maps to x=0 → centered on container
+const WHEEL_RADIUS = 280;        // arc radius (larger → fills more screen)
+const WHEEL_CENTER_X = -300;     // so rel=0 maps to x=-20 → active card closer to left edge
 const ANGLE_STEP = Math.PI / 12; // 15° per item → gentle visible arc
 
 export default function MemoryShardsPage() {
@@ -250,8 +250,8 @@ export default function MemoryShardsPage() {
   // ─── Arc position (left-centered wheel) ───
   const getSlotStyle = useCallback((rel: number) => {
     const distAbs = Math.abs(rel);
-    const scale = Math.max(0.50, 1 - distAbs * 0.12);
-    const opacity = Math.max(0.18, 1 - distAbs * 0.14);
+    const scale = Math.max(0.40, 1 - distAbs * 0.14);
+    const opacity = Math.max(0.12, 1 - distAbs * 0.16);
 
     // Position along a wheel with center on the LEFT
     const angle = rel * ANGLE_STEP;
@@ -260,11 +260,11 @@ export default function MemoryShardsPage() {
     const zIndex = 100 - Math.round(distAbs * 10);
 
     // Glow radius (for gooey circles behind cards)
-    const glowR = 80 - Math.round(distAbs * 14);
+    const glowR = 120 - Math.round(distAbs * 22);
 
-    // 3D Cylindrical properties
-    const tiltDeg = -rel * 6;   // +18° at top, 0 at center, -18° at bottom
-    const depthZ = -distAbs * 50; // 0 at center, -150px at edges (recede into screen)
+    // 3D Cylindrical — non-linear: edge items tilt & recede much more
+    const tiltDeg = -rel * 5 * (1 + distAbs * 0.3); // ±6.5° at rel=1, ±16° at rel=2, ±28.5° at rel=3
+    const depthZ = -Math.pow(distAbs, 1.6) * 25;    // -25px at rel=1, -81px at rel=2, -172px at rel=3
 
     return { x, y, scale, opacity, zIndex, isActive: rel === 0, glowR, tiltDeg, depthZ };
   }, []);
@@ -404,10 +404,10 @@ export default function MemoryShardsPage() {
                 key={`glow-${slot.virtualIdx}`}
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                 style={{
-                  width: style.glowR * 2,
-                  height: style.glowR * 2,
+                  width: style.glowR * 2.2,
+                  height: style.glowR * 2.2,
                   transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px))`,
-                  opacity: Math.max(0.1, 0.5 - Math.abs(slot.rel) * 0.08),
+                  opacity: Math.max(0.06, 0.5 - Math.abs(slot.rel) * 0.09),
                   borderRadius: '50%',
                   background: `radial-gradient(circle, ${color} 0%, ${color}88 40%, transparent 70%)`,
                   willChange: 'transform, opacity',
@@ -428,8 +428,8 @@ export default function MemoryShardsPage() {
                 key={slot.virtualIdx}
                 className="absolute left-1/2 top-1/2"
                 style={{
-                  width: `clamp(200px, ${78 - Math.abs(slot.rel) * 4}%, 280px)`,
-                  maxWidth: style.isActive ? 300 : 260,
+                  width: `clamp(210px, ${88 - Math.abs(slot.rel) * 6}%, 320px)`,
+                  maxWidth: style.isActive ? 320 : 300,
                   zIndex: style.zIndex,
                   transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
                   opacity: style.opacity,
