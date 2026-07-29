@@ -389,13 +389,12 @@ export default function MemoryShardsPage() {
         className="flex-1 relative overflow-hidden touch-none select-none"
         style={{ minHeight: 300, overscrollBehavior: 'none' }}
       >
-        {/* Gooey glow layer — center glow fixed, others scroll */}
+        {/* Gooey glow layer — liquid merging via SVG filter */}
         <div className="absolute inset-0 pointer-events-none" style={{ filter: 'url(#goo)' }}>
           {visibleSlots.map((slot) => {
             const mem = slot.memory;
             const style = getSlotStyle(slot.rel);
             const color = moodColor(mem.MoodEmoji);
-            const isCenter = slot.rel === 0;
             return (
               <div
                 key={`glow-${slot.virtualIdx}`}
@@ -403,11 +402,8 @@ export default function MemoryShardsPage() {
                 style={{
                   width: style.glowR * 2,
                   height: style.glowR * 2,
-                  // Center glow ALWAYS fixed at arc position, others scroll with offset
-                  transform: isCenter
-                    ? `translate(calc(-50% + ${style.x}px), calc(-50% + ${style.y}px))`
-                    : `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px))`,
-                  opacity: isCenter ? 0.45 : Math.max(0.1, 0.45 - Math.abs(slot.rel) * 0.08),
+                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px))`,
+                  opacity: Math.max(0.1, 0.5 - Math.abs(slot.rel) * 0.08),
                   borderRadius: '50%',
                   background: `radial-gradient(circle, ${color} 0%, ${color}88 40%, transparent 70%)`,
                   willChange: 'transform, opacity',
@@ -417,13 +413,12 @@ export default function MemoryShardsPage() {
           })}
         </div>
 
-        {/* Cards layer — center card ALWAYS fixed at center */}
+        {/* Cards layer — uniform scroll */}
         <div className="absolute inset-0">
           {visibleSlots.map((slot) => {
             const style = getSlotStyle(slot.rel);
             const mem = slot.memory;
             const color = moodColor(mem.MoodEmoji);
-            const isCenter = slot.rel === 0;
             return (
               <div
                 key={slot.virtualIdx}
@@ -432,10 +427,7 @@ export default function MemoryShardsPage() {
                   width: `clamp(200px, ${78 - Math.abs(slot.rel) * 4}%, 280px)`,
                   maxWidth: style.isActive ? 300 : 260,
                   zIndex: style.zIndex,
-                  // Center card ALWAYS at fixed arc center, others scroll past
-                  transform: isCenter
-                    ? `translate(calc(-50% + ${style.x}px), calc(-50% + ${style.y}px)) scale(${style.scale})`
-                    : `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px)) scale(${style.scale})`,
+                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px)) scale(${style.scale})`,
                   opacity: style.opacity,
                   transition: isDragging
                     ? 'none'
