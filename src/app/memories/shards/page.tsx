@@ -262,7 +262,11 @@ export default function MemoryShardsPage() {
     // Glow radius (for gooey circles behind cards)
     const glowR = 80 - Math.round(distAbs * 14);
 
-    return { x, y, scale, opacity, zIndex, isActive: rel === 0, glowR };
+    // 3D Cylindrical properties
+    const tiltDeg = -rel * 6;   // +18° at top, 0 at center, -18° at bottom
+    const depthZ = -distAbs * 50; // 0 at center, -150px at edges (recede into screen)
+
+    return { x, y, scale, opacity, zIndex, isActive: rel === 0, glowR, tiltDeg, depthZ };
   }, []);
 
   // ─── Build visible slots ───
@@ -387,7 +391,7 @@ export default function MemoryShardsPage() {
       <div
         ref={containerRef}
         className="flex-1 relative overflow-hidden touch-none select-none"
-        style={{ minHeight: 300, overscrollBehavior: 'none' }}
+        style={{ minHeight: 300, overscrollBehavior: 'none', perspective: '1000px' }}
       >
         {/* Gooey glow layer — liquid merging via SVG filter */}
         <div className="absolute inset-0 pointer-events-none" style={{ filter: 'url(#goo)' }}>
@@ -427,12 +431,13 @@ export default function MemoryShardsPage() {
                   width: `clamp(200px, ${78 - Math.abs(slot.rel) * 4}%, 280px)`,
                   maxWidth: style.isActive ? 300 : 260,
                   zIndex: style.zIndex,
-                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px)) scale(${style.scale})`,
+                  transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
                   opacity: style.opacity,
                   transition: isDragging
                     ? 'none'
                     : 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease',
                   willChange: 'transform, opacity',
+                  backfaceVisibility: 'hidden' as const,
                 }}
               >
                 {/* Card body */}
