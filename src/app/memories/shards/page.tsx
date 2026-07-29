@@ -91,7 +91,7 @@ export default function MemoryShardsPage() {
     const target = Math.round(start / ITEM_HEIGHT) * ITEM_HEIGHT;
     const diff = target - start;
     if (Math.abs(diff) < 1) { scrollOffsetRef.current = target; syncOffset(); return; }
-    const dur = 400;
+    const dur = 500;
     const t0 = performance.now();
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const step = (t: number) => {
@@ -122,7 +122,7 @@ export default function MemoryShardsPage() {
   const startInertia = useCallback((velocity: number) => {
     if (total === 0) return;
     animRef.current = requestAnimationFrame(function inertiaStep() {
-      velocity *= 0.96;
+      velocity *= 0.965;
       if (Math.abs(velocity) < 0.3) {
         animRef.current = null;
         snapToCenter();
@@ -355,13 +355,13 @@ export default function MemoryShardsPage() {
   // ─── MAIN RENDER ───
   return (
     <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none bg-[#0A0A0F]">
-      {/* Gooey SVG filter */}
+      {/* Gooey SVG filter — high blur + sharp cutoff for liquid merging */}
       <svg className="absolute w-0 h-0 pointer-events-none">
         <defs>
           <filter id="goo">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="24" result="blur" />
             <feColorMatrix in="blur" mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="goo" />
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 30 -14" result="goo" />
             <feBlend in="SourceGraphic" in2="goo" />
           </filter>
         </defs>
@@ -403,13 +403,17 @@ export default function MemoryShardsPage() {
                 key={`glow-${mem.MemoryID}`}
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                 style={{
-                  width: style.glowR * 2.2,
-                  height: style.glowR * 2.2,
+                  width: style.glowR * 2.8,
+                  height: style.glowR * 2.8,
                   transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${slot.yPos}px))`,
-                  opacity: Math.max(0.06, 0.5 - Math.abs(slot.rel) * 0.09),
+                  opacity: Math.max(0.08, 0.7 - Math.abs(slot.rel) * 0.12),
                   borderRadius: '50%',
-                  background: `radial-gradient(circle, ${color} 0%, ${color}88 40%, transparent 70%)`,
-                  willChange: 'transform, opacity',
+                  background: `radial-gradient(circle, ${color} 0%, ${color}AA 40%, transparent 70%)`,
+                  willChange: 'transform, opacity, filter',
+                  transition: isDragging
+                    ? 'none'
+                    : 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease',
+                  filter: `blur(${Math.max(0, 2 - Math.abs(slot.rel) * 0.5)}px)`,
                 }}
               />
             );
@@ -435,8 +439,8 @@ export default function MemoryShardsPage() {
                   opacity: style.opacity,
                   transition: isDragging
                     ? 'none'
-                    : 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease',
-                  willChange: 'transform, opacity',
+                    : 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease',
+                  willChange: 'transform, opacity, filter',
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
