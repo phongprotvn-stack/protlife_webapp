@@ -438,11 +438,13 @@ export default function MemoryShardsPage() {
               >
                 {/* Card body — pill-shaped */}
                   <div
-                    className="w-full rounded-[22px] backdrop-blur-[8px] overflow-hidden"
+                    className="w-full rounded-[22px] overflow-hidden"
                     style={{
                       background: showFull
                         ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
-                        : 'rgba(255,255,255,0.035)',
+                        : 'transparent',
+                      backdropFilter: showFull ? 'blur(8px)' : 'none',
+                      WebkitBackdropFilter: showFull ? 'blur(8px)' : 'none',
                       border: showFull
                         ? `1.5px solid ${color}55`
                         : 'none',
@@ -451,7 +453,7 @@ export default function MemoryShardsPage() {
                         : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
                       transition: isDragging
                         ? 'none'
-                        : 'background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease',
+                        : 'background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease',
                     }}
                   >
                     <div className="flex items-center gap-[10px] p-[10px]">
