@@ -468,81 +468,84 @@ export default function MemoryShardsPage() {
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
-                {/* Card: avatar forms left edge, body has right rounding only */}
-                <div className="flex items-center w-full">
-                  {/* Avatar circle — acts as left boundary, prominent */}
-                  <div
-                    className="rounded-full flex items-center justify-center shrink-0 relative z-10 transition-[width,height] duration-300"
-                    style={{
-                      width: style.avatarSize,
-                      height: style.avatarSize,
-                      minWidth: style.avatarSize,
-                      background: `${color}22`,
-                    }}
-                  >
-                    <span
-                      className="leading-none select-none transition-[font-size] duration-300"
-                      style={{ fontSize: style.emojiSize }}
-                    >
-                      {mem.MoodEmoji || '🧠'}
-                    </span>
-                  </div>
-
-                  {/* Body — no left border/rounding, rounded right only, attaches to avatar */}
-                  <div
-                    className="flex-1 min-w-0 h-full flex items-center"
-                    style={{
-                      borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
-                      background: showFull
-                        ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
-                        : 'transparent',
-                      backdropFilter: showFull ? 'blur(8px)' : 'none',
-                      WebkitBackdropFilter: showFull ? 'blur(8px)' : 'none',
-                      border: showFull
-                        ? `1.5px solid ${color}55`
-                        : 'none',
-                      borderLeft: 'none',
-                      boxShadow: showFull
-                        ? `0 0 60px ${color}33, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)`
-                        : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
-                      transition: isDragging
-                        ? 'none'
-                        : 'background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease',
-                    }}
-                  >
-                    {/* Text content inside body */}
-                    <div className="flex-1 min-w-0 px-[8px] py-[6px]" style={{ opacity: style.textOpacity }}>
-                      <div className="text-[13px] font-bold text-white/90 leading-tight mb-[2px] line-clamp-2">
-                        {mem.Title}
-                      </div>
-                      <div className="text-[10px] text-white/40 font-medium whitespace-nowrap">
-                        {relativeTime(getDate(mem))}
-                      </div>
-                    </div>
-
-                    {/* Play button — only at rest + center */}
-                    <button
-                      data-play-btn
-                      onClick={(e) => handlePlay(e, mem)}
-                      className="shrink-0 flex items-center justify-center mr-[6px] transition-all duration-300"
+                {/* Card: avatar + compact body (body width < avatar diameter) */}
+                <div style={{ padding: '10px 0' }}>
+                  <div className="flex items-center w-full gap-[8px]">
+                    {/* Avatar circle — forms left boundary */}
+                    <div
+                      className="rounded-full flex items-center justify-center shrink-0 relative z-10 transition-[width,height] duration-300"
                       style={{
-                        width: showFull ? 28 : 0,
-                        height: showFull ? 28 : 0,
-                        borderRadius: '50%',
-                        background: showFull
-                          ? `linear-gradient(135deg, ${color}, ${color}bb)`
-                          : 'transparent',
-                        opacity: showFull ? 1 : 0,
-                        transform: showFull ? 'scale(1)' : 'scale(0)',
-                        boxShadow: showFull
-                          ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
-                          : 'none',
-                        cursor: 'pointer',
-                        overflow: 'hidden',
+                        width: style.avatarSize,
+                        height: style.avatarSize,
+                        minWidth: style.avatarSize,
+                        background: `${color}22`,
                       }}
                     >
-                      <Play size={14} fill={showFull ? '#fff' : 'transparent'} color={showFull ? '#fff' : 'transparent'} />
-                    </button>
+                      <span
+                        className="leading-none select-none transition-[font-size] duration-300"
+                        style={{ fontSize: style.emojiSize }}
+                      >
+                        {mem.MoodEmoji || '🧠'}
+                      </span>
+                    </div>
+
+                    {/* Body — no left border, rounded right only */}
+                    <div
+                      className="flex-1 min-w-0 flex items-center"
+                      style={{
+                        height: style.avatarSize,
+                        borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
+                        background: showFull
+                          ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
+                          : 'transparent',
+                        backdropFilter: showFull ? 'blur(8px)' : 'none',
+                        WebkitBackdropFilter: showFull ? 'blur(8px)' : 'none',
+                        borderTop: showFull ? `1.5px solid ${color}55` : 'none',
+                        borderRight: showFull ? `1.5px solid ${color}55` : 'none',
+                        borderBottom: showFull ? `1.5px solid ${color}55` : 'none',
+                        borderLeft: 'none',
+                        boxShadow: showFull
+                          ? `0 0 60px ${color}33, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)`
+                          : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
+                        transition: isDragging
+                          ? 'none'
+                          : 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease',
+                      }}
+                    >
+                      {/* Text */}
+                      <div className="flex-1 min-w-0 px-[10px] py-[6px]" style={{ opacity: style.textOpacity }}>
+                        <div className="text-[14px] font-bold text-white/90 leading-tight mb-[3px] line-clamp-2">
+                          {mem.Title}
+                        </div>
+                        <div className="text-[11px] text-white/40 font-medium whitespace-nowrap">
+                          {relativeTime(getDate(mem))}
+                        </div>
+                      </div>
+
+                      {/* Play button */}
+                      <button
+                        data-play-btn
+                        onClick={(e) => handlePlay(e, mem)}
+                        className="shrink-0 flex items-center justify-center mr-[6px] transition-all duration-300"
+                        style={{
+                          width: showFull ? 28 : 0,
+                          height: showFull ? 28 : 0,
+                          borderRadius: '50%',
+                          background: showFull
+                            ? `linear-gradient(135deg, ${color}, ${color}bb)`
+                            : 'transparent',
+                          opacity: showFull ? 1 : 0,
+                          transform: showFull ? 'scale(1)' : 'scale(0)',
+                          boxShadow: showFull
+                            ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
+                            : 'none',
+                          cursor: 'pointer',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <Play size={14} fill={showFull ? '#fff' : 'transparent'} color={showFull ? '#fff' : 'transparent'} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
