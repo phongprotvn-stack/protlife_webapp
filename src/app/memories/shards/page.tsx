@@ -52,14 +52,11 @@ export default function MemoryShardsPage() {
   const [error, setError] = useState('');
   const [detailMemory, setDetailMemory] = useState<MemoryWithEvent | null>(null);
 
-  // ─── Scroll state: center (which item) + fraction (sub-position, bounded ±50px) ───
-  const [scrollCenter, setScrollCenter] = useState(0);
-  const scrollCenterRef = useRef(0);
-  const [scrollFraction, setScrollFraction] = useState(0);
-  const scrollFractionRef = useRef(0);
-  const syncScroll = useCallback(() => {
-    setScrollCenter(scrollCenterRef.current);
-    setScrollFraction(scrollFractionRef.current);
+  // ─── Scroll state: offset (unbounded, accumulates total drag/wheel delta) ───
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const scrollOffsetRef = useRef(0);
+  const syncOffset = useCallback(() => {
+    setScrollOffset(scrollOffsetRef.current);
   }, []);
 
   const animRef = useRef<number | null>(null);
@@ -74,10 +71,8 @@ export default function MemoryShardsPage() {
       const data = await memoryService.getAllWithEvent();
       data.sort((a, b) => new Date(getDate(b)).getTime() - new Date(getDate(a)).getTime());
       setMemories(data);
-      scrollCenterRef.current = 0;
-      setScrollCenter(0);
-      scrollFractionRef.current = 0;
-      setScrollFraction(0);
+      scrollOffsetRef.current = 0;
+      setScrollOffset(0);
     } catch (e: any) {
       setError(e.message || 'Không thể tải ký ức');
     } finally {
@@ -89,42 +84,39 @@ export default function MemoryShardsPage() {
 
   const total = memories.length;
 
-  // ─── Bounded fraction helper ───
-  const HALF_ITEM = ITEM_HEIGHT / 2;
-
-  // ─── Snap scrollFraction → 0 ───
+  // ─── Snap scrollOffset → nearest ITEM_HEIGHT multiple ───
   const snapToCenter = useCallback(() => {
     if (total === 0) return;
-    const start = scrollFractionRef.current;
-    const diff = -start;
-    if (Math.abs(diff) < 1) return;
+    const start = scrollOffsetRef.current;
+    const target = Math.round(start / ITEM_HEIGHT) * ITEM_HEIGHT;
+    const diff = target - start;
+    if (Math.abs(diff) < 1) { scrollOffsetRef.current = target; syncOffset(); return; }
     const dur = 400;
     const t0 = performance.now();
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const step = (t: number) => {
       const p = Math.min(1, (t - t0) / dur);
       const ease = 1 - Math.pow(1 - p, 3);
-      scrollFractionRef.current = start + diff * ease;
-      syncScroll();
+      scrollOffsetRef.current = start + diff * ease;
+      syncOffset();
       if (p < 1) {
         animRef.current = requestAnimationFrame(step);
       } else {
-        scrollFractionRef.current = 0;
-        syncScroll();
+        scrollOffsetRef.current = target;
+        syncOffset();
         animRef.current = null;
       }
     };
     animRef.current = requestAnimationFrame(step);
-  }, [total, syncScroll]);
+  }, [total, syncOffset]);
 
   // ─── Jump to a virtual index (for dot clicks) ───
   const goToVirtual = useCallback((targetIdx: number) => {
     if (total === 0) return;
     if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-    scrollCenterRef.current = targetIdx;
-    scrollFractionRef.current = 0;
-    syncScroll();
-  }, [total, syncScroll]);
+    scrollOffsetRef.current = -targetIdx * ITEM_HEIGHT;
+    syncOffset();
+  }, [total, syncOffset]);
 
   // ─── Inertia ───
   const startInertia = useCallback((velocity: number) => {
@@ -136,17 +128,11 @@ export default function MemoryShardsPage() {
         snapToCenter();
         return;
       }
-      let newFraction = scrollFractionRef.current + velocity;
-      let newCenter = scrollCenterRef.current;
-      // Keep fraction bounded to ±HALF_ITEM
-      while (newFraction > HALF_ITEM) { newFraction -= ITEM_HEIGHT; newCenter += 1; }
-      while (newFraction < -HALF_ITEM) { newFraction += ITEM_HEIGHT; newCenter -= 1; }
-      scrollFractionRef.current = newFraction;
-      scrollCenterRef.current = newCenter;
-      syncScroll();
+      scrollOffsetRef.current += velocity;
+      syncOffset();
       animRef.current = requestAnimationFrame(inertiaStep);
     });
-  }, [total, snapToCenter, syncScroll, HALF_ITEM]);
+  }, [total, snapToCenter, syncOffset]);
 
   // ─── Drag state ───
   const [isDragging, setIsDragging] = useState(false);
@@ -154,8 +140,7 @@ export default function MemoryShardsPage() {
   const dragStateRef = useRef({
     isDragging: false,
     startY: 0,
-    startFraction: 0,
-    startCenter: 0,
+    startOffset: 0,
     velocity: 0,
     lastY: 0,
     lastTime: 0,
@@ -175,8 +160,7 @@ export default function MemoryShardsPage() {
       const state = dragStateRef.current;
       state.isDragging = true;
       state.startY = e.clientY;
-      state.startFraction = scrollFractionRef.current;
-      state.startCenter = scrollCenterRef.current;
+      state.startOffset = scrollOffsetRef.current;
       state.velocity = 0;
       state.lastY = e.clientY;
       state.lastTime = performance.now();
@@ -193,17 +177,8 @@ export default function MemoryShardsPage() {
       if (!state.isDragging) return;
       e.preventDefault();
       const deltaY = e.clientY - state.startY;
-      let newFraction = state.startFraction + deltaY;
-      let newCenter = state.startCenter;
-
-      // Keep fraction bounded to ±HALF_ITEM, adjust center when it crosses threshold
-      const halfItem = ITEM_HEIGHT / 2;
-      while (newFraction > halfItem) { newFraction -= ITEM_HEIGHT; newCenter += 1; }
-      while (newFraction < -halfItem) { newFraction += ITEM_HEIGHT; newCenter -= 1; }
-
-      scrollFractionRef.current = newFraction;
-      scrollCenterRef.current = newCenter;
-      syncScroll();
+      scrollOffsetRef.current = state.startOffset + deltaY;
+      syncOffset();
 
       const now = performance.now();
       const dt = now - state.lastTime;
@@ -241,7 +216,7 @@ export default function MemoryShardsPage() {
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [total, syncScroll, startInertia]);
+  }, [total, syncOffset, startInertia]);
 
   // ─── Wheel scroll ───
   useEffect(() => {
@@ -249,14 +224,8 @@ export default function MemoryShardsPage() {
     if (!el || total === 0) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      let newFraction = scrollFractionRef.current - e.deltaY * 0.5;
-      let newCenter = scrollCenterRef.current;
-      const halfItem = ITEM_HEIGHT / 2;
-      while (newFraction > halfItem) { newFraction -= ITEM_HEIGHT; newCenter += 1; }
-      while (newFraction < -halfItem) { newFraction += ITEM_HEIGHT; newCenter -= 1; }
-      scrollFractionRef.current = newFraction;
-      scrollCenterRef.current = newCenter;
-      syncScroll();
+      scrollOffsetRef.current += e.deltaY * 0.5;
+      syncOffset();
       if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
       snapTimerRef.current = setTimeout(() => {
         snapToCenter();
@@ -267,7 +236,7 @@ export default function MemoryShardsPage() {
       el.removeEventListener('wheel', onWheel);
       if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
     };
-  }, [total, snapToCenter, syncScroll]);
+  }, [total, snapToCenter, syncOffset]);
 
   // ─── Arc position (left-centered wheel) ───
   const getSlotStyle = useCallback((rel: number) => {
@@ -276,18 +245,17 @@ export default function MemoryShardsPage() {
     const opacity = Math.max(0.08, 1 - distAbs * 0.20);
     const textOpacity = Math.max(0.08, 1 - distAbs * 0.24);
 
-    // X follows arc wheel (curved), Y is linear to match ITEM_HEIGHT for smooth cycling
+    // X follows arc wheel (curved), Y is computed from virtualIdx in visibleSlots
     const angle = rel * ANGLE_STEP;
     const x = WHEEL_CENTER_X + WHEEL_RADIUS * Math.cos(angle);
-    const y = rel * VERTICAL_STEP;
     const zIndex = 100 - Math.round(distAbs * 10);
 
     // Glow radius (for gooey circles behind cards)
     const glowR = 120 - Math.round(distAbs * 22);
 
     // 3D Cylindrical — non-linear: edge items tilt & recede much more
-    const tiltDeg = -rel * 5 * (1 + distAbs * 0.3); // ±6.5° at rel=1, ±16° at rel=2, ±28.5° at rel=3
-    const depthZ = -Math.pow(distAbs, 1.6) * 25;    // -25px at rel=1, -81px at rel=2, -172px at rel=3
+    const tiltDeg = -rel * 5 * (1 + distAbs * 0.3);
+    const depthZ = -Math.pow(distAbs, 1.6) * 25;
 
     // Dynamic avatar size: center=72px, edges=66px (gần như bằng nhau)
     const avatarSize = Math.round(72 - distAbs * 2);
@@ -295,7 +263,7 @@ export default function MemoryShardsPage() {
     // Emoji size: fill the avatar circle proportionally
     const emojiSize = Math.round(avatarSize * 0.6);
 
-    return { x, y, scale, opacity, zIndex, isActive: rel === 0, glowR, tiltDeg, depthZ, avatarSize, emojiSize, textOpacity };
+    return { x, scale, opacity, zIndex, isActive: rel === 0, glowR, tiltDeg, depthZ, avatarSize, emojiSize, textOpacity };
   }, []);
 
   const handlePlay = useCallback((e: React.MouseEvent, mem: MemoryWithEvent) => {
@@ -303,17 +271,19 @@ export default function MemoryShardsPage() {
     setDetailMemory(mem);
   }, []);
 
-  // ─── Build visible slots — centered on scrollCenter ───
+  // ─── Build visible slots — yPos from virtualIdx ensures smooth no-jump scroll ───
   const visibleSlots = useMemo(() => {
     if (total === 0) return [];
-    const slots: { rel: number; memory: MemoryWithEvent; virtualIdx: number }[] = [];
+    const centerVirtual = Math.floor(-scrollOffset / ITEM_HEIGHT);
+    const slots: { rel: number; memory: MemoryWithEvent; virtualIdx: number; yPos: number }[] = [];
     for (let rel = -HALF_VISIBLE; rel <= HALF_VISIBLE; rel++) {
-      const virtualIdx = scrollCenter + rel;
+      const virtualIdx = centerVirtual + rel;
+      const yPos = virtualIdx * ITEM_HEIGHT + scrollOffset;
       const actualIdx = ((virtualIdx % total) + total) % total;
-      slots.push({ rel, memory: memories[actualIdx], virtualIdx });
+      slots.push({ rel, memory: memories[actualIdx], virtualIdx, yPos });
     }
     return slots;
-  }, [memories, total, scrollCenter]);
+  }, [memories, total, scrollOffset]);
 
   const focusedMemory = useMemo(() => {
     if (total === 0 || visibleSlots.length === 0) return null;
@@ -433,7 +403,7 @@ export default function MemoryShardsPage() {
                 style={{
                   width: style.glowR * 2.2,
                   height: style.glowR * 2.2,
-                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${scrollFraction + style.y}px))`,
+                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${slot.yPos}px))`,
                   opacity: Math.max(0.06, 0.5 - Math.abs(slot.rel) * 0.09),
                   borderRadius: '50%',
                   background: `radial-gradient(circle, ${color} 0%, ${color}88 40%, transparent 70%)`,
@@ -459,7 +429,7 @@ export default function MemoryShardsPage() {
                   width: `clamp(250px, ${92 - Math.abs(slot.rel) * 2}%, 320px)`,
                   maxWidth: style.isActive ? 320 : 315,
                   zIndex: style.zIndex,
-                  transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${scrollFraction + style.y}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
+                  transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${slot.yPos}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
                   opacity: style.opacity,
                   transition: isDragging
                     ? 'none'
@@ -508,7 +478,7 @@ export default function MemoryShardsPage() {
                       zIndex: 2,
                       width: style.avatarSize,
                       height: style.avatarSize,
-                      background: `${color}22`,
+                      background: `${color}44`,
                       clipPath: 'circle(50%)',
                       transition: 'width 0.3s ease, height 0.3s ease',
                     }}
