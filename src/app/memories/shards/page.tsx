@@ -245,9 +245,11 @@ export default function MemoryShardsPage() {
     const opacity = Math.max(0.08, 1 - distAbs * 0.20);
     const textOpacity = Math.max(0.08, 1 - distAbs * 0.24);
 
-    // X follows arc wheel (curved), Y is computed from virtualIdx in visibleSlots
+    // X: arc wheel + rightward bias — non-active cards shift progressively right
     const angle = rel * ANGLE_STEP;
-    const x = WHEEL_CENTER_X + WHEEL_RADIUS * Math.cos(angle);
+    const arcX = WHEEL_CENTER_X + WHEEL_RADIUS * Math.cos(angle);
+    const rightBias = Math.pow(distAbs, 2) * 28;
+    const x = arcX + rightBias;
     const zIndex = 100 - Math.round(distAbs * 10);
 
     // Glow radius (for gooey circles behind cards)
