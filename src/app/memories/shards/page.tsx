@@ -47,11 +47,14 @@ function getDate(m: MemoryWithEvent): string {
   return m.EventDate || m.MemoryDate || m.CreatedDate;
 }
 
-const ITEM_HEIGHT = 90;
-const ARC_RADIUS_X = 28;
-const ARC_RADIUS_Y = 16;
+const ITEM_HEIGHT = 100;
 const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
+
+// ─── Left-centered wheel arc constants ───
+const WHEEL_CENTER_X = -60;   // wheel hub off-screen left
+const WHEEL_RADIUS = 300;      // large radius = gentle arc
+const ANGLE_STEP = Math.PI / 10; // 18° per item → smooth arc spacing
 
 export default function MemoryShardsPage() {
   const router = useRouter();
@@ -84,7 +87,7 @@ export default function MemoryShardsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []); // stable — only uses state setters and module-level imports
+  }, []);
 
   useEffect(() => { loadMemories(); }, [loadMemories]);
 
@@ -95,14 +98,14 @@ export default function MemoryShardsPage() {
     return -offsetRef.current / ITEM_HEIGHT;
   }, [total]);
 
-  // ─── Snap animation (only for non-drag positioning) ───
+  // ─── Snap animation ───
   const snapTo = useCallback((virtualTarget: number) => {
     if (total === 0) return;
     const targetOffset = -virtualTarget * ITEM_HEIGHT;
     const start = offsetRef.current;
     const diff = targetOffset - start;
     if (Math.abs(diff) < 1) return;
-    const dur = 350;
+    const dur = 400;
     const t0 = performance.now();
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const step = (t: number) => {
@@ -137,16 +140,9 @@ export default function MemoryShardsPage() {
     });
   }, [total, getCenterVirtual, snapTo, syncOffset]);
 
-  // ─── MANUAL DRAG via native pointer events ───
-  // framer-motion drag="y" doesn't work because the Hermes Desktop webview intercepts
-  // touch/pointer events for page panning BEFORE framer-motion can capture them.
-  // Solution: use native pointer events with preventDefault() to block webview
-  // interception, and setPointerCapture for reliable tracking.
-
-  // Track drag state for conditional CSS transition
+  // ─── Drag state ───
   const [isDragging, setIsDragging] = useState(false);
 
-  // Track drag state via refs for zero-lag access in event handlers
   const dragStateRef = useRef({
     isDragging: false,
     startY: 0,
@@ -156,19 +152,15 @@ export default function MemoryShardsPage() {
     lastTime: 0,
   });
 
+  // ─── Manual drag via native pointer events ───
   useEffect(() => {
     const el = containerRef.current;
     if (!el || total === 0) return;
 
     const onPointerDown = (e: PointerEvent) => {
-      // Don't intercept play button clicks
       if ((e.target as HTMLElement).closest('[data-play-btn]')) return;
-
-      // CRITICAL: prevent webview from using this touch for page panning/scroll
       e.preventDefault();
       e.stopPropagation();
-
-      // Capture all future pointer events on this element
       el.setPointerCapture(e.pointerId);
 
       const state = dragStateRef.current;
@@ -179,28 +171,21 @@ export default function MemoryShardsPage() {
       state.lastY = e.clientY;
       state.lastTime = performance.now();
 
-      // Cancel any ongoing snap/inertia animation
       if (animRef.current) {
         cancelAnimationFrame(animRef.current);
         animRef.current = null;
       }
-
-      // Enable instant response during drag (no CSS transition lag)
       setIsDragging(true);
     };
 
     const onPointerMove = (e: PointerEvent) => {
       const state = dragStateRef.current;
       if (!state.isDragging) return;
-
       e.preventDefault();
       const deltaY = e.clientY - state.startY;
-
-      // Update offset AND trigger React re-render so cards reposition along arc
       offsetRef.current = state.startOffset + deltaY;
       syncOffset();
 
-      // Track velocity for inertia
       const now = performance.now();
       const dt = now - state.lastTime;
       if (dt > 0) {
@@ -214,20 +199,16 @@ export default function MemoryShardsPage() {
       const state = dragStateRef.current;
       if (!state.isDragging) return;
       state.isDragging = false;
+      setIsDragging(false);
 
       const velocity = Math.abs(state.velocity) >= 0.5 ? state.velocity : 0;
       const currentOffset = offsetRef.current;
 
-      // Re-enable CSS transition for smooth snap/inertia animation
-      setIsDragging(false);
-
       if (Math.abs(velocity) >= 200) {
-        // FAST SWIPE → inertia
         startInertia(velocity * 0.3);
         return;
       }
 
-      // SLOW DRAG → snap to nearest item
       const centerVirtual = -currentOffset / ITEM_HEIGHT;
       const targetVirtual = Math.round(centerVirtual);
       snapTo(targetVirtual);
@@ -266,19 +247,25 @@ export default function MemoryShardsPage() {
     };
   }, [total, getCenterVirtual, snapTo, syncOffset]);
 
-  // ─── Arc position helper ───
+  // ─── Arc position (left-centered wheel) ───
   const getSlotStyle = useCallback((rel: number) => {
     const distAbs = Math.abs(rel);
-    const scale = Math.max(0.48, 1 - distAbs * 0.13);
-    const opacity = Math.max(0.25, 1 - distAbs * 0.15);
-    const angle = rel * (Math.PI / 4.5);
-    const x = Math.sin(angle) * ARC_RADIUS_X;
-    const y = rel * ITEM_HEIGHT - (1 - Math.cos(angle)) * ARC_RADIUS_Y;
+    const scale = Math.max(0.50, 1 - distAbs * 0.12);
+    const opacity = Math.max(0.18, 1 - distAbs * 0.14);
+
+    // Position along a wheel with center on the LEFT
+    const angle = rel * ANGLE_STEP;
+    const x = WHEEL_CENTER_X + WHEEL_RADIUS * Math.cos(angle);
+    const y = WHEEL_RADIUS * Math.sin(angle);
     const zIndex = 100 - Math.round(distAbs * 10);
-    return { x, y, scale, opacity, zIndex, isActive: rel === 0 };
+
+    // Glow radius (for gooey circles behind cards)
+    const glowR = 80 - Math.round(distAbs * 14);
+
+    return { x, y, scale, opacity, zIndex, isActive: rel === 0, glowR };
   }, []);
 
-  // ─── Build visible slots (virtual infinite loop) ───
+  // ─── Build visible slots ───
   const visibleSlots = useMemo(() => {
     if (total === 0) return [];
     const centerVirtual = getCenterVirtual();
@@ -313,47 +300,49 @@ export default function MemoryShardsPage() {
     setDetailMemory(mem);
   }, []);
 
-  // ─── Loading / Error / Empty ───
+  // ─── Loading ───
   if (isLoading) {
     return (
-      <div className="page-content min-h-dvh flex flex-col">
+      <div className="page-content min-h-dvh flex flex-col bg-[#0A0A0F]">
         <Header onBack={() => router.back()} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-10 h-10 border-2 border-[#8E8E93]/20 border-t-[#8E8E93] rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-[13px] text-[#8E8E93] font-medium">Đang tải ký ức...</p>
+            <div className="w-10 h-10 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-[13px] text-white/40 font-medium">Đang tải ký ức...</p>
           </div>
         </div>
       </div>
     );
   }
 
+  // ─── Error ───
   if (error) {
     return (
-      <div className="page-content min-h-dvh flex flex-col">
+      <div className="page-content min-h-dvh flex flex-col bg-[#0A0A0F]">
         <Header onBack={() => router.back()} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-[13px] text-[#E6002D] font-medium mb-3">{error}</p>
+            <p className="text-[13px] text-[#FF453A] font-medium mb-3">{error}</p>
             <button onClick={loadMemories}
-              className="px-5 py-2 rounded-[10px] text-[12px] font-semibold text-white bg-[#E6002D]">Thử lại</button>
+              className="px-5 py-2 rounded-[10px] text-[12px] font-semibold text-white bg-[#FF453A]">Thử lại</button>
           </div>
         </div>
       </div>
     );
   }
 
+  // ─── Empty ───
   if (total === 0) {
     return (
-      <div className="page-content min-h-dvh flex flex-col">
+      <div className="page-content min-h-dvh flex flex-col bg-[#0A0A0F]">
         <Header onBack={() => router.back()} onRefresh={loadMemories} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-[240px]">
-            <div className="w-[72px] h-[72px] rounded-full bg-[rgba(0,0,0,0.03)] mx-auto mb-4 flex items-center justify-center">
-              <Disc3 size={32} className="text-[rgba(0,0,0,0.15)]" />
+            <div className="w-[72px] h-[72px] rounded-full bg-white/5 mx-auto mb-4 flex items-center justify-center">
+              <Disc3 size={32} className="text-white/15" />
             </div>
-            <p className="text-[15px] font-semibold text-[#6B7280] mb-1">Chưa có mảnh ký ức</p>
-            <p className="text-[12px] text-[#8E8E93] leading-relaxed">Ký ức sẽ xuất hiện tại đây dưới dạng những mảnh ghép</p>
+            <p className="text-[15px] font-semibold text-white/50 mb-1">Chưa có mảnh ký ức</p>
+            <p className="text-[12px] text-white/30 leading-relaxed">Ký ức sẽ xuất hiện tại đây dưới dạng những mảnh ghép</p>
           </div>
         </div>
       </div>
@@ -361,120 +350,163 @@ export default function MemoryShardsPage() {
   }
 
   // ─── MAIN RENDER ───
-  // offset is the single source of truth for arc positions.
-  // During drag, offset changes on every pointermove → syncOffset() triggers
-  // React re-render → cards reposition individually along the arc.
   return (
-    <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none">
+    <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none bg-[#0A0A0F]">
+      {/* Gooey SVG filter — liquid stretch effect */}
+      <svg className="absolute w-0 h-0 pointer-events-none">
+        <defs>
+          <filter id="goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur" />
+            <feColorMatrix in="blur" mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="goo" />
+            <feBlend in="SourceGraphic" in2="goo" />
+          </filter>
+        </defs>
+      </svg>
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 px-1">
-        <div className="flex items-center gap-2">
+      <div className="relative z-10 flex items-center justify-between mb-2 px-4 pt-3 pb-2"
+        style={{ background: 'linear-gradient(180deg, rgba(10,10,15,0.98) 50%, transparent)' }}>
+        <div className="flex items-center gap-2.5">
           <button onClick={() => router.back()}
-            className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93] transition-colors">
+            className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-white/5 text-white/50 transition-colors">
             <ArrowLeft size={17} />
           </button>
           <div>
-            <h1 className="text-[20px] font-bold text-[#111] tracking-[-0.3px]">Mảnh Ký ức</h1>
-            <p className="text-[11px] text-[#8E8E93] mt-0.5">Vòng lặp vô tận · {total} ký ức</p>
+            <h1 className="text-[20px] font-bold text-white tracking-[-0.3px]">Mảnh Ký ức</h1>
+            <p className="text-[11px] text-white/30 mt-0.5">Vòng lặp vô tận · {total} ký ức</p>
           </div>
         </div>
         <button onClick={loadMemories}
-          className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93] transition-colors">
+          className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-white/5 text-white/50 transition-colors">
           <Sparkles size={15} />
         </button>
       </div>
 
-      {/* Drag Container — manual pointer events with preventDefault */}
+      {/* Drag Container */}
       <div
         ref={containerRef}
         className="flex-1 relative overflow-hidden touch-none select-none"
-        style={{
-          minHeight: 300,
-          overscrollBehavior: 'none',
-        }}
+        style={{ minHeight: 300, overscrollBehavior: 'none' }}
       >
-        {/* Center glow */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-          style={{
-            width: 240, height: 240, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(0,0,0,0.02) 0%, transparent 70%)',
-          }}
-        />
+        {/* Gooey layer — mood-colored circular glows that merge like liquid */}
+        <div className="absolute inset-0 pointer-events-none" style={{ filter: 'url(#goo)' }}>
+          {visibleSlots.map((slot) => {
+            const mem = slot.memory;
+            const style = getSlotStyle(slot.rel);
+            const color = moodColor(mem.MoodEmoji);
+            return (
+              <div
+                key={`glow-${mem.MemoryID}`}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                style={{
+                  width: style.glowR * 2,
+                  height: style.glowR * 2,
+                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px))`,
+                  opacity: slot.rel === 0 ? 0.45 : Math.max(0.1, 0.45 - Math.abs(slot.rel) * 0.08),
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle, ${color} 0%, ${color}88 40%, transparent 70%)`,
+                  willChange: 'transform, opacity',
+                }}
+              />
+            );
+          })}
+        </div>
 
-        {/* Cards — reposition individually along arc via offset */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* Cards */}
+        <div className="absolute inset-0">
           {visibleSlots.map((slot) => {
             const style = getSlotStyle(slot.rel);
             const mem = slot.memory;
+            const color = moodColor(mem.MoodEmoji);
             return (
               <div
                 key={mem.MemoryID}
-                className="absolute left-1/2"
+                className="absolute left-1/2 top-1/2"
                 style={{
-                  width: '85%', maxWidth: 320,
+                  width: '78%', maxWidth: 300,
                   zIndex: style.zIndex,
-                  transform: `translate(calc(-50% + ${style.x}px), calc(50% + ${offset + style.y}px)) scale(${style.scale})`,
+                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px)) scale(${style.scale})`,
                   opacity: style.opacity,
                   transition: isDragging
                     ? 'none'
-                    : 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease',
+                    : 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease',
                   willChange: 'transform, opacity',
                 }}
               >
+                {/* Card body — dark glass */}
                 <div
-                  className="w-full rounded-[20px] overflow-hidden"
+                  className="w-full rounded-[22px] overflow-hidden backdrop-blur-[8px]"
                   style={{
                     background: style.isActive
-                      ? 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)'
-                      : '#ffffff',
+                      ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
+                      : 'rgba(255,255,255,0.04)',
+                    border: style.isActive
+                      ? `1px solid ${color}44`
+                      : '1px solid rgba(255,255,255,0.06)',
                     boxShadow: style.isActive
-                      ? '0 12px 40px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02)'
-                      : '0 4px 16px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02), 0 0 0 1px rgba(0,0,0,0.02)',
+                      ? `0 0 40px ${color}22, 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)`
+                      : '0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
                   }}
                 >
-                  <div className="flex items-center gap-3 p-3.5">
+                  <div className="flex items-center gap-3 p-3">
+                    {/* Mood circle */}
                     <div
-                      className="w-[38px] h-[38px] rounded-[12px] flex items-center justify-center text-[18px] shrink-0"
+                      className="w-[40px] h-[40px] rounded-[14px] flex items-center justify-center text-[20px] shrink-0"
                       style={{
                         background: style.isActive
                           ? getGradient(mem.MoodEmoji)
-                          : `${moodColor(mem.MoodEmoji)}15`,
+                          : `${color}18`,
+                        boxShadow: style.isActive
+                          ? `0 0 20px ${color}44`
+                          : 'none',
                       }}
                     >
                       {mem.MoodEmoji || '🧠'}
                     </div>
+
+                    {/* Text */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         {style.isActive && (
                           <span className="w-[6px] h-[6px] rounded-full shrink-0"
-                            style={{ background: moodColor(mem.MoodEmoji) }} />
+                            style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
                         )}
-                        <span className="text-[12px] font-semibold text-[#111] truncate">{mem.Title}</span>
+                        <span className="text-[12px] font-semibold text-white/90 truncate tracking-[-0.2px]">
+                          {mem.Title}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-[#8E8E93] font-medium">{relativeTime(getDate(mem))}</span>
+                        <span className="text-[9px] text-white/40 font-medium">
+                          {relativeTime(getDate(mem))}
+                        </span>
                         {mem.EventTitle && (
                           <>
-                            <span className="text-[#8E8E93] text-[8px]">·</span>
-                            <span className="text-[9px] text-[#5856D6] font-medium truncate max-w-[100px]">{mem.EventTitle}</span>
+                            <span className="text-white/20 text-[8px]">·</span>
+                            <span className="text-[9px] font-medium truncate max-w-[100px]"
+                              style={{ color: `${color}aa` }}>{mem.EventTitle}</span>
                           </>
                         )}
                       </div>
                     </div>
+
+                    {/* Play button */}
                     <button
                       data-play-btn
                       onClick={(e) => handlePlay(e, mem)}
-                      className="shrink-0 w-[34px] h-[34px] rounded-[12px] flex items-center justify-center transition-all duration-200"
+                      className="shrink-0 w-[36px] h-[36px] rounded-[12px] flex items-center justify-center transition-all duration-300"
                       style={{
                         background: style.isActive
-                          ? `linear-gradient(135deg, ${moodColor(mem.MoodEmoji)}, ${moodColor(mem.MoodEmoji)}cc)`
-                          : 'rgba(0,0,0,0.04)',
+                          ? `linear-gradient(135deg, ${color}, ${color}bb)`
+                          : 'rgba(255,255,255,0.04)',
                         opacity: style.isActive ? 1 : 0,
-                        transform: style.isActive ? 'scale(1)' : 'scale(0.8)',
-                        boxShadow: style.isActive ? '0 4px 12px rgba(0,0,0,0.12)' : 'none',
+                        transform: style.isActive ? 'scale(1)' : 'scale(0.7)',
+                        boxShadow: style.isActive
+                          ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
+                          : 'none',
                       }}
                     >
-                      <Play size={14} className={style.isActive ? 'text-white' : 'text-[#8E8E93]'}
+                      <Play size={15} className={style.isActive ? 'text-white' : 'text-white/30'}
                         fill={style.isActive ? 'white' : 'transparent'} />
                     </button>
                   </div>
@@ -486,17 +518,20 @@ export default function MemoryShardsPage() {
       </div>
 
       {/* Page dots */}
-      <div className="flex items-center justify-center gap-1.5 py-3">
+      <div className="relative z-10 flex items-center justify-center gap-1.5 py-3 pb-4">
         {dotSlots.map((dot) => {
           const isActive = dot.rel === 0;
+          const color = moodColor(dot.memory.MoodEmoji);
           return (
             <button key={dot.rel} onClick={() => {
               if (focusedMemory) snapTo(focusedMemory.virtualIdx + dot.rel);
             }}
-              className="rounded-full transition-all duration-200"
+              className="rounded-full transition-all duration-300"
               style={{
-                width: isActive ? 22 : 6, height: 6,
-                background: isActive ? moodColor(dot.memory.MoodEmoji) : 'rgba(0,0,0,0.1)',
+                width: isActive ? 24 : 5,
+                height: isActive ? 6 : 5,
+                background: isActive ? color : 'rgba(255,255,255,0.12)',
+                boxShadow: isActive ? `0 0 8px ${color}66` : 'none',
               }}
             />
           );
@@ -511,23 +546,23 @@ export default function MemoryShardsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[200] flex items-end justify-center bg-black/20 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 backdrop-blur-[8px]"
             onClick={() => setDetailMemory(null)}
           >
             <motion.div
               initial={{ translateY: '100%' }}
               animate={{ translateY: '0%' }}
               exit={{ translateY: '100%' }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-[480px] bg-white rounded-t-[28px] overflow-hidden"
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-[480px] bg-[#1C1C1E] rounded-t-[28px] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
-              style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.08), 0 -2px 8px rgba(0,0,0,0.04)', maxHeight: '85vh' }}
+              style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.4), 0 -2px 8px rgba(0,0,0,0.2)', maxHeight: '85vh' }}
             >
-              <div className="w-[36px] h-[4px] bg-[rgba(0,0,0,0.1)] rounded-full mx-auto mt-3 mb-2" />
+              <div className="w-[36px] h-[4px] bg-white/10 rounded-full mx-auto mt-3 mb-2" />
               <div className="flex items-center justify-between px-4">
-                <span className="text-[9px] font-bold text-[#8E8E93] uppercase tracking-[1px]">CHI TIẾT KÝ ỨC</span>
+                <span className="text-[9px] font-bold text-white/30 uppercase tracking-[1.2px]">CHI TIẾT KÝ ỨC</span>
                 <button onClick={() => setDetailMemory(null)}
-                  className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]">
+                  className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center hover:bg-white/5 text-white/40">
                   <X size={16} />
                 </button>
               </div>
@@ -535,42 +570,47 @@ export default function MemoryShardsPage() {
                 <div className="flex items-start gap-3.5 mb-4">
                   <div className="w-[52px] h-[52px] rounded-[16px] flex items-center justify-center text-[24px] shrink-0"
                     style={{
-                      background: `${moodColor(detailMemory.MoodEmoji)}15`,
-                      border: `1px solid ${moodColor(detailMemory.MoodEmoji)}25`,
+                      background: `${moodColor(detailMemory.MoodEmoji)}18`,
+                      border: `1px solid ${moodColor(detailMemory.MoodEmoji)}35`,
                     }}
                   >
                     {detailMemory.MoodEmoji || '🧠'}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold tracking-[1.2px] uppercase"
+                    <div className="text-[10px] font-bold tracking-[1.2px] uppercase text-white/40"
                       style={{ color: moodColor(detailMemory.MoodEmoji) }}>
                       {relativeTime(getDate(detailMemory))}
                     </div>
-                    <h2 className="text-[20px] font-extrabold text-[#111] mt-0.5 tracking-[-0.3px] leading-tight">
+                    <h2 className="text-[20px] font-extrabold text-white mt-0.5 tracking-[-0.3px] leading-tight">
                       {detailMemory.Title}
                     </h2>
                   </div>
                 </div>
                 {detailMemory.Content && (
-                  <div className="text-[13px] text-[#5F6368] leading-relaxed mb-4 whitespace-pre-wrap bg-[rgba(0,0,0,0.02)] rounded-[14px] p-3.5">
+                  <div className="text-[13px] text-white/60 leading-relaxed mb-4 whitespace-pre-wrap bg-white/5 rounded-[14px] p-3.5"
+                    style={{ border: '1px solid rgba(255,255,255,0.04)' }}>
                     {detailMemory.Content}
                   </div>
                 )}
                 {detailMemory.Image && (
-                  <div className="mb-4 rounded-[14px] overflow-hidden bg-[rgba(0,0,0,0.02)]">
+                  <div className="mb-4 rounded-[14px] overflow-hidden bg-white/5"
+                    style={{ border: '1px solid rgba(255,255,255,0.04)' }}>
                     <img src={detailMemory.Image} alt="" className="w-full h-[180px] object-cover" style={{ borderRadius: 14 }} />
                   </div>
                 )}
                 {detailMemory.EventTitle && (
-                  <div className="flex items-center gap-2 mb-4 p-3 rounded-[12px] bg-[rgba(88,86,214,0.06)]"
-                    style={{ border: '1px solid rgba(88,86,214,0.08)' }}>
-                    <LinkIcon size={13} className="text-[#5856D6] shrink-0" />
-                    <span className="text-[12px] text-[#5856D6] font-medium line-clamp-1">🔗 {detailMemory.EventTitle}</span>
+                  <div className="flex items-center gap-2 mb-4 p-3 rounded-[12px]"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                    }}>
+                    <LinkIcon size={13} className="text-white/40 shrink-0" />
+                    <span className="text-[12px] text-white/50 font-medium line-clamp-1">🔗 {detailMemory.EventTitle}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-1.5 pt-3 border-t border-[rgba(0,0,0,0.04)]">
-                  <Calendar size={13} className="text-[#8E8E93] shrink-0" />
-                  <span className="text-[11px] text-[#8E8E93] font-medium">
+                <div className="flex items-center gap-1.5 pt-3 border-t border-white/5">
+                  <Calendar size={13} className="text-white/30 shrink-0" />
+                  <span className="text-[11px] text-white/40 font-medium">
                     {new Date(getDate(detailMemory)).toLocaleDateString('vi-VN', {
                       day: '2-digit', month: '2-digit', year: 'numeric',
                     })}
@@ -587,18 +627,18 @@ export default function MemoryShardsPage() {
 
 function Header({ onBack, onRefresh }: { onBack: () => void; onRefresh: () => void }) {
   return (
-    <div className="flex items-center justify-between mb-3 px-1">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between mb-3 px-4 pt-3">
+      <div className="flex items-center gap-2.5">
         <button onClick={onBack}
-          className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93] transition-colors">
+          className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-white/5 text-white/50 transition-colors">
           <ArrowLeft size={17} />
         </button>
         <div>
-          <h1 className="text-[20px] font-bold text-[#111] tracking-[-0.3px]">Mảnh Ký ức</h1>
+          <h1 className="text-[20px] font-bold text-white tracking-[-0.3px]">Mảnh Ký ức</h1>
         </div>
       </div>
       <button onClick={onRefresh}
-        className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93] transition-colors">
+        className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-white/5 text-white/50 transition-colors">
         <Sparkles size={15} />
       </button>
     </div>
