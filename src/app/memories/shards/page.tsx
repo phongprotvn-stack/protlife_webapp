@@ -40,9 +40,9 @@ const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
 // ─── Left-centered wheel arc constants ───
-const WHEEL_RADIUS = 330;        // larger radius → items spread vertically to fill content
-const WHEEL_CENTER_X = -280;     // rel=0 → x=0 → active card centered (equal margins)
-const ANGLE_STEP = Math.PI / 10; // 18° per item → wider arc, less overlap
+const WHEEL_RADIUS = 360;        // spread 7 cards to nearly fill content vertically
+const WHEEL_CENTER_X = -360;     // rel=0 → x=0 → active card centered
+const ANGLE_STEP = Math.PI / 10; // 18° per item
 
 export default function MemoryShardsPage() {
   const router = useRouter();
@@ -255,8 +255,8 @@ export default function MemoryShardsPage() {
     const tiltDeg = -rel * 5 * (1 + distAbs * 0.3); // ±6.5° at rel=1, ±16° at rel=2, ±28.5° at rel=3
     const depthZ = -Math.pow(distAbs, 1.6) * 25;    // -25px at rel=1, -81px at rel=2, -172px at rel=3
 
-    // Dynamic avatar size: center=74px, edges=62px
-    const avatarSize = Math.round(74 - distAbs * 4);
+    // Dynamic avatar size: center=72px, edges=66px (gần như bằng nhau)
+    const avatarSize = Math.round(72 - distAbs * 2);
 
     // Emoji size: fill the avatar circle proportionally
     const emojiSize = Math.round(avatarSize * 0.6);
@@ -423,8 +423,8 @@ export default function MemoryShardsPage() {
                 key={slot.virtualIdx}
                 className="absolute left-1/2 top-1/2"
                 style={{
-                  width: `clamp(210px, ${88 - Math.abs(slot.rel) * 6}%, 320px)`,
-                  maxWidth: style.isActive ? 320 : 300,
+                  width: `clamp(250px, ${92 - Math.abs(slot.rel) * 2}%, 320px)`,
+                  maxWidth: style.isActive ? 320 : 315,
                   zIndex: style.zIndex,
                   transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
                   opacity: style.opacity,
@@ -435,18 +435,16 @@ export default function MemoryShardsPage() {
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
-                {/* Card body — pill-shaped, large circular avatar */}
+                {/* Card body — pill-shaped, no border */}
                   <div
                     className="w-full rounded-[22px] backdrop-blur-[8px] overflow-hidden"
                     style={{
                       background: style.isActive
                         ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
                         : 'rgba(255,255,255,0.035)',
-                      border: style.isActive
-                        ? `1.5px solid ${color}55`
-                        : 'none',
+                      border: 'none',
                       boxShadow: style.isActive
-                        ? `0 0 50px ${color}22, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.10)`
+                        ? `0 0 60px ${color}33, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)`
                         : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
                     }}
                   >
