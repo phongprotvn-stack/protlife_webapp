@@ -456,8 +456,8 @@ export default function MemoryShardsPage() {
                 key={mem.MemoryID}
                 className="absolute left-1/2 top-1/2"
                 style={{
-                  width: `clamp(250px, ${92 - Math.abs(slot.rel) * 2}%, 320px)`,
-                  maxWidth: style.isActive ? 320 : 315,
+                  width: `calc(${style.avatarSize}px * 1.8)`,
+                  maxWidth: `calc(${style.avatarSize}px * 1.8)`,
                   zIndex: style.zIndex,
                   transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${scrollFraction + style.y}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
                   opacity: style.opacity,
@@ -468,10 +468,31 @@ export default function MemoryShardsPage() {
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
-                {/* Card body — pill-shaped */}
+                {/* Card: avatar forms left edge, body has right rounding only */}
+                <div className="flex items-center w-full">
+                  {/* Avatar circle — acts as left boundary, prominent */}
                   <div
-                    className="w-full rounded-[22px] overflow-hidden"
+                    className="rounded-full flex items-center justify-center shrink-0 relative z-10 transition-[width,height] duration-300"
                     style={{
+                      width: style.avatarSize,
+                      height: style.avatarSize,
+                      minWidth: style.avatarSize,
+                      background: `${color}22`,
+                    }}
+                  >
+                    <span
+                      className="leading-none select-none transition-[font-size] duration-300"
+                      style={{ fontSize: style.emojiSize }}
+                    >
+                      {mem.MoodEmoji || '🧠'}
+                    </span>
+                  </div>
+
+                  {/* Body — no left border/rounding, rounded right only, attaches to avatar */}
+                  <div
+                    className="flex-1 min-w-0 h-full flex items-center"
+                    style={{
+                      borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
                       background: showFull
                         ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
                         : 'transparent',
@@ -480,6 +501,7 @@ export default function MemoryShardsPage() {
                       border: showFull
                         ? `1.5px solid ${color}55`
                         : 'none',
+                      borderLeft: 'none',
                       boxShadow: showFull
                         ? `0 0 60px ${color}33, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)`
                         : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
@@ -488,55 +510,41 @@ export default function MemoryShardsPage() {
                         : 'background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease',
                     }}
                   >
-                    <div className="flex items-center gap-[10px] p-[10px]">
-                      {/* Large circular avatar — dynamic size, bigger emoji */}
-                      <div
-                        className="rounded-full flex items-center justify-center shrink-0 overflow-hidden transition-[width,height] duration-300"
-                        style={{
-                          width: style.avatarSize,
-                          height: style.avatarSize,
-                          background: `${color}22`,
-                        }}
-                      >
-                        <span
-                          className="leading-none select-none transition-[font-size] duration-300"
-                          style={{ fontSize: style.emojiSize }}
-                        >
-                          {mem.MoodEmoji || '🧠'}
-                        </span>
+                    {/* Text content inside body */}
+                    <div className="flex-1 min-w-0 px-[8px] py-[6px]" style={{ opacity: style.textOpacity }}>
+                      <div className="text-[13px] font-bold text-white/90 leading-tight mb-[2px] line-clamp-2">
+                        {mem.Title}
                       </div>
-
-                      {/* Text: only Title + relativeTime — fades with distance */}
-                      <div className="flex-1 min-w-0 py-1" style={{ opacity: style.textOpacity }}>
-                        <div className="text-[14px] font-bold text-white/90 leading-tight mb-[3px] line-clamp-2">
-                          {mem.Title}
-                        </div>
-                        <div className="text-[11px] text-white/40 font-medium">
-                          {relativeTime(getDate(mem))}
-                        </div>
+                      <div className="text-[10px] text-white/40 font-medium whitespace-nowrap">
+                        {relativeTime(getDate(mem))}
                       </div>
-
-                      {/* Play button — only at rest + center */}
-                      <button
-                        data-play-btn
-                        onClick={(e) => handlePlay(e, mem)}
-                        className="shrink-0 w-[36px] h-[36px] rounded-[12px] flex items-center justify-center transition-all duration-300"
-                        style={{
-                          background: showFull
-                            ? `linear-gradient(135deg, ${color}, ${color}bb)`
-                            : 'rgba(255,255,255,0.04)',
-                          opacity: showFull ? 1 : 0,
-                          transform: showFull ? 'scale(1)' : 'scale(0.7)',
-                          boxShadow: showFull
-                            ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
-                            : 'none',
-                        }}
-                      >
-                        <Play size={15} className={showFull ? 'text-white' : 'text-white/30'}
-                          fill={showFull ? 'white' : 'transparent'} />
-                      </button>
                     </div>
+
+                    {/* Play button — only at rest + center */}
+                    <button
+                      data-play-btn
+                      onClick={(e) => handlePlay(e, mem)}
+                      className="shrink-0 flex items-center justify-center mr-[6px] transition-all duration-300"
+                      style={{
+                        width: showFull ? 28 : 0,
+                        height: showFull ? 28 : 0,
+                        borderRadius: '50%',
+                        background: showFull
+                          ? `linear-gradient(135deg, ${color}, ${color}bb)`
+                          : 'transparent',
+                        opacity: showFull ? 1 : 0,
+                        transform: showFull ? 'scale(1)' : 'scale(0)',
+                        boxShadow: showFull
+                          ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
+                          : 'none',
+                        cursor: 'pointer',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Play size={14} fill={showFull ? '#fff' : 'transparent'} color={showFull ? '#fff' : 'transparent'} />
+                    </button>
                   </div>
+                </div>
               </div>
             );
           })}
