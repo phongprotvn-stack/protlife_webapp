@@ -65,10 +65,8 @@ export default function MemoryShardsPage() {
   const offsetRef = useRef(0);
   const syncOffset = useCallback(() => setOffset(offsetRef.current), []);
 
-  // framer-motion drag transform — this alone handles ALL movement during drag
+  // framer-motion drag transform for visual output (set manually via pointer events)
   const dragY = useMotionValue(0);
-  const dragBlockedRef = useRef(false);
-  const dragStartOffsetRef = useRef(0);
   const animRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,71 +140,132 @@ export default function MemoryShardsPage() {
     });
   }, [total, getCenterVirtual, snapTo, syncOffset]);
 
-  // ─── FRAMER-MOTION DRAG callbacks ───
-  // The key insight: framer-motion DRAG handles ALL pointer/touch events internally.
-  // We only read info.offset to update our virtual position.
+  // ─── MANUAL DRAG via native pointer events ───
+  // framer-motion drag="y" doesn't work because the Hermes Desktop webview intercepts
+  // touch/pointer events for page panning BEFORE framer-motion can capture them.
+  // Solution: use native pointer events with preventDefault() to block webview
+  // interception, and setPointerCapture for reliable tracking.
 
-  const handleDragStart = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
-    if ((event.target as HTMLElement).closest('[data-play-btn]')) {
-      dragBlockedRef.current = true;
-      return;
-    }
-    dragBlockedRef.current = false;
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-    dragStartOffsetRef.current = offsetRef.current;
-  }, []);
+  // Track drag state via refs for zero-lag access in event handlers
+  const dragStateRef = useRef({
+    isDragging: false,
+    startY: 0,
+    startOffset: 0,
+    velocity: 0,
+    lastY: 0,
+    lastTime: 0,
+  });
 
-  const handleDrag = useCallback((_: any, info: { offset: { y: number } }) => {
-    if (dragBlockedRef.current) return;
-    // Update ref for virtual center calculation; offset state stays frozen during drag
-    offsetRef.current = dragStartOffsetRef.current + info.offset.y;
-  }, []);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || total === 0) return;
 
-  const handleDragEnd = useCallback((_: any, info: { offset: { y: number }; velocity: { y: number } }) => {
-    if (dragBlockedRef.current) {
-      dragBlockedRef.current = false;
-      return;
-    }
+    const onPointerDown = (e: PointerEvent) => {
+      // Don't intercept play button clicks
+      if ((e.target as HTMLElement).closest('[data-play-btn]')) return;
 
-    const velocity = -info.velocity.y;   // positive = swipe down
-    const finalDragOffset = info.offset.y; // how far dragged
+      // CRITICAL: prevent webview from using this touch for page panning/scroll
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (Math.abs(velocity) >= 200) {
-      // FAST SWIPE → inertia
-      dragY.set(0); // reset container transform instantly
-      offsetRef.current = dragStartOffsetRef.current + finalDragOffset;
-      syncOffset();
-      startInertia(velocity * 0.3);
-      return;
-    }
+      // Capture all future pointer events on this element
+      el.setPointerCapture(e.pointerId);
 
-    // SLOW DRAG → animate both dragY and offset simultaneously so cards stay in place
-    const startDragY = finalDragOffset;
-    const startOffset = dragStartOffsetRef.current;
-    const totalMovement = finalDragOffset; // = startOffset + totalMovement
+      const state = dragStateRef.current;
+      state.isDragging = true;
+      state.startY = e.clientY;
+      state.startOffset = offsetRef.current;
+      state.velocity = 0;
+      state.lastY = e.clientY;
+      state.lastTime = performance.now();
 
-    const dur = 300;
-    const t0 = performance.now();
-    if (animRef.current) cancelAnimationFrame(animRef.current);
-    const step = (t: number) => {
-      const p = Math.min(1, (t - t0) / dur);
-      const ease = 1 - Math.pow(1 - p, 3);
-      // dragY goes from startDragY → 0
-      dragY.set(startDragY * (1 - ease));
-      // offset goes from startOffset → startOffset + totalMovement
-      offsetRef.current = startOffset + totalMovement * ease;
-      syncOffset();
-      if (p < 1) {
-        animRef.current = requestAnimationFrame(step);
-      } else {
-        dragY.set(0);
-        offsetRef.current = startOffset + totalMovement;
-        syncOffset();
+      // Cancel any ongoing snap/inertia animation
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
         animRef.current = null;
       }
     };
-    animRef.current = requestAnimationFrame(step);
-  }, [dragY, syncOffset, startInertia]);
+
+    const onPointerMove = (e: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state.isDragging) return;
+
+      e.preventDefault();
+      const deltaY = e.clientY - state.startY;
+
+      // Update position refs (state is frozen, no React re-render here)
+      offsetRef.current = state.startOffset + deltaY;
+      dragY.set(deltaY);
+
+      // Track velocity for inertia
+      const now = performance.now();
+      const dt = now - state.lastTime;
+      if (dt > 0) {
+        state.velocity = ((e.clientY - state.lastY) / dt) * 16.67;
+      }
+      state.lastY = e.clientY;
+      state.lastTime = now;
+    };
+
+    const onPointerUp = (_e: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state.isDragging) return;
+      state.isDragging = false;
+
+      const velocity = Math.abs(state.velocity) >= 0.5 ? state.velocity : 0;
+      const finalDragY = dragY.get(); // px of drag displacement
+      const currentOffset = offsetRef.current; // startOffset + finalDragY
+
+      if (Math.abs(velocity) >= 200) {
+        // FAST SWIPE → inertia. Transfer dragY into offset so visual stays constant.
+        dragY.set(0);
+        offsetRef.current = currentOffset + finalDragY;
+        syncOffset();
+        startInertia(velocity * 0.3);
+        return;
+      }
+
+      // SLOW DRAG → snap to nearest item.
+      // Animate dragY→0 and offset→target simultaneously so cards don't jump.
+      const centerVirtual = -currentOffset / ITEM_HEIGHT;
+      const targetVirtual = Math.round(centerVirtual);
+      const targetOffset = -targetVirtual * ITEM_HEIGHT;
+      const offsetStart = currentOffset;
+      const offsetDiff = targetOffset - offsetStart;
+
+      const dur = 300;
+      const t0 = performance.now();
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      const step = (t: number) => {
+        const p = Math.min(1, (t - t0) / dur);
+        const ease = 1 - Math.pow(1 - p, 3);
+        dragY.set(finalDragY * (1 - ease));
+        offsetRef.current = offsetStart + offsetDiff * ease;
+        syncOffset();
+        if (p < 1) {
+          animRef.current = requestAnimationFrame(step);
+        } else {
+          dragY.set(0);
+          offsetRef.current = targetOffset;
+          syncOffset();
+          animRef.current = null;
+        }
+      };
+      animRef.current = requestAnimationFrame(step);
+    };
+
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', onPointerUp);
+    el.addEventListener('pointercancel', onPointerUp);
+
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', onPointerUp);
+      el.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [total, dragY, syncOffset, startInertia]);
 
   // ─── Wheel scroll ───
   useEffect(() => {
@@ -346,22 +405,14 @@ export default function MemoryShardsPage() {
         </button>
       </div>
 
-      {/* Drag Container — framer-motion handles ALL touch/pointer/mouse events */}
-      <motion.div
+      {/* Drag Container — manual pointer events with preventDefault */}
+      <div
         ref={containerRef}
-        className="flex-1 relative overflow-hidden"
+        className="flex-1 relative overflow-hidden touch-none select-none"
         style={{
           minHeight: 300,
-          y: dragY,                    // ← critical: framer-motion writes drag offset here
-          touchAction: 'none',
-          userSelect: 'none',
+          overscrollBehavior: 'none',
         }}
-        drag="y"
-        dragConstraints={false}
-        dragMomentum={false}
-        onDragStart={handleDragStart}
-        onDrag={handleDrag}
-        onDragEnd={handleDragEnd}
       >
         {/* Center glow */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -371,8 +422,8 @@ export default function MemoryShardsPage() {
           }}
         />
 
-        {/* Cards */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* Cards — wrapped in motion.div for dragY visual transform */}
+        <motion.div className="absolute inset-0 flex items-center justify-center" style={{ y: dragY }}>
           {visibleSlots.map((slot) => {
             const style = getSlotStyle(slot.rel);
             const mem = slot.memory;
@@ -449,8 +500,8 @@ export default function MemoryShardsPage() {
               </div>
             );
           })}
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* Page dots */}
       <div className="flex items-center justify-center gap-1.5 py-3">
