@@ -52,9 +52,9 @@ const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
 // ─── Left-centered wheel arc constants ───
-const WHEEL_CENTER_X = -60;   // wheel hub off-screen left
-const WHEEL_RADIUS = 300;      // large radius = gentle arc
-const ANGLE_STEP = Math.PI / 10; // 18° per item → smooth arc spacing
+const WHEEL_RADIUS = 260;        // arc radius
+const WHEEL_CENTER_X = -260;     // so rel=0 maps to x=0 → centered on container
+const ANGLE_STEP = Math.PI / 12; // 15° per item → gentle visible arc
 
 export default function MemoryShardsPage() {
   const router = useRouter();
@@ -424,7 +424,8 @@ export default function MemoryShardsPage() {
                 key={mem.MemoryID}
                 className="absolute left-1/2 top-1/2"
                 style={{
-                  width: '78%', maxWidth: 300,
+                  width: `clamp(200px, ${78 - Math.abs(slot.rel) * 4}%, 280px)`,
+                  maxWidth: style.isActive ? 300 : 260,
                   zIndex: style.zIndex,
                   transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${offset + style.y}px)) scale(${style.scale})`,
                   opacity: style.opacity,
