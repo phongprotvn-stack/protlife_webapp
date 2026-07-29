@@ -143,6 +143,9 @@ export default function MemoryShardsPage() {
   // Solution: use native pointer events with preventDefault() to block webview
   // interception, and setPointerCapture for reliable tracking.
 
+  // Track drag state for conditional CSS transition
+  const [isDragging, setIsDragging] = useState(false);
+
   // Track drag state via refs for zero-lag access in event handlers
   const dragStateRef = useRef({
     isDragging: false,
@@ -181,6 +184,9 @@ export default function MemoryShardsPage() {
         cancelAnimationFrame(animRef.current);
         animRef.current = null;
       }
+
+      // Enable instant response during drag (no CSS transition lag)
+      setIsDragging(true);
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -211,6 +217,9 @@ export default function MemoryShardsPage() {
 
       const velocity = Math.abs(state.velocity) >= 0.5 ? state.velocity : 0;
       const currentOffset = offsetRef.current;
+
+      // Re-enable CSS transition for smooth snap/inertia animation
+      setIsDragging(false);
 
       if (Math.abs(velocity) >= 200) {
         // FAST SWIPE → inertia
@@ -281,7 +290,7 @@ export default function MemoryShardsPage() {
       slots.push({ rel, memory: memories[actualIdx], virtualIdx });
     }
     return slots;
-  }, [memories, total, getCenterVirtual]);
+  }, [memories, total, getCenterVirtual, offset]);
 
   const focusedMemory = useMemo(() => {
     if (total === 0 || visibleSlots.length === 0) return null;
@@ -399,14 +408,17 @@ export default function MemoryShardsPage() {
             const mem = slot.memory;
             return (
               <div
-                key={`${slot.virtualIdx}-${mem.MemoryID}`}
+                key={mem.MemoryID}
                 className="absolute left-1/2"
                 style={{
                   width: '85%', maxWidth: 320,
                   zIndex: style.zIndex,
                   transform: `translate(calc(-50% + ${style.x}px), calc(50% + ${offset + style.y}px)) scale(${style.scale})`,
                   opacity: style.opacity,
-                  transition: 'transform 0.15s ease, opacity 0.15s ease',
+                  transition: isDragging
+                    ? 'none'
+                    : 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease',
+                  willChange: 'transform, opacity',
                 }}
               >
                 <div
