@@ -35,12 +35,13 @@ function getDate(m: MemoryWithEvent): string {
   return m.EventDate || m.MemoryDate || m.CreatedDate;
 }
 
-const ITEM_HEIGHT = 110;
+// ─── Vertical & Arc constants ───
+const ITEM_HEIGHT = 100;         // scroll distance per slot (= Y spacing)
+const VERTICAL_STEP = 100;       // linear Y gap between items (matches ITEM_HEIGHT for smooth cycling)
 const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
-// ─── Left-centered wheel arc constants ───
-const WHEEL_RADIUS = 360;        // spread 7 cards to nearly fill content vertically
+const WHEEL_RADIUS = 360;        // arc radius for X curvature
 const WHEEL_CENTER_X = -360;     // rel=0 → x=0 → active card centered
 const ANGLE_STEP = Math.PI / 10; // 18° per item
 
@@ -242,10 +243,10 @@ export default function MemoryShardsPage() {
     const opacity = Math.max(0.08, 1 - distAbs * 0.20);
     const textOpacity = Math.max(0.08, 1 - distAbs * 0.24);
 
-    // Position along a wheel with center on the LEFT
+    // X follows arc wheel (curved), Y is linear to match ITEM_HEIGHT for smooth cycling
     const angle = rel * ANGLE_STEP;
     const x = WHEEL_CENTER_X + WHEEL_RADIUS * Math.cos(angle);
-    const y = WHEEL_RADIUS * Math.sin(angle);
+    const y = rel * VERTICAL_STEP;
     const zIndex = 100 - Math.round(distAbs * 10);
 
     // Glow radius (for gooey circles behind cards)
@@ -396,7 +397,7 @@ export default function MemoryShardsPage() {
             const color = moodColor(mem.MoodEmoji);
             return (
               <div
-                key={`glow-${slot.virtualIdx}`}
+                key={`glow-${mem.MemoryID}`}
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                 style={{
                   width: style.glowR * 2.2,
@@ -421,7 +422,7 @@ export default function MemoryShardsPage() {
             const showFull = !isDragging && style.isActive; // full styling only at rest + center
             return (
               <div
-                key={slot.virtualIdx}
+                key={mem.MemoryID}
                 className="absolute left-1/2 top-1/2"
                 style={{
                   width: `clamp(250px, ${92 - Math.abs(slot.rel) * 2}%, 320px)`,
