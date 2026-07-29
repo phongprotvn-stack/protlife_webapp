@@ -456,8 +456,8 @@ export default function MemoryShardsPage() {
                 key={mem.MemoryID}
                 className="absolute left-1/2 top-1/2"
                 style={{
-                  width: `calc(${style.avatarSize}px * 1.8)`,
-                  maxWidth: `calc(${style.avatarSize}px * 1.8)`,
+                  width: `clamp(250px, ${92 - Math.abs(slot.rel) * 2}%, 320px)`,
+                  maxWidth: style.isActive ? 320 : 315,
                   zIndex: style.zIndex,
                   transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${scrollFraction + style.y}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
                   opacity: style.opacity,
