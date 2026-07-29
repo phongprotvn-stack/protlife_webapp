@@ -468,9 +468,8 @@ export default function MemoryShardsPage() {
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
-                {/* Card: avatar + compact body (body width < avatar diameter) */}
-                <div style={{ padding: '10px 0' }}>
-                  <div className="flex items-center w-full gap-[8px]">
+                {/* Card: avatar + compact body (body height < avatar diameter) */}
+                  <div className="flex items-center w-full">
                     {/* Avatar circle — forms left boundary */}
                     <div
                       className="rounded-full flex items-center justify-center shrink-0 relative z-10 transition-[width,height] duration-300"
@@ -489,11 +488,11 @@ export default function MemoryShardsPage() {
                       </span>
                     </div>
 
-                    {/* Body — no left border, rounded right only */}
+                    {/* Body — no left border, rounded right only, shorter than avatar */}
                     <div
                       className="flex-1 min-w-0 flex items-center"
                       style={{
-                        height: style.avatarSize,
+                        height: `calc(${style.avatarSize}px * 0.65)`,
                         borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
                         background: showFull
                           ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
@@ -513,8 +512,8 @@ export default function MemoryShardsPage() {
                       }}
                     >
                       {/* Text */}
-                      <div className="flex-1 min-w-0 px-[10px] py-[6px]" style={{ opacity: style.textOpacity }}>
-                        <div className="text-[14px] font-bold text-white/90 leading-tight mb-[3px] line-clamp-2">
+                      <div className="flex-1 min-w-0 px-[10px] py-[4px]" style={{ opacity: style.textOpacity }}>
+                        <div className="text-[14px] font-bold text-white/90 leading-tight mb-[2px] line-clamp-1">
                           {mem.Title}
                         </div>
                         <div className="text-[11px] text-white/40 font-medium whitespace-nowrap">
@@ -547,7 +546,6 @@ export default function MemoryShardsPage() {
                       </button>
                     </div>
                   </div>
-                </div>
               </div>
             );
           })}
