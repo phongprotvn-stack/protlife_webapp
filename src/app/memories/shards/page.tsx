@@ -397,7 +397,7 @@ export default function MemoryShardsPage() {
             const color = moodColor(mem.MoodEmoji);
             return (
               <div
-                key={`glow-${mem.MemoryID}`}
+                key={`glow-${slot.virtualIdx}`}
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                 style={{
                   width: style.glowR * 2,
@@ -421,7 +421,7 @@ export default function MemoryShardsPage() {
             const color = moodColor(mem.MoodEmoji);
             return (
               <div
-                key={mem.MemoryID}
+                key={slot.virtualIdx}
                 className="absolute left-1/2 top-1/2"
                 style={{
                   width: `clamp(200px, ${78 - Math.abs(slot.rel) * 4}%, 280px)`,
