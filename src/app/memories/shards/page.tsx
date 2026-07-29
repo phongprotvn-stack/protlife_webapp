@@ -62,6 +62,7 @@ export default function MemoryShardsPage() {
   const animRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isScrollingRef = useRef(false);
 
   // ─── Data loading ───
   const loadMemories = useCallback(async () => {
@@ -84,30 +85,15 @@ export default function MemoryShardsPage() {
 
   const total = memories.length;
 
-  // ─── Snap scrollOffset → nearest ITEM_HEIGHT multiple ───
+  // ─── Snap scrollOffset → nearest ITEM_HEIGHT multiple (immediate, CSS animates per-card) ───
   const snapToCenter = useCallback(() => {
     if (total === 0) return;
     const start = scrollOffsetRef.current;
     const target = Math.round(start / ITEM_HEIGHT) * ITEM_HEIGHT;
     const diff = target - start;
-    if (Math.abs(diff) < 1) { scrollOffsetRef.current = target; syncOffset(); return; }
-    const dur = 500;
-    const t0 = performance.now();
-    if (animRef.current) cancelAnimationFrame(animRef.current);
-    const step = (t: number) => {
-      const p = Math.min(1, (t - t0) / dur);
-      const ease = 1 - Math.pow(1 - p, 3);
-      scrollOffsetRef.current = start + diff * ease;
-      syncOffset();
-      if (p < 1) {
-        animRef.current = requestAnimationFrame(step);
-      } else {
-        scrollOffsetRef.current = target;
-        syncOffset();
-        animRef.current = null;
-      }
-    };
-    animRef.current = requestAnimationFrame(step);
+    if (Math.abs(diff) < 1) return;
+    scrollOffsetRef.current = target;
+    syncOffset();
   }, [total, syncOffset]);
 
   // ─── Jump to a virtual index (for dot clicks) ───
@@ -134,8 +120,9 @@ export default function MemoryShardsPage() {
     });
   }, [total, snapToCenter, syncOffset]);
 
-  // ─── Drag state ───
+  // ─── Drag state + scroll state ───
   const [isDragging, setIsDragging] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false); // true during active wheel scroll
 
   const dragStateRef = useRef({
     isDragging: false,
@@ -226,9 +213,12 @@ export default function MemoryShardsPage() {
       e.preventDefault();
       scrollOffsetRef.current += e.deltaY * 0.5;
       syncOffset();
+      if (!isScrollingRef.current) { isScrollingRef.current = true; setIsScrolling(true); }
       if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
       snapTimerRef.current = setTimeout(() => {
         snapToCenter();
+        isScrollingRef.current = false;
+        setIsScrolling(false);
       }, 150);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -236,7 +226,7 @@ export default function MemoryShardsPage() {
       el.removeEventListener('wheel', onWheel);
       if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
     };
-  }, [total, snapToCenter, syncOffset]);
+  }, [total, snapToCenter, syncOffset, setIsScrolling]);
 
   // ─── Arc position (left-centered wheel) ───
   const getSlotStyle = useCallback((rel: number) => {
@@ -410,9 +400,9 @@ export default function MemoryShardsPage() {
                   borderRadius: '50%',
                   background: `radial-gradient(circle, ${color} 0%, ${color}AA 40%, transparent 70%)`,
                   willChange: 'transform, opacity, filter',
-                  transition: isDragging
+                  transition: isDragging || isScrolling
                     ? 'none'
-                    : 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease',
+                    : `transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${Math.abs(slot.rel) * 35}ms, opacity 0.4s ease 0ms`,
                   filter: `blur(${Math.max(0, 2 - Math.abs(slot.rel) * 0.5)}px)`,
                 }}
               />
@@ -437,9 +427,9 @@ export default function MemoryShardsPage() {
                   zIndex: style.zIndex,
                   transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${slot.yPos}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
                   opacity: style.opacity,
-                  transition: isDragging
+                  transition: isDragging || isScrolling
                     ? 'none'
-                    : 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease',
+                    : `transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${Math.abs(slot.rel) * 35}ms, opacity 0.4s ease 0ms`,
                   willChange: 'transform, opacity, filter',
                   backfaceVisibility: 'hidden' as const,
                 }}
