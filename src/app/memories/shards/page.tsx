@@ -418,6 +418,7 @@ export default function MemoryShardsPage() {
             const style = getSlotStyle(slot.rel);
             const mem = slot.memory;
             const color = moodColor(mem.MoodEmoji);
+            const showFull = !isDragging && style.isActive; // full styling only at rest + center
             return (
               <div
                 key={slot.virtualIdx}
@@ -435,17 +436,22 @@ export default function MemoryShardsPage() {
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
-                {/* Card body — pill-shaped, no border */}
+                {/* Card body — pill-shaped */}
                   <div
                     className="w-full rounded-[22px] backdrop-blur-[8px] overflow-hidden"
                     style={{
-                      background: style.isActive
+                      background: showFull
                         ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
                         : 'rgba(255,255,255,0.035)',
-                      border: 'none',
-                      boxShadow: style.isActive
+                      border: showFull
+                        ? `1.5px solid ${color}55`
+                        : 'none',
+                      boxShadow: showFull
                         ? `0 0 60px ${color}33, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)`
                         : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
+                      transition: isDragging
+                        ? 'none'
+                        : 'background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease',
                     }}
                   >
                     <div className="flex items-center gap-[10px] p-[10px]">
@@ -476,24 +482,24 @@ export default function MemoryShardsPage() {
                         </div>
                       </div>
 
-                      {/* Play button */}
+                      {/* Play button — only at rest + center */}
                       <button
                         data-play-btn
                         onClick={(e) => handlePlay(e, mem)}
                         className="shrink-0 w-[36px] h-[36px] rounded-[12px] flex items-center justify-center transition-all duration-300"
                         style={{
-                          background: style.isActive
+                          background: showFull
                             ? `linear-gradient(135deg, ${color}, ${color}bb)`
                             : 'rgba(255,255,255,0.04)',
-                          opacity: style.isActive ? 1 : 0,
-                          transform: style.isActive ? 'scale(1)' : 'scale(0.7)',
-                          boxShadow: style.isActive
+                          opacity: showFull ? 1 : 0,
+                          transform: showFull ? 'scale(1)' : 'scale(0.7)',
+                          boxShadow: showFull
                             ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
                             : 'none',
                         }}
                       >
-                        <Play size={15} className={style.isActive ? 'text-white' : 'text-white/30'}
-                          fill={style.isActive ? 'white' : 'transparent'} />
+                        <Play size={15} className={showFull ? 'text-white' : 'text-white/30'}
+                          fill={showFull ? 'white' : 'transparent'} />
                       </button>
                     </div>
                   </div>
