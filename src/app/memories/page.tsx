@@ -7,7 +7,7 @@ import { Plus, Search, BookHeart, RefreshCw, Calendar, Image as ImageIcon, Arrow
 import { memoryService } from '@/lib/services/memory-service';
 import { useAppStore } from '@/stores/app-store';
 import type { MemoryWithEvent, MoodEmoji } from '@/types/database';
-import { PanelsTopLeft, Disc3, Sparkles } from 'lucide-react';
+import { PanelsTopLeft, Disc3, Sparkles, Droplets } from 'lucide-react';
 
 const MOOD_FILTERS: { emoji: MoodEmoji | 'ALL'; label: string }[] = [
   { emoji: 'ALL', label: 'Tất cả' },
@@ -101,6 +101,10 @@ export default function MemoriesPage() {
             className="flex-1 py-2 rounded-[10px] text-[12px] font-medium text-[#5856D6] bg-[rgba(88,86,214,0.06)] border border-[rgba(88,86,214,0.1)] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all">
             <Sparkles size={14} /> Mảnh Ký ức
           </button>
+          <button onClick={() => router.push('/memories/drops')}
+            className="flex-1 py-2 rounded-[10px] text-[12px] font-medium text-[#34C759] bg-[rgba(52,199,89,0.06)] border border-[rgba(52,199,89,0.1)] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all">
+            <Droplets size={14} /> Giọt Ký ức
+          </button>
         </div>
 
         {/* Filter chips */}
@@ -163,6 +167,10 @@ export default function MemoriesPage() {
           <button onClick={() => router.push('/memories/shards')}
             className="h-[36px] px-3 rounded-[8px] text-[12px] font-medium text-[#5856D6] bg-[rgba(88,86,214,0.06)] border border-[rgba(88,86,214,0.1)] flex items-center gap-1.5 hover:bg-[rgba(88,86,214,0.1)] transition-all">
             <Sparkles size={15} /> Mảnh Ký ức
+          </button>
+          <button onClick={() => router.push('/memories/drops')}
+            className="h-[36px] px-3 rounded-[8px] text-[12px] font-medium text-[#34C759] bg-[rgba(52,199,89,0.06)] border border-[rgba(52,199,89,0.1)] flex items-center gap-1.5 hover:bg-[rgba(52,199,89,0.1)] transition-all">
+            <Droplets size={15} /> Giọt Ký ức
           </button>
           <button onClick={() => router.push('/memories/add')}
             className="h-[36px] px-4 rounded-[8px] bg-[#FF2D55] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm">
