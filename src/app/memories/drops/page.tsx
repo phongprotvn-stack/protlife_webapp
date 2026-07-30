@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Play, Droplets, Disc3, Sparkles } from 'lucide-react';
+import { Play, X, Droplets, Disc3, Sparkles, Calendar } from 'lucide-react';
 import { memoryService } from '@/lib/services/memory-service';
 import type { MemoryWithEvent } from '@/types/database';
 
@@ -570,7 +571,80 @@ export default function MemoryDropsPage() {
       )}
 
       {/* ─── Detail Panel ─── */}
-      {/* (similar to shards — click play to show) */}
+      <AnimatePresence>
+        {detailMemory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 backdrop-blur-[8px]"
+            onClick={() => setDetailMemory(null)}
+          >
+            <motion.div
+              initial={{ translateY: '100%' }}
+              animate={{ translateY: '0%' }}
+              exit={{ translateY: '100%' }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-[480px] bg-[#1C1C1E] rounded-t-[28px] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+              style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.4)', maxHeight: '85vh' }}
+            >
+              <div className="w-[36px] h-[4px] bg-white/10 rounded-full mx-auto mt-3 mb-2" />
+              <div className="flex items-center justify-between px-4">
+                <span className="text-[9px] font-bold text-white/30 uppercase tracking-[1.2px]">CHI TIẾT KÝ ỨC</span>
+                <button onClick={() => setDetailMemory(null)}
+                  className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center hover:bg-white/5 text-white/40">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="p-4 pt-2 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 60px)' }}>
+                <div className="flex items-start gap-3.5 mb-4">
+                  <div className="w-[52px] h-[52px] rounded-[16px] flex items-center justify-center text-[24px] shrink-0"
+                    style={{
+                      background: `${moodColor(detailMemory.MoodEmoji)}18`,
+                      border: `1px solid ${moodColor(detailMemory.MoodEmoji)}35`,
+                    }}
+                  >
+                    {detailMemory.MoodEmoji || '🧠'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-bold tracking-[1.2px] uppercase text-white/40"
+                      style={{ color: moodColor(detailMemory.MoodEmoji) }}>
+                      {relativeTime(getDate(detailMemory))}
+                    </div>
+                    <h2 className="text-[20px] font-extrabold text-white mt-0.5 tracking-[-0.3px] leading-tight">
+                      {detailMemory.Title}
+                    </h2>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Calendar size={12} className="text-white/30" />
+                  <span className="text-[10px] text-white/40 font-medium">
+                    {new Date(getDate(detailMemory)).toLocaleDateString('vi-VN')}
+                  </span>
+                  {detailMemory.EventTitle && (
+                    <span className="text-[10px] font-medium truncate" style={{ color: moodColor(detailMemory.MoodEmoji) }}>
+                      🔗 {detailMemory.EventTitle}
+                    </span>
+                  )}
+                </div>
+                {detailMemory.Content && (
+                  <div className="text-[13px] text-white/60 leading-relaxed mb-4 whitespace-pre-wrap bg-white/5 rounded-[14px] p-3.5"
+                    style={{ border: '1px solid rgba(255,255,255,0.04)' }}>
+                    {detailMemory.Content}
+                  </div>
+                )}
+                {detailMemory.Image && (
+                  <div className="rounded-[14px] overflow-hidden mb-4">
+                    <img src={detailMemory.Image} alt="" className="w-full object-cover" style={{ maxHeight: 300 }} />
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
