@@ -35,16 +35,43 @@ function saveLocalGoals(items: Goal[]) {
 
 export const goalService = {
   async getAll(): Promise<Goal[]> {
-    // Always return localStorage data first (existing data)
+    // Try Supabase first for cross-device sync
+    try {
+      const { data: supabaseData, error } = await supabase
+        .from('goals')
+        .select('*')
+        .order('GoalID', { ascending: true });
+
+      if (!error && supabaseData && supabaseData.length > 0) {
+        // Sync to localStorage so next load is instant
+        saveLocalGoals(supabaseData);
+        return supabaseData;
+      }
+    } catch {
+      // Supabase unavailable, fall back to localStorage
+    }
+
+    // Fallback to localStorage
     const local = getLocalGoals();
-    // Fire-and-forget: try to load from Supabase in background
-    // (data will be used on next refresh once migration is done)
     return local;
   },
 
   async getById(id: string): Promise<Goal | null> {
+    // Check localStorage first
     const items = getLocalGoals();
-    return items.find((g) => g.GoalID === id) || null;
+    const found = items.find((g) => g.GoalID === id);
+    if (found) return found;
+
+    // Fallback to Supabase (e.g. just synced from another device)
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('GoalID', id)
+        .single();
+      if (!error && data) return data;
+    } catch {}
+    return null;
   },
 
   async create(data: GoalFormData): Promise<Goal> {
