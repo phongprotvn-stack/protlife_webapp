@@ -263,14 +263,16 @@ export default function MemoryShardsPage() {
     setDetailMemory(mem);
   }, []);
 
-  // ─── Build visible slots — yPos from virtualIdx ensures smooth no-jump scroll ───
+  // ─── Build visible slots — yPos with snapOffset stretch so cards fan apart during motion ───
   const visibleSlots = useMemo(() => {
     if (total === 0) return [];
     const centerVirtual = Math.floor(-scrollOffset / ITEM_HEIGHT);
+    const snapOffset = scrollOffset - Math.round(scrollOffset / ITEM_HEIGHT) * ITEM_HEIGHT;
     const slots: { rel: number; memory: MemoryWithEvent; virtualIdx: number; yPos: number }[] = [];
     for (let rel = -HALF_VISIBLE; rel <= HALF_VISIBLE; rel++) {
       const virtualIdx = centerVirtual + rel;
-      const yPos = virtualIdx * ITEM_HEIGHT + scrollOffset;
+      const stretch = rel * Math.abs(snapOffset) * 0.18;
+      const yPos = virtualIdx * ITEM_HEIGHT + scrollOffset + stretch;
       const actualIdx = ((virtualIdx % total) + total) % total;
       slots.push({ rel, memory: memories[actualIdx], virtualIdx, yPos });
     }
