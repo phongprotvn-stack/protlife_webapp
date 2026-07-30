@@ -5,6 +5,7 @@ import { memoryService } from '@/lib/services/memory-service';
 import type { MoodEmoji } from '@/types/database';
 import { Image as ImageIcon, Upload, Link2, Paperclip, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { DateInput } from '@/components/ui/date-input';
 
 // ── Types ──
 interface AttachedFile {
@@ -379,7 +380,7 @@ export default function MemoryFormFields({
       {/* Event Date */}
       <div className="mb-3">
         <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] mb-1">Ngày sự kiện</p>
-        <input type="date" value={memoryDate} onChange={(e) => setMemoryDate(e.target.value)}
+        <DateInput value={memoryDate} onChange={setMemoryDate}
           className="input-glass text-[16px] w-full" />
       </div>
 

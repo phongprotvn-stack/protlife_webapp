@@ -8,6 +8,7 @@ import { eventService } from '@/lib/services/event-service';
 import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import { cn, formatDate, getInitials, getAvatarColor } from '@/lib/utils';
+import { DateInput } from '@/components/ui/date-input';
 import type { Contact } from '@/types/database';
 
 const EVENT_TYPES = ['Meeting', 'Birthday', 'Travel', 'Work', 'Sport', 'Hospital', 'Meal', 'Call', 'Shopping', 'Study', 'Party', 'Date', 'Entertainment', 'Other'] as const;
@@ -167,12 +168,12 @@ export function AddEventModal({ open, onClose }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.3px]">Ngày bắt đầu *</label>
-            <input type="date" value={form.StartDate} onChange={(e) => update('StartDate', e.target.value)} className="input-ios mt-1" />
+            <DateInput value={form.StartDate} onChange={(v) => update('StartDate', v)} className="input-ios mt-1" />
             {form.StartDate && <p className="text-[11px] text-[#8E8E93] mt-0.5">{formatDate(form.StartDate, 'ddmmyyyy')}</p>}
           </div>
           <div>
             <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.3px]">Ngày kết thúc</label>
-            <input type="date" value={form.EndDate} onChange={(e) => update('EndDate', e.target.value)} className="input-ios mt-1" />
+            <DateInput value={form.EndDate} onChange={(v) => update('EndDate', v)} className="input-ios mt-1" />
             {form.EndDate && <p className="text-[11px] text-[#8E8E93] mt-0.5">{formatDate(form.EndDate, 'ddmmyyyy')}</p>}
           </div>
         </div>

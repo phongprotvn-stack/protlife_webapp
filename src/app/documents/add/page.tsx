@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { documentService } from '@/lib/services/document-service';
+import { DateInput } from '@/components/ui/date-input';
 
 const TYPES = ['Hợp đồng', 'Hoá đơn', 'Chứng từ', 'Báo cáo', 'Cá nhân', 'Khác'] as const;
 
@@ -61,7 +62,7 @@ export default function AddDocumentPage() {
               </select>
             </FormField>
             <FormField label="Ngày">
-              <input type="date" value={form.Date} onChange={(e) => setForm(f => ({...f, Date: e.target.value}))}
+              <DateInput value={form.Date} onChange={(v) => setForm(f => ({...f, Date: v}))}
                 className="input-glass text-[16px]" />
             </FormField>
           </div>

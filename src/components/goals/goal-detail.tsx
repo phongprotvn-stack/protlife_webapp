@@ -7,6 +7,7 @@ import type { Goal } from '@/lib/services/goal-service';
 import { formatDate } from '@/lib/utils';
 import { Target, Clock, AlertTriangle, Flag, FileText, Edit3, Trash2, X } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import { DateInput } from '@/components/ui/date-input';
 
 interface Props {
   goalId: string | null;
@@ -253,7 +254,7 @@ export function GoalDetail({ goalId, onClose, panelMode }: Props) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[9px] font-semibold text-[#6B7280] uppercase">Hạn chót</label>
-                  <input type="date" value={form.Deadline} onChange={(e) => setForm((f) => ({ ...f, Deadline: e.target.value }))} className="input-glass text-[12px]" />
+                  <DateInput value={form.Deadline} onChange={(v) => setForm((f) => ({ ...f, Deadline: v }))} className="input-glass text-[12px]" />
                 </div>
                 <div>
                   <label className="text-[9px] font-semibold text-[#6B7280] uppercase">Tiến độ: {progressPercent}%</label>

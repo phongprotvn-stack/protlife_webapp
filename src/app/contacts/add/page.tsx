@@ -6,6 +6,7 @@ import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import { Heart, Camera, ArrowLeft, X, ChevronDown, Plus } from 'lucide-react';
 import { getAvatarColor, getInitials } from '@/lib/utils';
+import { DateInput } from '@/components/ui/date-input';
 
 const RELATIONSHIPS = ['Family','Relative','Friend','Colleague','Neighbor','Teacher','Partner','Other'] as const;
 const GENDERS = ['Male','Female','Other'] as const;
@@ -149,7 +150,7 @@ export default function AddContactPage() {
               </select>
             </FormField>
             <FormField label="Ngày sinh">
-              <input type="date" value={form.Birthday} onChange={(e)=>setForm((f)=>({...f,Birthday:e.target.value}))} className="input-glass text-[16px]"/>
+              <DateInput value={form.Birthday} onChange={(v)=>setForm((f)=>({...f,Birthday:v}))} className="input-glass text-[16px]"/>
             </FormField>
           </div>
         </FormSection>

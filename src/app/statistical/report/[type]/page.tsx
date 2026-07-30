@@ -8,6 +8,7 @@ import {
   Search, Download, Printer,
 } from 'lucide-react';
 import Link from 'next/link';
+import { DateInput } from '@/components/ui/date-input';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
@@ -202,10 +203,9 @@ export default function ReportPage() {
           {/* From date */}
           <div>
             <label className="block text-[11px] font-medium text-[#8E8E93] mb-1">Từ ngày</label>
-            <input
-              type="date"
+            <DateInput
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(v) => setFromDate(v)}
               className="w-full h-[40px] px-3 rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[14px] text-[#111] outline-none border border-transparent focus:border-[rgba(230,0,45,0.2)] focus:bg-white focus:ring-2 focus:ring-[rgba(230,0,45,0.08)] transition-all"
             />
           </div>
@@ -213,10 +213,9 @@ export default function ReportPage() {
           {/* To date */}
           <div>
             <label className="block text-[11px] font-medium text-[#8E8E93] mb-1">Đến ngày</label>
-            <input
-              type="date"
+            <DateInput
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(v) => setToDate(v)}
               className="w-full h-[40px] px-3 rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[14px] text-[#111] outline-none border border-transparent focus:border-[rgba(230,0,45,0.2)] focus:bg-white focus:ring-2 focus:ring-[rgba(230,0,45,0.08)] transition-all"
             />
           </div>

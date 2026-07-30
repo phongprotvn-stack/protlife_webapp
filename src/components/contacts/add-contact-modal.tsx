@@ -8,6 +8,7 @@ import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import { cn, getInitials, getAvatarColor } from '@/lib/utils';
 import type { Relationship, ContactStatus } from '@/types/database';
+import { DateInput } from '@/components/ui/date-input';
 
 const RELATIONSHIPS: Relationship[] = ['Family', 'Relative', 'Friend', 'Colleague', 'Neighbor', 'Teacher', 'Partner', 'Other'];
 const GENDERS = ['Male', 'Female', 'Other'] as const;
@@ -253,7 +254,7 @@ export function AddContactModal({ open, onClose }: Props) {
             <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.3px] flex items-center gap-1">
               <Cake size={12} className="text-[#FF9500]" /> Ngày sinh
             </label>
-            <input type="date" value={form.Birthday} onChange={(e) => update('Birthday', e.target.value)} className="input-ios mt-1" />
+            <DateInput value={form.Birthday} onChange={(v) => update('Birthday', v)} className="input-ios mt-1" />
             {form.Birthday && (
               <p className="text-[11px] text-[#8E8E93] mt-0.5">
                 {new Date(form.Birthday).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}

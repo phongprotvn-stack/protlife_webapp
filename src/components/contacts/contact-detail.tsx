@@ -8,6 +8,7 @@ import {
   formatDate, getAvatarColor, getInitials, calculateAge,
   getRelationshipLabel, getRelationshipColor
 } from '@/lib/utils';
+import { DateInput } from '@/components/ui/date-input';
 import {
   Heart, Phone, Mail, Building2, Cake, Users, Award, Edit3, Trash2, Camera, X,
   ChevronDown, User, BookHeart, MapPin, FileText, Star
@@ -227,7 +228,7 @@ export function ContactDetail({ contactId, onClose, panelMode }: Props) {
                   </select>
                 </FieldEdit>
                 <FieldEdit label="Ngày sinh">
-                  <input type="date" value={form.Birthday} onChange={(e)=>setForm((f)=>({...f,Birthday:e.target.value}))} className="input-glass text-[13px]"/>
+                  <DateInput value={form.Birthday} onChange={(v)=>setForm((f)=>({...f,Birthday:v}))} className="input-glass text-[13px]"/>
                 </FieldEdit>
               </div>
               <div className="grid grid-cols-2 gap-2">

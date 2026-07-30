@@ -13,6 +13,7 @@ import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { formatVND, parseVND } from '@/lib/utils';
 import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus, BookHeart, Navigation } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import { DateInput } from '@/components/ui/date-input';
 import MemoryFormFields from '@/components/memories/memory-form-fields';
 
 interface Props { eventId: string | null; onClose: () => void; panelMode?: boolean; }
@@ -405,10 +406,10 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <FieldEdit label="Ngày bắt đầu">
-                  <input type="date" value={form.StartDate} onChange={(e)=>setForm((f)=>({...f,StartDate:e.target.value}))} className="input-glass text-[13px]"/>
+                  <DateInput value={form.StartDate} onChange={(v)=>setForm((f)=>({...f,StartDate:v}))} className="input-glass text-[13px]"/>
                 </FieldEdit>
                 <FieldEdit label="Ngày kết thúc">
-                  <input type="date" value={form.EndDate} onChange={(e)=>setForm((f)=>({...f,EndDate:e.target.value}))} className="input-glass text-[13px]"/>
+                  <DateInput value={form.EndDate} onChange={(v)=>setForm((f)=>({...f,EndDate:v}))} className="input-glass text-[13px]"/>
                 </FieldEdit>
               </div>
               <FieldEdit label="Địa điểm">

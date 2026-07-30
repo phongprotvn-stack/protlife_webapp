@@ -11,6 +11,7 @@ import { useAppStore } from '@/stores/app-store';
 import type { Contact } from '@/types/database';
 import { ArrowLeft, MapPin, X, Search, Plus, Globe, Navigation } from 'lucide-react';
 import { formatVND, parseVND } from '@/lib/utils';
+import { DateInput } from '@/components/ui/date-input';
 
 const EVENT_TYPES = ['Meeting','Birthday','Travel','Work','Sport','Hospital','Meal','Call','Shopping','Study','Party','Date','Entertainment','Other'] as const;
 const MOODS = ['Happy','Normal','Sad','Excited','Tired','Angry','Thoughtful','Loved'] as const;
@@ -225,10 +226,10 @@ export default function AddEventPage() {
         <FormSection title="Thời gian">
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Ngày bắt đầu">
-              <input type="date" value={form.StartDate} onChange={(e)=>setForm((f)=>({...f,StartDate:e.target.value}))} className="input-glass text-[16px]"/>
+              <DateInput value={form.StartDate} onChange={(v)=>setForm((f)=>({...f,StartDate:v}))} className="input-glass text-[16px]"/>
             </FormField>
             <FormField label="Ngày kết thúc">
-              <input type="date" value={form.EndDate} onChange={(e)=>setForm((f)=>({...f,EndDate:e.target.value}))} className="input-glass text-[16px]"/>
+              <DateInput value={form.EndDate} onChange={(v)=>setForm((f)=>({...f,EndDate:v}))} className="input-glass text-[16px]"/>
             </FormField>
           </div>
         </FormSection>

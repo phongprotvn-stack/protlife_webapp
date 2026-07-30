@@ -8,6 +8,7 @@ import { Modal } from '@/components/shared/modal';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType, AlignmentType } from 'docx';
+import { DateInput } from '@/components/ui/date-input';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -266,12 +267,12 @@ export default function ExportModal({ onClose }: ExportModalProps) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-[10px] font-medium text-[#6B7280] mb-1">Từ ngày</p>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            <DateInput value={dateFrom} onChange={v => setDateFrom(v)}
               className="w-full px-3 py-2 rounded-[8px] border border-[#EDEDF1] text-[12px] outline-none focus:border-[var(--color-primary)]" />
           </div>
           <div>
             <p className="text-[10px] font-medium text-[#6B7280] mb-1">Đến ngày</p>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            <DateInput value={dateTo} onChange={v => setDateTo(v)}
               className="w-full px-3 py-2 rounded-[8px] border border-[#EDEDF1] text-[12px] outline-none focus:border-[var(--color-primary)]" />
           </div>
         </div>

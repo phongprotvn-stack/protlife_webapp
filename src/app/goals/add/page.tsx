@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target } from 'lucide-react';
 import { goalService } from '@/lib/services/goal-service';
+import { DateInput } from '@/components/ui/date-input';
 
 const STATUSES = ['Not Started', 'In Progress', 'Completed'] as const;
 const PRIORITIES = ['Low', 'Medium', 'High'] as const;
@@ -74,7 +75,7 @@ export default function AddGoalPage() {
 
         <FormSection title="Thời hạn">
           <FormField label="Hạn chót">
-            <input type="date" value={form.Deadline} onChange={(e) => setForm(f => ({...f, Deadline: e.target.value}))}
+            <DateInput value={form.Deadline} onChange={(v) => setForm(f => ({...f, Deadline: v}))}
               className="input-glass text-[16px]" />
           </FormField>
         </FormSection>

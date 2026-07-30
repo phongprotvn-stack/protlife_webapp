@@ -7,6 +7,7 @@ import type { Document } from '@/lib/services/document-service';
 import { formatDate } from '@/lib/utils';
 import { FileText, Calendar, Tag, HardDrive, Edit3, Trash2, X } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import { DateInput } from '@/components/ui/date-input';
 
 interface Props {
   documentId: string | null;
@@ -193,7 +194,7 @@ export function DocumentDetail({ documentId, onClose, panelMode }: Props) {
                 </div>
                 <div>
                   <label className="text-[9px] font-semibold text-[#6B7280] uppercase">Ngày</label>
-                  <input type="date" value={form.Date} onChange={(e) => setForm((f) => ({ ...f, Date: e.target.value }))} className="input-glass text-[12px]" />
+                  <DateInput value={form.Date} onChange={(v) => setForm((f) => ({ ...f, Date: v }))} className="input-glass text-[12px]" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
