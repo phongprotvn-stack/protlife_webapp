@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  motion,
+  useMotionValue,
+  useTransform,
+  AnimatePresence,
+  animate,
+  type MotionValue,
+} from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Play, Calendar, Link as LinkIcon, X, Sparkles, Disc3 } from 'lucide-react';
 import { memoryService } from '@/lib/services/memory-service';
@@ -36,14 +43,208 @@ function getDate(m: MemoryWithEvent): string {
 }
 
 // ─── Vertical & Arc constants ───
-const ITEM_HEIGHT = 100;         // scroll distance per slot (= Y spacing)
-const VERTICAL_STEP = 100;       // linear Y gap between items (matches ITEM_HEIGHT for smooth cycling)
+const ITEM_HEIGHT = 100;
+const VERTICAL_STEP = 100;
 const VISIBLE_ITEMS = 7;
 const HALF_VISIBLE = Math.floor(VISIBLE_ITEMS / 2);
 
-const WHEEL_RADIUS = 360;        // arc radius for X curvature
-const WHEEL_CENTER_X = -360;     // rel=0 → x=0 → active card centered
-const ANGLE_STEP = Math.PI / 10; // 18° per item
+const WHEEL_RADIUS = 360;
+const WHEEL_CENTER_X = -360;
+const ANGLE_STEP = Math.PI / 10;
+
+// ─── Slot state (pure data class returned by the per-frame function) ───
+interface SlotState {
+  x: number;
+  yPos: number;
+  tiltDeg: number;
+  depthZ: number;
+  scale: number;
+  opacity: number;
+  textOpacity: number;
+  avatarSize: number;
+  emojiSize: number;
+  zIndex: number;
+  distAbs: number;
+  rel: number;
+}
+
+function computeSlot(v: number, index: number): SlotState {
+  const centerVirtual = Math.floor(-v / ITEM_HEIGHT);
+  const rel = index - centerVirtual;
+  const distAbs = Math.abs(rel);
+
+  // Y: snapOffset stretch
+  const snapOffset = v - Math.round(v / ITEM_HEIGHT) * ITEM_HEIGHT;
+  const stretch = rel * Math.abs(snapOffset) * 0.18;
+  const yPos = (centerVirtual + rel) * ITEM_HEIGHT + v + stretch;
+
+  // X: arc + right bias (non-active shift right)
+  const angle = rel * ANGLE_STEP;
+  const arcX = WHEEL_CENTER_X + WHEEL_RADIUS * Math.cos(angle);
+  const rightBias = Math.pow(distAbs, 2) * 28;
+  const x = arcX + rightBias;
+
+  // Scale & opacity
+  const scale = Math.max(0.75, 1 - distAbs * 0.05);
+  const opacity = Math.max(0.08, 1 - distAbs * 0.20);
+  const textOpacity = Math.max(0.08, 1 - distAbs * 0.24);
+
+  // 3D tilt + depth (non-linear: edge items tilt & recede much more)
+  const tiltDeg = -rel * 5 * (1 + distAbs * 0.3);
+  const depthZ = -Math.pow(distAbs, 1.6) * 25;
+
+  // Avatar & emoji size (center=72, edge=66)
+  const avatarSize = Math.round(72 - distAbs * 2);
+  const emojiSize = Math.round(avatarSize * 0.6);
+  const zIndex = 100 - Math.round(distAbs * 10);
+
+  return { x, yPos, tiltDeg, depthZ, scale, opacity, textOpacity, avatarSize, emojiSize, zIndex, distAbs, rel };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ShardCard — per-item card with GPU-composited transforms
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ShardCard({
+  index,
+  scrollMV,
+  memory,
+  isMoving,
+  onPlay,
+}: {
+  index: number;
+  scrollMV: MotionValue<number>;
+  memory: MemoryWithEvent;
+  isMoving: boolean;
+  onPlay: (e: React.MouseEvent, mem: MemoryWithEvent) => void;
+}) {
+  const color = useMemo(() => moodColor(memory.MoodEmoji), [memory.MoodEmoji]);
+
+  // ─── GPU-composited motion values (never trigger React re-render) ───
+  const raw = useTransform(scrollMV, (v: number) => computeSlot(v, index));
+
+  const transform = useTransform(raw, (s: SlotState) =>
+    `perspective(900px) translate3d(calc(-50% + ${s.x}px), calc(-50% + ${s.yPos}px), ${s.depthZ}px) rotateX(${s.tiltDeg}deg) scale(${s.scale})`
+  );
+  const opacity = useTransform(raw, (s: SlotState) => s.opacity);
+  const zIndex = useTransform(raw, (s: SlotState) => s.zIndex);
+
+  // ─── Values computed at render-time (cheap, triggered only by isMoving changes) ───
+  const s = computeSlot(scrollMV.get(), index);
+  const isActive = !isMoving && s.rel === 0;
+  const showFull = isActive;
+
+  return (
+    <motion.div
+      className="absolute left-1/2 top-1/2"
+      style={{
+        width: `clamp(250px, ${92 - Math.abs(s.rel) * 2}%, 320px)`,
+        maxWidth: s.rel === 0 ? 320 : 315,
+        zIndex,
+        transform,
+        opacity,
+        willChange: 'transform, opacity',
+        backfaceVisibility: 'hidden',
+      }}
+    >
+      {/* Layer container — establishes positioning context */}
+      <div style={{ position: 'relative', width: '100%', height: s.avatarSize }}>
+        
+        {/* BODY LAYER — background + borders, behind avatar */}
+        <div
+          style={{
+            position: 'absolute',
+            left: `calc(${s.avatarSize}px * 0.81)`,
+            right: 0,
+            top: `calc(${s.avatarSize}px * 0.11)`,
+            bottom: `calc(${s.avatarSize}px * 0.11)`,
+            zIndex: 0,
+            pointerEvents: 'none',
+            borderRadius: `0 ${Math.round(s.avatarSize * 0.35)}px ${Math.round(s.avatarSize * 0.35)}px 0`,
+            background: 'transparent',
+            borderTop: showFull ? `1.5px solid ${color}55` : 'none',
+            borderRight: showFull ? `1.5px solid ${color}55` : 'none',
+            borderBottom: showFull ? `1.5px solid ${color}55` : 'none',
+            borderLeft: 'none',
+            transition: isMoving ? 'none' : 'border-color 0.3s ease',
+          }}
+        />
+
+        {/* AVATAR LAYER — on top, clip-path so only the circle occludes */}
+        <div
+          className="rounded-full flex items-center justify-center shrink-0"
+          style={{
+            position: 'relative',
+            zIndex: 2,
+            width: s.avatarSize,
+            height: s.avatarSize,
+            background: `${color}CC`,
+            clipPath: 'circle(50%)',
+            transition: 'width 0.3s ease, height 0.3s ease',
+          }}
+        >
+          <span
+            className="leading-none select-none transition-[font-size] duration-300"
+            style={{ fontSize: s.emojiSize }}
+          >
+            {memory.MoodEmoji || '🧠'}
+          </span>
+        </div>
+
+        {/* CONTENT LAYER — text + play, above body, beside avatar */}
+        <div
+          className="flex items-center"
+          style={{
+            position: 'absolute',
+            left: s.avatarSize,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 1,
+          }}
+        >
+          {/* Text */}
+          <div className="flex-1 min-w-0 px-[10px] py-[4px]" style={{ opacity: s.textOpacity }}>
+            <div className="text-[14px] font-bold text-white/90 leading-tight mb-[2px] line-clamp-1">
+              {memory.Title}
+            </div>
+            <div className="text-[11px] text-white/40 font-medium whitespace-nowrap">
+              {relativeTime(getDate(memory))}
+            </div>
+          </div>
+
+          {/* Play button */}
+          <button
+            data-play-btn
+            onClick={(e) => onPlay(e, memory)}
+            className="shrink-0 flex items-center justify-center mr-[6px] transition-all duration-300"
+            style={{
+              width: showFull ? 28 : 0,
+              height: showFull ? 28 : 0,
+              borderRadius: '50%',
+              background: showFull
+                ? `linear-gradient(135deg, ${color}, ${color}bb)`
+                : 'transparent',
+              opacity: showFull ? 1 : 0,
+              transform: showFull ? 'scale(1)' : 'scale(0)',
+              boxShadow: showFull
+                ? '0 4px 12px rgba(0,0,0,0.3)'
+                : 'none',
+              cursor: 'pointer',
+              overflow: 'hidden',
+            }}
+          >
+            <Play size={14} fill={showFull ? '#fff' : 'transparent'} color={showFull ? '#fff' : 'transparent'} />
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function MemoryShardsPage() {
   const router = useRouter();
@@ -51,18 +252,18 @@ export default function MemoryShardsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [detailMemory, setDetailMemory] = useState<MemoryWithEvent | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
 
-  // ─── Scroll state: offset (unbounded, accumulates total drag/wheel delta) ───
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const scrollOffsetRef = useRef(0);
-  const syncOffset = useCallback(() => {
-    setScrollOffset(scrollOffsetRef.current);
-  }, []);
-
-  const animRef = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isScrollingRef = useRef(false);
+  // ─── Motion value — zero re-render scroll ───
+  const scrollMV = useMotionValue(0);
+  const scrollRef = useRef(0);
+  useEffect(() => {
+    const unsub = scrollMV.on('change', (v: number) => {
+      scrollRef.current = v;
+    });
+    return unsub;
+  }, [scrollMV]);
 
   // ─── Data loading ───
   const loadMemories = useCallback(async () => {
@@ -72,58 +273,19 @@ export default function MemoryShardsPage() {
       const data = await memoryService.getAllWithEvent();
       data.sort((a, b) => new Date(getDate(b)).getTime() - new Date(getDate(a)).getTime());
       setMemories(data);
-      scrollOffsetRef.current = 0;
-      setScrollOffset(0);
+      scrollMV.set(0);
     } catch (e: any) {
       setError(e.message || 'Không thể tải ký ức');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [scrollMV]);
 
   useEffect(() => { loadMemories(); }, [loadMemories]);
 
   const total = memories.length;
 
-  // ─── Snap scrollOffset → nearest ITEM_HEIGHT multiple (immediate, CSS animates per-card) ───
-  const snapToCenter = useCallback(() => {
-    if (total === 0) return;
-    const start = scrollOffsetRef.current;
-    const target = Math.round(start / ITEM_HEIGHT) * ITEM_HEIGHT;
-    const diff = target - start;
-    if (Math.abs(diff) < 1) return;
-    scrollOffsetRef.current = target;
-    syncOffset();
-  }, [total, syncOffset]);
-
-  // ─── Jump to a virtual index (for dot clicks) ───
-  const goToVirtual = useCallback((targetIdx: number) => {
-    if (total === 0) return;
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
-    scrollOffsetRef.current = -targetIdx * ITEM_HEIGHT;
-    syncOffset();
-  }, [total, syncOffset]);
-
-  // ─── Inertia ───
-  const startInertia = useCallback((velocity: number) => {
-    if (total === 0) return;
-    animRef.current = requestAnimationFrame(function inertiaStep() {
-      velocity *= 0.965;
-      if (Math.abs(velocity) < 0.3) {
-        animRef.current = null;
-        snapToCenter();
-        return;
-      }
-      scrollOffsetRef.current += velocity;
-      syncOffset();
-      animRef.current = requestAnimationFrame(inertiaStep);
-    });
-  }, [total, snapToCenter, syncOffset]);
-
-  // ─── Drag state + scroll state ───
-  const [isDragging, setIsDragging] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false); // true during active wheel scroll
-
+  // ─── Drag state (tracked via refs for perf; React state mirrors for render) ───
   const dragStateRef = useRef({
     isDragging: false,
     startY: 0,
@@ -132,6 +294,55 @@ export default function MemoryShardsPage() {
     lastY: 0,
     lastTime: 0,
   });
+
+  // ─── Snap — animate scrollMV to nearest center ───
+  const snapToCenter = useCallback(() => {
+    if (total === 0) return;
+    const start = scrollRef.current;
+    const target = Math.round(start / ITEM_HEIGHT) * ITEM_HEIGHT;
+    const diff = target - start;
+    if (Math.abs(diff) < 1) return;
+    animate(scrollMV, target, {
+      type: 'spring',
+      stiffness: 300,
+      damping: 35,
+      mass: 0.5,
+      onComplete: () => {
+        setIsDragging(false);
+        setIsScrolling(false);
+      },
+    });
+  }, [scrollMV, total]);
+
+  // ─── Inertia via Framer Motion decay ───
+  const startInertia = useCallback((velocity: number) => {
+    if (total === 0) return;
+    const current = scrollRef.current;
+    animate(scrollMV, current + velocity * 20, {
+      type: 'decay',
+      velocity,
+      power: 0.85,
+      timeConstant: 350,
+      modifyTarget: (t: number) => Math.round(t / ITEM_HEIGHT) * ITEM_HEIGHT,
+      onComplete: () => {
+        setIsDragging(false);
+        setIsScrolling(false);
+      },
+    });
+  }, [scrollMV, total]);
+
+  // ─── Jump to a virtual index (for dot clicks) ───
+  const goToVirtual = useCallback((targetIdx: number) => {
+    if (total === 0) return;
+    scrollMV.stop();
+    const target = -targetIdx * ITEM_HEIGHT;
+    animate(scrollMV, target, {
+      type: 'spring',
+      stiffness: 300,
+      damping: 35,
+      mass: 0.5,
+    });
+  }, [scrollMV, total]);
 
   // ─── Manual drag via native pointer events ───
   useEffect(() => {
@@ -142,20 +353,16 @@ export default function MemoryShardsPage() {
       if ((e.target as HTMLElement).closest('[data-play-btn]')) return;
       e.preventDefault();
       e.stopPropagation();
+      scrollMV.stop(); // stop any running deceleration
       el.setPointerCapture(e.pointerId);
 
       const state = dragStateRef.current;
       state.isDragging = true;
       state.startY = e.clientY;
-      state.startOffset = scrollOffsetRef.current;
+      state.startOffset = scrollRef.current;
       state.velocity = 0;
       state.lastY = e.clientY;
       state.lastTime = performance.now();
-
-      if (animRef.current) {
-        cancelAnimationFrame(animRef.current);
-        animRef.current = null;
-      }
       setIsDragging(true);
     };
 
@@ -164,8 +371,7 @@ export default function MemoryShardsPage() {
       if (!state.isDragging) return;
       e.preventDefault();
       const deltaY = e.clientY - state.startY;
-      scrollOffsetRef.current = state.startOffset + deltaY;
-      syncOffset();
+      scrollMV.set(state.startOffset + deltaY);
 
       const now = performance.now();
       const dt = now - state.lastTime;
@@ -182,13 +388,11 @@ export default function MemoryShardsPage() {
       state.isDragging = false;
       setIsDragging(false);
 
-      const velocity = Math.abs(state.velocity) >= 0.5 ? state.velocity : 0;
-
-      if (Math.abs(velocity) >= 200) {
-        startInertia(velocity * 0.3);
+      const vel = Math.abs(state.velocity) >= 0.5 ? state.velocity : 0;
+      if (Math.abs(vel) >= 200) {
+        startInertia(vel * 0.3);
         return;
       }
-
       snapToCenter();
     };
 
@@ -203,94 +407,77 @@ export default function MemoryShardsPage() {
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [total, syncOffset, startInertia]);
+  }, [total, scrollMV, snapToCenter, startInertia]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // ─── Wheel scroll ───
+  const wheelSnapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const el = containerRef.current;
     if (!el || total === 0) return;
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      scrollOffsetRef.current += e.deltaY * 0.5;
-      syncOffset();
-      if (!isScrollingRef.current) { isScrollingRef.current = true; setIsScrolling(true); }
-      if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
-      snapTimerRef.current = setTimeout(() => {
+      scrollMV.stop();
+      scrollMV.set(scrollRef.current + e.deltaY * 0.5);
+      if (!isScrolling) setIsScrolling(true);
+      if (wheelSnapRef.current) clearTimeout(wheelSnapRef.current);
+      wheelSnapRef.current = setTimeout(() => {
         snapToCenter();
-        isScrollingRef.current = false;
         setIsScrolling(false);
+        wheelSnapRef.current = null;
       }, 150);
     };
+
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       el.removeEventListener('wheel', onWheel);
-      if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
+      if (wheelSnapRef.current) clearTimeout(wheelSnapRef.current);
     };
-  }, [total, snapToCenter, syncOffset, setIsScrolling]);
+  }, [total, scrollMV, snapToCenter, isScrolling]);
 
-  // ─── Arc position (left-centered wheel) ───
-  const getSlotStyle = useCallback((rel: number) => {
-    const distAbs = Math.abs(rel);
-    const scale = Math.max(0.75, 1 - distAbs * 0.05);
-    const opacity = Math.max(0.08, 1 - distAbs * 0.20);
-    const textOpacity = Math.max(0.08, 1 - distAbs * 0.24);
+  // ─── Keyboard ───
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const target = scrollRef.current + (e.key === 'ArrowDown' ? ITEM_HEIGHT : -ITEM_HEIGHT);
+        animate(scrollMV, target, {
+          type: 'spring',
+          stiffness: 300,
+          damping: 35,
+          mass: 0.5,
+        });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [scrollMV]);
 
-    // X: arc wheel + rightward bias — non-active cards shift progressively right
-    const angle = rel * ANGLE_STEP;
-    const arcX = WHEEL_CENTER_X + WHEEL_RADIUS * Math.cos(angle);
-    const rightBias = Math.pow(distAbs, 2) * 28;
-    const x = arcX + rightBias;
-    const zIndex = 100 - Math.round(distAbs * 10);
-
-    // Glow radius (for gooey circles behind cards)
-    const glowR = 120 - Math.round(distAbs * 22);
-
-    // 3D Cylindrical — non-linear: edge items tilt & recede much more
-    const tiltDeg = -rel * 5 * (1 + distAbs * 0.3);
-    const depthZ = -Math.pow(distAbs, 1.6) * 25;
-
-    // Dynamic avatar size: center=72px, edges=66px (gần như bằng nhau)
-    const avatarSize = Math.round(72 - distAbs * 2);
-
-    // Emoji size: fill the avatar circle proportionally
-    const emojiSize = Math.round(avatarSize * 0.6);
-
-    return { x, scale, opacity, zIndex, isActive: rel === 0, glowR, tiltDeg, depthZ, avatarSize, emojiSize, textOpacity };
-  }, []);
+  // ─── Derived ───
+  const isMoving = isDragging || isScrolling;
 
   const handlePlay = useCallback((e: React.MouseEvent, mem: MemoryWithEvent) => {
     e.stopPropagation();
     setDetailMemory(mem);
   }, []);
 
-  // ─── Build visible slots — yPos with snapOffset stretch so cards fan apart during motion ───
-  const visibleSlots = useMemo(() => {
-    if (total === 0) return [];
-    const centerVirtual = Math.floor(-scrollOffset / ITEM_HEIGHT);
-    const snapOffset = scrollOffset - Math.round(scrollOffset / ITEM_HEIGHT) * ITEM_HEIGHT;
-    const slots: { rel: number; memory: MemoryWithEvent; virtualIdx: number; yPos: number }[] = [];
-    for (let rel = -HALF_VISIBLE; rel <= HALF_VISIBLE; rel++) {
-      const virtualIdx = centerVirtual + rel;
-      const stretch = rel * Math.abs(snapOffset) * 0.18;
-      const yPos = virtualIdx * ITEM_HEIGHT + scrollOffset + stretch;
-      const actualIdx = ((virtualIdx % total) + total) % total;
-      slots.push({ rel, memory: memories[actualIdx], virtualIdx, yPos });
-    }
-    return slots;
-  }, [memories, total, scrollOffset]);
-
+  // ─── Focused memory for dot navigation ───
+  const centerVirtual = Math.floor(-scrollRef.current / ITEM_HEIGHT);
   const focusedMemory = useMemo(() => {
-    if (total === 0 || visibleSlots.length === 0) return null;
-    return visibleSlots.find(s => s.rel === 0) || visibleSlots[Math.floor(visibleSlots.length / 2)];
-  }, [visibleSlots, total]);
+    if (total === 0) return null;
+    const idx = ((-centerVirtual + total) % total + total) % total;
+    return { virtualIdx: centerVirtual, memory: memories[idx] };
+  }, [memories, total, centerVirtual]);
 
   const dotSlots = useMemo(() => {
     if (total === 0 || !focusedMemory) return [];
     const range = 3;
-    const dots = [];
+    const dots: { actualIdx: number; rel: number; memory: MemoryWithEvent }[] = [];
     for (let rel = -range; rel <= range; rel++) {
       const actualIdx = ((focusedMemory.virtualIdx + rel) % total + total) % total;
-      dots.push({ rel, actualIdx, memory: memories[actualIdx] });
+      dots.push({ actualIdx, rel, memory: memories[actualIdx] });
     }
     return dots;
   }, [focusedMemory, memories, total]);
@@ -348,7 +535,7 @@ export default function MemoryShardsPage() {
   return (
     <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none bg-black">
 
-      {/* Header — solid black, đồng bộ với page background */}
+      {/* Header — solid black */}
       <div className="relative z-10 flex items-center justify-between px-4 pt-3 pb-2 bg-black">
         <div className="flex items-center gap-2.5">
           <button onClick={() => router.back()}
@@ -372,126 +559,18 @@ export default function MemoryShardsPage() {
         className="flex-1 relative overflow-hidden touch-none select-none"
         style={{ minHeight: 300, overscrollBehavior: 'none', perspective: '1000px' }}
       >
-        {/* Cards layer — uniform scroll (no glow/shadow effects) */}
-        <div className="absolute inset-0">
-          {visibleSlots.map((slot) => {
-            const style = getSlotStyle(slot.rel);
-            const mem = slot.memory;
-            const color = moodColor(mem.MoodEmoji);
-            const showFull = !isDragging && style.isActive; // full styling only at rest + center
-            return (
-              <div
-                key={mem.MemoryID}
-                className="absolute left-1/2 top-1/2"
-                style={{
-                  width: `clamp(250px, ${92 - Math.abs(slot.rel) * 2}%, 320px)`,
-                  maxWidth: style.isActive ? 320 : 315,
-                  zIndex: style.zIndex,
-                  transform: `perspective(900px) translate3d(calc(-50% + ${style.x}px), calc(-50% + ${slot.yPos}px), ${style.depthZ}px) rotateX(${style.tiltDeg}deg) scale(${style.scale})`,
-                  opacity: style.opacity,
-                  transition: isDragging || isScrolling
-                    ? 'none'
-                    : `transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${Math.abs(slot.rel) * 35}ms, opacity 0.4s ease 0ms`,
-                  willChange: 'transform, opacity',
-                  backfaceVisibility: 'hidden' as const,
-                }}
-              >
-                {/* Layer container — establishes positioning context */}
-                <div style={{ position: 'relative', width: '100%', height: style.avatarSize }}>
-                  
-                  {/* BODY LAYER — background + borders, behind avatar */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `calc(${style.avatarSize}px * 0.81)`,
-                      right: 0,
-                      top: `calc(${style.avatarSize}px * 0.11)`,
-                      bottom: `calc(${style.avatarSize}px * 0.11)`,
-                      zIndex: 0,
-                      pointerEvents: 'none',
-                      borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
-                      background: 'transparent',
-                      borderTop: showFull ? `1.5px solid ${color}55` : 'none',
-                      borderRight: showFull ? `1.5px solid ${color}55` : 'none',
-                      borderBottom: showFull ? `1.5px solid ${color}55` : 'none',
-                      borderLeft: 'none',
-                      transition: isDragging || isScrolling
-                        ? 'none'
-                        : 'border-color 0.3s ease',
-                    }}
-                  />
-
-                  {/* AVATAR LAYER — on top, clip-path so only the circle occludes */}
-                  <div
-                    className="rounded-full flex items-center justify-center shrink-0"
-                    style={{
-                      position: 'relative',
-                      zIndex: 2,
-                      width: style.avatarSize,
-                      height: style.avatarSize,
-                      background: `${color}CC`,
-                      clipPath: 'circle(50%)',
-                      transition: 'width 0.3s ease, height 0.3s ease',
-                    }}
-                  >
-                    <span
-                      className="leading-none select-none transition-[font-size] duration-300"
-                      style={{ fontSize: style.emojiSize }}
-                    >
-                      {mem.MoodEmoji || '🧠'}
-                    </span>
-                  </div>
-
-                  {/* CONTENT LAYER — text + play, above body, beside avatar */}
-                  <div
-                    className="flex items-center"
-                    style={{
-                      position: 'absolute',
-                      left: style.avatarSize,
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      zIndex: 1,
-                    }}
-                  >
-                    {/* Text */}
-                    <div className="flex-1 min-w-0 px-[10px] py-[4px]" style={{ opacity: style.textOpacity }}>
-                      <div className="text-[14px] font-bold text-white/90 leading-tight mb-[2px] line-clamp-1">
-                        {mem.Title}
-                      </div>
-                      <div className="text-[11px] text-white/40 font-medium whitespace-nowrap">
-                        {relativeTime(getDate(mem))}
-                      </div>
-                    </div>
-
-                    {/* Play button */}
-                    <button
-                      data-play-btn
-                      onClick={(e) => handlePlay(e, mem)}
-                      className="shrink-0 flex items-center justify-center mr-[6px] transition-all duration-300"
-                      style={{
-                        width: showFull ? 28 : 0,
-                        height: showFull ? 28 : 0,
-                        borderRadius: '50%',
-                        background: showFull
-                          ? `linear-gradient(135deg, ${color}, ${color}bb)`
-                          : 'transparent',
-                        opacity: showFull ? 1 : 0,
-                        transform: showFull ? 'scale(1)' : 'scale(0)',
-                        boxShadow: showFull
-                          ? '0 4px 12px rgba(0,0,0,0.3)'
-                          : 'none',
-                        cursor: 'pointer',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <Play size={14} fill={showFull ? '#fff' : 'transparent'} color={showFull ? '#fff' : 'transparent'} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        {/* Cards layer — all items pre-rendered, transforms computed on GPU */}
+        <div className="absolute inset-0" style={{ willChange: 'transform' }}>
+          {memories.map((mem, i) => (
+            <ShardCard
+              key={mem.MemoryID}
+              index={i}
+              scrollMV={scrollMV}
+              memory={mem}
+              isMoving={isMoving}
+              onPlay={handlePlay}
+            />
+          ))}
         </div>
       </div>
 
@@ -501,7 +580,7 @@ export default function MemoryShardsPage() {
           const isActive = dot.rel === 0;
           const color = moodColor(dot.memory.MoodEmoji);
           return (
-            <button key={dot.rel} onClick={() => {
+            <button key={`${dot.rel}-${dot.actualIdx}`} onClick={() => {
               if (focusedMemory) goToVirtual(focusedMemory.virtualIdx + dot.rel);
             }}
               className="rounded-full transition-all duration-300"
