@@ -448,9 +448,7 @@ export default function MemoryShardsPage() {
                       zIndex: 0,
                       pointerEvents: 'none',
                       borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
-                      background: showFull
-                        ? `linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)`
-                        : 'transparent',
+                      background: 'rgba(255,255,255,0.04)',
                       backdropFilter: showFull ? 'blur(8px)' : 'none',
                       WebkitBackdropFilter: showFull ? 'blur(8px)' : 'none',
                       borderTop: showFull ? `1.5px solid ${color}55` : 'none',
@@ -458,7 +456,7 @@ export default function MemoryShardsPage() {
                       borderBottom: showFull ? `1.5px solid ${color}55` : 'none',
                       borderLeft: 'none',
                       boxShadow: showFull
-                        ? `0 0 60px ${color}33, 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)`
+                        ? '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)'
                         : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
                       transition: isDragging
                         ? 'none'
@@ -518,13 +516,11 @@ export default function MemoryShardsPage() {
                         width: showFull ? 28 : 0,
                         height: showFull ? 28 : 0,
                         borderRadius: '50%',
-                        background: showFull
-                          ? `linear-gradient(135deg, ${color}, ${color}bb)`
-                          : 'transparent',
+                        background: showFull ? '#E6002D' : 'transparent',
                         opacity: showFull ? 1 : 0,
                         transform: showFull ? 'scale(1)' : 'scale(0)',
                         boxShadow: showFull
-                          ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
+                          ? '0 4px 12px rgba(0,0,0,0.4)'
                           : 'none',
                         cursor: 'pointer',
                         overflow: 'hidden',
