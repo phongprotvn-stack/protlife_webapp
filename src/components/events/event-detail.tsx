@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
@@ -14,6 +14,7 @@ import { formatVND, parseVND } from '@/lib/utils';
 import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus, BookHeart, Navigation } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { DateInput } from '@/components/ui/date-input';
+import { geocodeAddress } from '@/lib/geocode';
 import MemoryFormFields from '@/components/memories/memory-form-fields';
 
 interface Props { eventId: string | null; onClose: () => void; panelMode?: boolean; }
@@ -47,7 +48,6 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     Mood:'', Importance:'', Cost:0, Notes:'', Lat: null as number | null, Lng: null as number | null,
   });
   const [geocodeStatus, setGeocodeStatus] = useState<'idle'|'loading'|'done'|'fail'>('idle');
-  const lastGeocodeTime = useRef(0);
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<{ContactID:string;ContactName:string}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -135,23 +135,11 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
 
   const handleGeocode = async () => {
     if (!form.Place.trim()) return;
-    const now = Date.now();
-    const elapsed = now - lastGeocodeTime.current;
-    if (elapsed < 1000) {
-      await new Promise((r) => setTimeout(r, 1000 - elapsed));
-    }
     setGeocodeStatus('loading');
-    lastGeocodeTime.current = Date.now();
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.Place.trim())}&format=json&limit=1`,
-        { headers: { 'User-Agent': 'ProtLife/1.0 (personal life app)' } }
-      );
-      const data = await res.json();
-      if (data.length > 0) {
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
-        setForm((f) => ({ ...f, Lat: lat, Lng: lng }));
+      const result = await geocodeAddress(form.Place.trim());
+      if (result) {
+        setForm((f) => ({ ...f, Lat: result.lat, Lng: result.lng }));
         setGeocodeStatus('done');
       } else {
         setGeocodeStatus('fail');

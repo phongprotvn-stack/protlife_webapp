@@ -1,20 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { organizationService } from '@/lib/services/organization-service';
 import { useAppStore } from '@/stores/app-store';
 import { ArrowLeft, MapPin, Globe, Navigation } from 'lucide-react';
-
-async function geocodeAddress(address: string) {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
-    { headers: { 'User-Agent': 'ProtLife/1.0 (personal life app)' } }
-  );
-  const data = await res.json();
-  if (data.length === 0) return null;
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-}
+import { geocodeAddress } from '@/lib/geocode';
 
 export default function AddOrganizationPage() {
   const router = useRouter();
@@ -23,7 +14,6 @@ export default function AddOrganizationPage() {
   const [error, setError] = useState('');
   const [geocoding, setGeocoding] = useState<'idle' | 'loading' | 'done' | 'fail'>('idle');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const lastGeocodeTime = useRef(0);
 
   const [form, setForm] = useState({
     Name: '',
@@ -35,13 +25,7 @@ export default function AddOrganizationPage() {
 
   const handleGeocode = async () => {
     if (!form.Address.trim()) return;
-    const now = Date.now();
-    const elapsed = now - lastGeocodeTime.current;
-    if (elapsed < 1000) {
-      await new Promise((r) => setTimeout(r, 1000 - elapsed));
-    }
     setGeocoding('loading');
-    lastGeocodeTime.current = Date.now();
     try {
       const result = await geocodeAddress(form.Address.trim());
       if (result) {

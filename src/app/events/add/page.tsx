@@ -12,11 +12,11 @@ import type { Contact } from '@/types/database';
 import { ArrowLeft, MapPin, X, Search, Plus, Globe, Navigation } from 'lucide-react';
 import { formatVND, parseVND } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
+import { geocodeAddress } from '@/lib/geocode';
 
 const EVENT_TYPES = ['Meeting','Birthday','Travel','Work','Sport','Hospital','Meal','Call','Shopping','Study','Party','Date','Entertainment','Other'] as const;
 const MOODS = ['Happy','Normal','Sad','Excited','Tired','Angry','Thoughtful','Loved'] as const;
 const IMPORTANCE = ['Lowest','Low','Medium','High','Highest'] as const;
-const MAX_GEOCODE_RATE = 1000; // min 1s between Nominatim calls
 
 interface LocationItem {
   id: string;
@@ -26,23 +26,12 @@ interface LocationItem {
   lng?: number | null;
 }
 
-async function geocodeAddress(address: string) {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
-    { headers: { 'User-Agent': 'ProtLife/1.0 (personal life app)' } }
-  );
-  const data = await res.json();
-  if (data.length === 0) return null;
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lng) };
-}
-
 export default function AddEventPage() {
   const router = useRouter();
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [geocoding, setGeocoding] = useState<Record<string, 'idle' | 'loading' | 'done' | 'fail'>>({});
-  const lastGeocodeTime = useRef(0);
 
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -139,14 +128,7 @@ export default function AddEventPage() {
     const loc = locations.find((l) => l.id === locId);
     if (!loc || !loc.place.trim()) return;
 
-    const now = Date.now();
-    const elapsed = now - lastGeocodeTime.current;
-    if (elapsed < MAX_GEOCODE_RATE) {
-      await new Promise((r) => setTimeout(r, MAX_GEOCODE_RATE - elapsed));
-    }
-
     setGeocoding((prev) => ({ ...prev, [locId]: 'loading' }));
-    lastGeocodeTime.current = Date.now();
     try {
       const result = await geocodeAddress(loc.place.trim());
       if (result) {
@@ -167,6 +149,25 @@ export default function AddEventPage() {
     setSaving(true); setError('');
     try {
       const activeLocs = locations.filter(l => l.place.trim());
+
+      // Auto-geocode any location that has a place but no coordinates yet
+      const pending = activeLocs.filter(l => !l.lat || !l.lng);
+      for (const loc of pending) {
+        try {
+          setGeocoding((prev) => ({ ...prev, [loc.id]: 'loading' }));
+          const result = await geocodeAddress(loc.place.trim());
+          if (result) {
+            loc.lat = result.lat;
+            loc.lng = result.lng;
+            setGeocoding((prev) => ({ ...prev, [loc.id]: 'done' }));
+          } else {
+            setGeocoding((prev) => ({ ...prev, [loc.id]: 'fail' }));
+          }
+        } catch {
+          setGeocoding((prev) => ({ ...prev, [loc.id]: 'fail' }));
+        }
+      }
+
       const newEvent = await eventService.create({
         Title:form.Title.trim(), EventType:form.EventType as any,
         StartDate:form.StartDate, EndDate:form.EndDate||undefined,

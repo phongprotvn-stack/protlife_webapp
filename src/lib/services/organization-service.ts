@@ -39,12 +39,42 @@ function saveLocalOrgs(items: Organization[]) {
 
 export const organizationService = {
   async getAll(): Promise<Organization[]> {
+    // Try Supabase first for cross-device sync
+    try {
+      const { data: supabaseData, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .order('OrganizationID', { ascending: true });
+
+      if (!error && supabaseData && supabaseData.length > 0) {
+        // Sync to localStorage so next load is instant
+        saveLocalOrgs(supabaseData);
+        return supabaseData;
+      }
+    } catch {
+      // Supabase unavailable, fall back to localStorage
+    }
+
+    // Fallback to localStorage
     return getLocalOrgs();
   },
 
   async getById(id: string): Promise<Organization | null> {
+    // Check localStorage first
     const items = getLocalOrgs();
-    return items.find((o) => o.OrganizationID === id) || null;
+    const found = items.find((o) => o.OrganizationID === id);
+    if (found) return found;
+
+    // Fallback to Supabase
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('OrganizationID', id)
+        .single();
+      if (!error && data) return data;
+    } catch {}
+    return null;
   },
 
   async create(data: OrganizationFormData): Promise<Organization> {
