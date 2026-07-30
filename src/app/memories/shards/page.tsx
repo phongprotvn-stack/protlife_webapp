@@ -448,7 +448,7 @@ export default function MemoryShardsPage() {
                       zIndex: 0,
                       pointerEvents: 'none',
                       borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
-                      background: 'rgba(255,255,255,0.04)',
+                      background: 'transparent',
                       backdropFilter: showFull ? 'blur(8px)' : 'none',
                       WebkitBackdropFilter: showFull ? 'blur(8px)' : 'none',
                       borderTop: showFull ? `1.5px solid ${color}55` : 'none',
@@ -516,11 +516,13 @@ export default function MemoryShardsPage() {
                         width: showFull ? 28 : 0,
                         height: showFull ? 28 : 0,
                         borderRadius: '50%',
-                        background: showFull ? '#E6002D' : 'transparent',
+                        background: showFull
+                          ? `linear-gradient(135deg, ${color}, ${color}bb)`
+                          : 'transparent',
                         opacity: showFull ? 1 : 0,
                         transform: showFull ? 'scale(1)' : 'scale(0)',
                         boxShadow: showFull
-                          ? '0 4px 12px rgba(0,0,0,0.4)'
+                          ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
                           : 'none',
                         cursor: 'pointer',
                         overflow: 'hidden',
