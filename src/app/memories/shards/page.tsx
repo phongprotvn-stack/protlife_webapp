@@ -231,7 +231,7 @@ export default function MemoryShardsPage() {
   // ─── Arc position (left-centered wheel) ───
   const getSlotStyle = useCallback((rel: number) => {
     const distAbs = Math.abs(rel);
-    const scale = Math.max(0.40, 1 - distAbs * 0.14);
+    const scale = Math.max(0.75, 1 - distAbs * 0.05);
     const opacity = Math.max(0.08, 1 - distAbs * 0.20);
     const textOpacity = Math.max(0.08, 1 - distAbs * 0.24);
 
