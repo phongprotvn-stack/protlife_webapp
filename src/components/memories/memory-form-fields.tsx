@@ -469,7 +469,16 @@ export default function MemoryFormFields({
               {imageUploading ? (
                 <div className="text-[12px] text-[#6B7280]">⏳ Đang nén & tải lên...</div>
               ) : image ? (
-                <div className="text-[12px] text-[var(--color-primary)] font-medium">✅ Đã chọn ảnh. Bấm để đổi ảnh khác</div>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[12px] text-[var(--color-primary)] font-medium">✅ Đã chọn ảnh</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setImage(''); }}
+                    className="text-[11px] font-semibold text-[#E6002D] hover:underline px-2 py-0.5"
+                  >
+                    Bỏ ảnh
+                  </button>
+                </div>
               ) : (
                 <div className="text-[12px] text-[#6B7280]">
                   <Upload size={20} className="mx-auto mb-1 opacity-50" />
@@ -486,9 +495,17 @@ export default function MemoryFormFields({
 
         {/* Preview (shared) */}
         {image && (
-          <div className="mt-1.5 rounded-[8px] overflow-hidden border border-[rgba(0,0,0,0.06)]">
+          <div className="mt-1.5 rounded-[8px] overflow-hidden border border-[rgba(0,0,0,0.06)] relative">
             <img src={image} alt="preview" className="w-full h-[100px] object-cover"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <button
+              type="button"
+              onClick={() => setImage('')}
+              className="absolute top-1 right-1 w-[24px] h-[24px] rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-black/80 transition-all"
+              title="Bỏ ảnh"
+            >
+              <X size={13} className="text-white" />
+            </button>
           </div>
         )}
       </div>
