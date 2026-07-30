@@ -344,22 +344,10 @@ export default function MemoryShardsPage() {
 
   // ─── MAIN RENDER ───
   return (
-    <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none bg-[#0A0A0F]">
-      {/* Gooey SVG filter — high blur + sharp cutoff for liquid merging */}
-      <svg className="absolute w-0 h-0 pointer-events-none">
-        <defs>
-          <filter id="goo">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="24" result="blur" />
-            <feColorMatrix in="blur" mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 30 -14" result="goo" />
-            <feBlend in="SourceGraphic" in2="goo" />
-          </filter>
-        </defs>
-      </svg>
+    <div className="page-content min-h-dvh flex flex-col overflow-hidden select-none bg-black">
 
-      {/* Header */}
-      <div className="relative z-10 flex items-center justify-between mb-2 px-4 pt-3 pb-2"
-        style={{ background: 'linear-gradient(180deg, rgba(10,10,15,0.98) 50%, transparent)' }}>
+      {/* Header — solid black, đồng bộ với page background */}
+      <div className="relative z-10 flex items-center justify-between px-4 pt-3 pb-2 bg-black">
         <div className="flex items-center gap-2.5">
           <button onClick={() => router.back()}
             className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center hover:bg-white/5 text-white/50 transition-colors">
@@ -382,35 +370,7 @@ export default function MemoryShardsPage() {
         className="flex-1 relative overflow-hidden touch-none select-none"
         style={{ minHeight: 300, overscrollBehavior: 'none', perspective: '1000px' }}
       >
-        {/* Gooey glow layer — liquid merging via SVG filter */}
-        <div className="absolute inset-0 pointer-events-none" style={{ filter: 'url(#goo)' }}>
-          {visibleSlots.map((slot) => {
-            const mem = slot.memory;
-            const style = getSlotStyle(slot.rel);
-            const color = moodColor(mem.MoodEmoji);
-            return (
-              <div
-                key={`glow-${mem.MemoryID}`}
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  width: style.glowR * 2.8,
-                  height: style.glowR * 2.8,
-                  transform: `translate(calc(-50% + ${style.x}px), calc(-50% + ${slot.yPos}px))`,
-                  opacity: Math.max(0.08, 0.7 - Math.abs(slot.rel) * 0.12),
-                  borderRadius: '50%',
-                  background: `radial-gradient(circle, ${color} 0%, ${color}AA 40%, transparent 70%)`,
-                  willChange: 'transform, opacity, filter',
-                  transition: isDragging || isScrolling
-                    ? 'none'
-                    : `transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${Math.abs(slot.rel) * 35}ms, opacity 0.4s ease 0ms`,
-                  filter: `blur(${Math.max(0, 2 - Math.abs(slot.rel) * 0.5)}px)`,
-                }}
-              />
-            );
-          })}
-        </div>
-
-        {/* Cards layer — uniform scroll */}
+        {/* Cards layer — uniform scroll (no glow/shadow effects) */}
         <div className="absolute inset-0">
           {visibleSlots.map((slot) => {
             const style = getSlotStyle(slot.rel);
@@ -430,7 +390,7 @@ export default function MemoryShardsPage() {
                   transition: isDragging || isScrolling
                     ? 'none'
                     : `transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${Math.abs(slot.rel) * 35}ms, opacity 0.4s ease 0ms`,
-                  willChange: 'transform, opacity, filter',
+                  willChange: 'transform, opacity',
                   backfaceVisibility: 'hidden' as const,
                 }}
               >
@@ -449,18 +409,13 @@ export default function MemoryShardsPage() {
                       pointerEvents: 'none',
                       borderRadius: `0 ${Math.round(style.avatarSize * 0.35)}px ${Math.round(style.avatarSize * 0.35)}px 0`,
                       background: 'transparent',
-                      backdropFilter: showFull ? 'blur(8px)' : 'none',
-                      WebkitBackdropFilter: showFull ? 'blur(8px)' : 'none',
                       borderTop: showFull ? `1.5px solid ${color}55` : 'none',
                       borderRight: showFull ? `1.5px solid ${color}55` : 'none',
                       borderBottom: showFull ? `1.5px solid ${color}55` : 'none',
                       borderLeft: 'none',
-                      boxShadow: showFull
-                        ? '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)'
-                        : '0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
-                      transition: isDragging
+                      transition: isDragging || isScrolling
                         ? 'none'
-                        : 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease',
+                        : 'border-color 0.3s ease',
                     }}
                   />
 
@@ -522,7 +477,7 @@ export default function MemoryShardsPage() {
                         opacity: showFull ? 1 : 0,
                         transform: showFull ? 'scale(1)' : 'scale(0)',
                         boxShadow: showFull
-                          ? `0 0 20px ${color}44, 0 4px 12px rgba(0,0,0,0.2)`
+                          ? '0 4px 12px rgba(0,0,0,0.3)'
                           : 'none',
                         cursor: 'pointer',
                         overflow: 'hidden',
@@ -552,7 +507,6 @@ export default function MemoryShardsPage() {
                 width: isActive ? 24 : 5,
                 height: isActive ? 6 : 5,
                 background: isActive ? color : 'rgba(255,255,255,0.12)',
-                boxShadow: isActive ? `0 0 8px ${color}66` : 'none',
               }}
             />
           );
