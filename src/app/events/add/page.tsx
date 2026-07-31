@@ -56,6 +56,7 @@ export default function AddEventPage() {
 
   // Auto-calculate LifeStage based on user's DOB + event StartDate
   useEffect(() => {
+    if (!dob) return; // no DOB → keep manual selection
     const stage = calculateLifeStage(dob, form.StartDate);
     setForm((f) => ({ ...f, LifeStage: stage }));
   }, [dob, form.StartDate]);
@@ -234,14 +235,14 @@ export default function AddEventPage() {
             </FormField>
           </div>
           <FormField label="Giai đoạn (tự động)">
-            <select value={form.LifeStage} onChange={()=>{}} disabled
+            <select value={form.LifeStage} onChange={(e)=>setForm((f)=>({...f,LifeStage:e.target.value}))} disabled={!!dob}
               className="input-glass text-[16px] disabled:opacity-60 disabled:cursor-not-allowed">
               <option value="">Chưa xác định</option>
               {LIFE_STAGES.map((s)=><option key={s} value={s}>{s}</option>)}
             </select>
             {!dob && (
               <p className="text-[11px] text-[#FF9500] mt-1">
-                ⚠️ Chưa có ngày sinh trong Cài đặt — vào Cài đặt → Hồ sơ để nhập, hoặc bỏ trống.
+                ⚠️ Chưa có ngày sinh trong Cài đặt — vào Cài đặt → Hồ sơ để nhập, hoặc chọn tay.
               </p>
             )}
           </FormField>

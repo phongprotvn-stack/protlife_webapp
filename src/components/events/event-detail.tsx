@@ -13,8 +13,10 @@ import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { formatVND, parseVND } from '@/lib/utils';
 import { Calendar, MapPin, DollarSign, Users, FileText, Tag, Edit3, Trash2, X, HeartIcon, Globe, Search, Plus, BookHeart, Navigation } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import { DateInput } from '@/components/ui/date-input';
 import { geocodeAddress } from '@/lib/geocode';
+import { calculateLifeStage } from '@/lib/utils';
 import MemoryFormFields from '@/components/memories/memory-form-fields';
 
 interface Props { eventId: string | null; onClose: () => void; panelMode?: boolean; }
@@ -34,6 +36,7 @@ const MOOD_EMOJIS: { emoji: MoodEmoji; label: string }[] = [
 
 export function EventDetail({ eventId, onClose, panelMode }: Props) {
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
+  const dob = useSettingsStore((s) => s.dob);
   const [event, setEvent] = useState<EventItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -89,6 +92,13 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     setEditMode(false); setConfirmDelete(false); setError('');
     setMemoryOpen(false); setMemoryMsg('');
   }, [eventId]);
+
+  // Auto-calculate LifeStage based on user's DOB + event StartDate (edit form)
+  useEffect(() => {
+    if (!dob || !editMode) return; // only when editing + DOB exists
+    const stage = calculateLifeStage(dob, form.StartDate);
+    setForm((f) => (f.LifeStage === stage ? f : { ...f, LifeStage: stage }));
+  }, [dob, editMode, form.StartDate]);
 
   const handleSave = async () => {
     if (!event?.EventID) return;
@@ -388,8 +398,12 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                     {EVENT_TYPES.map((t)=><option key={t} value={t}>{t}</option>)}</select>
                 </FieldEdit>
                 <FieldEdit label="Giai đoạn">
-                  <select value={form.LifeStage} onChange={(e)=>setForm((f)=>({...f,LifeStage:e.target.value}))} className="input-glass text-[13px]">
-                    <option value="">Chọn</option>{LIFE_STAGES.map((s)=><option key={s} value={s}>{s}</option>)}</select>
+                  <select value={form.LifeStage} onChange={(e)=>setForm((f)=>({...f,LifeStage:e.target.value}))} disabled={!!dob}
+                    className="input-glass text-[13px] disabled:opacity-60 disabled:cursor-not-allowed">
+                    <option value="">Chưa xác định</option>{LIFE_STAGES.map((s)=><option key={s} value={s}>{s}</option>)}</select>
+                  {!dob && (
+                    <p className="text-[11px] text-[#FF9500] mt-1">⚠️ Chưa có ngày sinh trong Cài đặt — vào Cài đặt → Hồ sơ để nhập, hoặc chọn tay.</p>
+                  )}
                 </FieldEdit>
               </div>
               <div className="grid grid-cols-2 gap-2">

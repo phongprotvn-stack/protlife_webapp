@@ -138,15 +138,36 @@ export function calculateAge(birthday: string): number {
 }
 
 /**
+ * Parse a date string that may be yyyy-mm-dd (DB format) or dd/mm/yyyy
+ * (Vietnamese format). Returns a Date or null when invalid.
+ */
+function parseDateSafe(s: string): Date | null {
+  if (!s) return null;
+  // yyyy-mm-dd (DB format)
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // dd/mm/yyyy (Vietnamese format)
+  const slash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slash) {
+    const d = new Date(Number(slash[3]), Number(slash[2]) - 1, Number(slash[1]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Calculate life stage based on the user's age at the event date.
- * Birth date & event date are strings in yyyy-mm-dd format.
+ * Accepts birthDate & eventDate in yyyy-mm-dd or dd/mm/yyyy.
  * Returns '' when inputs are invalid/missing.
  */
 export function calculateLifeStage(birthDate: string, eventDate: string): string {
-  if (!birthDate || !eventDate) return '';
-  const birth = new Date(birthDate);
-  const event = new Date(eventDate);
-  if (isNaN(birth.getTime()) || isNaN(event.getTime())) return '';
+  const birth = parseDateSafe(birthDate);
+  const event = parseDateSafe(eventDate);
+  if (!birth || !event) return '';
 
   // Age at the event date
   let age = event.getFullYear() - birth.getFullYear();

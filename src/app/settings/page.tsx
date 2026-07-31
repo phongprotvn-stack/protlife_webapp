@@ -14,6 +14,7 @@ import type { UserDevice } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
 import ExportModal from '@/components/settings/export-modal';
 import ImportModal from '@/components/settings/import-modal';
+import { DateInput } from '@/components/ui/date-input';
 
 // ─── Types ───
 type Tab = 'account' | 'data' | 'privacy' | 'notify' | 'appearance' | 'permissions' | 'backup';
@@ -347,8 +348,8 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="mb-[14px]">
                   <label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Ngày sinh</label>
-                  <input className="w-full px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)]"
-                    value={editDob} onChange={e => { setEditDob(e.target.value); setEditing(true); }} placeholder="VD: 27/10/1992" />
+                  <DateInput className="w-full px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)]"
+                    value={editDob} onChange={v => { setEditDob(v); setEditing(true); }} placeholder="VD: 27/10/1992" />
                 </div>
                 <div className="mb-[14px]">
                   <label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Giới tính</label>

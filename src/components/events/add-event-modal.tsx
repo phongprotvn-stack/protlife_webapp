@@ -53,6 +53,7 @@ export function AddEventModal({ open, onClose }: Props) {
 
   // Auto-calculate LifeStage based on user's DOB + event StartDate
   useEffect(() => {
+    if (!dob) return; // no DOB → keep manual selection
     const stage = calculateLifeStage(dob, form.StartDate);
     setForm((f) => ({ ...f, LifeStage: stage }));
   }, [dob, form.StartDate]);
@@ -165,13 +166,13 @@ export function AddEventModal({ open, onClose }: Props) {
           </div>
           <div>
             <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.3px]">Giai đoạn</label>
-            <select value={form.LifeStage} onChange={() => {}} disabled
+            <select value={form.LifeStage} onChange={(e) => update('LifeStage', e.target.value)} disabled={!!dob}
               className="input-ios mt-1 disabled:opacity-60 disabled:cursor-not-allowed">
               <option value="">Chưa xác định</option>
               {LIFE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
             {!dob && (
-              <p className="text-[11px] text-[#FF9500] mt-1">⚠️ Chưa có ngày sinh trong Cài đặt — vào Cài đặt → Hồ sơ để nhập.</p>
+              <p className="text-[11px] text-[#FF9500] mt-1">⚠️ Chưa có ngày sinh trong Cài đặt — vào Cài đặt → Hồ sơ để nhập, hoặc chọn tay.</p>
             )}
           </div>
         </div>
