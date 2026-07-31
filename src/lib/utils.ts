@@ -137,6 +137,35 @@ export function calculateAge(birthday: string): number {
   return age;
 }
 
+/**
+ * Calculate life stage based on the user's age at the event date.
+ * Birth date & event date are strings in yyyy-mm-dd format.
+ * Returns '' when inputs are invalid/missing.
+ */
+export function calculateLifeStage(birthDate: string, eventDate: string): string {
+  if (!birthDate || !eventDate) return '';
+  const birth = new Date(birthDate);
+  const event = new Date(eventDate);
+  if (isNaN(birth.getTime()) || isNaN(event.getTime())) return '';
+
+  // Age at the event date
+  let age = event.getFullYear() - birth.getFullYear();
+  const m = event.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && event.getDate() < birth.getDate())) {
+    age--;
+  }
+
+  if (age <= 5) return 'Infancy';
+  if (age <= 10) return 'Childhood';
+  if (age <= 14) return 'Secondary School';
+  if (age <= 17) return 'High School';
+  if (age <= 22) return 'University';
+  if (age <= 30) return 'Early Career';
+  if (age <= 50) return 'Mid Career';
+  if (age <= 65) return 'Mature Career';
+  return 'Retirement';
+}
+
 export function getDaysUntilNextBirthday(birthday: string): number {
   const today = new Date();
   const birth = new Date(birthday);

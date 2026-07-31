@@ -13,10 +13,13 @@ import { ArrowLeft, MapPin, X, Search, Plus, Globe, Navigation } from 'lucide-re
 import { formatVND, parseVND } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
 import { geocodeAddress } from '@/lib/geocode';
+import { useSettingsStore } from '@/stores/settings-store';
+import { calculateLifeStage } from '@/lib/utils';
 
 const EVENT_TYPES = ['Meeting','Birthday','Travel','Work','Sport','Hospital','Meal','Call','Shopping','Study','Party','Date','Entertainment','Other'] as const;
 const MOODS = ['Happy','Normal','Sad','Excited','Tired','Angry','Thoughtful','Loved'] as const;
 const IMPORTANCE = ['Lowest','Low','Medium','High','Highest'] as const;
+const LIFE_STAGES = ['Infancy', 'Childhood', 'Secondary School', 'High School', 'University', 'Early Career', 'Mid Career', 'Mature Career', 'Retirement'] as const;
 
 interface LocationItem {
   id: string;
@@ -29,6 +32,7 @@ interface LocationItem {
 export default function AddEventPage() {
   const router = useRouter();
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
+  const dob = useSettingsStore((s) => s.dob);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [geocoding, setGeocoding] = useState<Record<string, 'idle' | 'loading' | 'done' | 'fail'>>({});
@@ -45,10 +49,16 @@ export default function AddEventPage() {
 
   const [form, setForm] = useState({
     Title:'', EventType:'Meeting', StartDate:new Date().toISOString().split('T')[0], EndDate:'',
-    Mood:'', Importance:'Medium', Cost:0, Notes:'',
+    Mood:'', Importance:'Medium', LifeStage:'', Cost:0, Notes:'',
   });
 
   const [placeText, setPlaceText] = useState('');
+
+  // Auto-calculate LifeStage based on user's DOB + event StartDate
+  useEffect(() => {
+    const stage = calculateLifeStage(dob, form.StartDate);
+    setForm((f) => ({ ...f, LifeStage: stage }));
+  }, [dob, form.StartDate]);
 
   // Load contacts for participant selection using TanStack Query (cached, retried, refetched on focus)
   const { data: contacts = [] } = useQuery({
@@ -176,6 +186,7 @@ export default function AddEventPage() {
         Lat: activeLocs[0]?.lat || undefined,
         Lng: activeLocs[0]?.lng || undefined,
         Mood:form.Mood as any||undefined, Importance:form.Importance as any,
+        LifeStage: form.LifeStage ? (form.LifeStage as any) : undefined,
         Cost:form.Cost, Notes:form.Notes||undefined,
       });
 
@@ -222,6 +233,18 @@ export default function AddEventPage() {
               </select>
             </FormField>
           </div>
+          <FormField label="Giai đoạn (tự động)">
+            <select value={form.LifeStage} onChange={()=>{}} disabled
+              className="input-glass text-[16px] disabled:opacity-60 disabled:cursor-not-allowed">
+              <option value="">Chưa xác định</option>
+              {LIFE_STAGES.map((s)=><option key={s} value={s}>{s}</option>)}
+            </select>
+            {!dob && (
+              <p className="text-[11px] text-[#FF9500] mt-1">
+                ⚠️ Chưa có ngày sinh trong Cài đặt — vào Cài đặt → Hồ sơ để nhập, hoặc bỏ trống.
+              </p>
+            )}
+          </FormField>
         </FormSection>
 
         <FormSection title="Thời gian">

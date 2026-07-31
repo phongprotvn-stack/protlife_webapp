@@ -7,7 +7,8 @@ import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
 import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
-import { cn, formatDate, getInitials, getAvatarColor } from '@/lib/utils';
+import { useSettingsStore } from '@/stores/settings-store';
+import { cn, formatDate, getInitials, getAvatarColor, calculateLifeStage } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
 import type { Contact } from '@/types/database';
 
@@ -30,6 +31,7 @@ interface Props { open: boolean; onClose: () => void; }
 
 export function AddEventModal({ open, onClose }: Props) {
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
+  const dob = useSettingsStore((s) => s.dob);
   const [form, setForm] = useState({
     Title: '', EventType: 'Meeting' as string, StartDate: new Date().toISOString().split('T')[0], EndDate: '',
     Mood: '', Importance: 'Medium' as string, LifeStage: '' as string, Cost: 0, Notes: '',
@@ -48,6 +50,12 @@ export function AddEventModal({ open, onClose }: Props) {
   useEffect(() => {
     if (open) contactService.getAll().then(setContacts).catch(() => {});
   }, [open]);
+
+  // Auto-calculate LifeStage based on user's DOB + event StartDate
+  useEffect(() => {
+    const stage = calculateLifeStage(dob, form.StartDate);
+    setForm((f) => ({ ...f, LifeStage: stage }));
+  }, [dob, form.StartDate]);
 
   // Close participant dropdown on outside click
   useEffect(() => {
@@ -157,10 +165,14 @@ export function AddEventModal({ open, onClose }: Props) {
           </div>
           <div>
             <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.3px]">Giai đoạn</label>
-            <select value={form.LifeStage} onChange={(e) => update('LifeStage', e.target.value)} className="input-ios mt-1">
-              <option value="">Chọn</option>
+            <select value={form.LifeStage} onChange={() => {}} disabled
+              className="input-ios mt-1 disabled:opacity-60 disabled:cursor-not-allowed">
+              <option value="">Chưa xác định</option>
               {LIFE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+            {!dob && (
+              <p className="text-[11px] text-[#FF9500] mt-1">⚠️ Chưa có ngày sinh trong Cài đặt — vào Cài đặt → Hồ sơ để nhập.</p>
+            )}
           </div>
         </div>
 
