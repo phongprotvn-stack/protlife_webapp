@@ -62,7 +62,7 @@ export const NAMES: NameEntry[] = [
   {
     id: 5,
     name: 'Nghiêm Như Quyên',
-    meaning: 'Thướ tha như chim nhỏ bay lượn — mong manh và tự do.',
+    meaning: 'Thướt tha như chim nhỏ bay lượn — mong manh và tự do.',
     tags: ['#Graceful', '#Bird', '#Free'],
     icon: Feather,
     gradient: 'from-rose-200/22 via-pink-100/14 to-white/8',

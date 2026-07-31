@@ -40,8 +40,8 @@ export default function DaughterNames4Page() {
       <Header />
 
       <main className="mx-auto max-w-6xl px-5 py-14 md:py-20">
-        {/* Bento grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 auto-rows-[200px] md:auto-rows-[210px] gap-4 md:gap-5">
+        {/* Bento grid — mobile: row auto (nội dung trọn vẹn); desktop: 210px cố định */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 auto-rows-auto md:grid-cols-6 md:auto-rows-[210px] gap-4 md:gap-5">
           {NAMES.map((entry, i) => (
             <NameCard key={entry.id} entry={entry} index={i} />
           ))}
