@@ -8,11 +8,16 @@ import { NameCard } from './name-card';
 
 const STORAGE_KEY = 'protlife-ntkt-pinned';
 
+interface DaughterNamesSectionProps {
+  /** fullPage: hiển thị toàn trang (không bo viền container, căn giữa tối đa) */
+  fullPage?: boolean;
+}
+
 /**
  * DaughterNamesSection — mục "Người tình kiếp trước" (v0 style)
- * Nhúng trực tiếp vào trang Tài liệu: Aurora background + IntroHeader + Bento Grid.
+ * Nhúng vào trang Tài liệu hoặc render full-page tại /documents/daughter-names2.
  */
-export function DaughterNamesSection() {
+export function DaughterNamesSection({ fullPage = false }: DaughterNamesSectionProps) {
   const reduceMotion = useReducedMotion();
 
   // Ghim (tim) — persist vào localStorage
@@ -44,7 +49,11 @@ export function DaughterNamesSection() {
 
   return (
     <section
-      className="relative mt-6 overflow-hidden rounded-[28px] px-4 py-7 text-white sm:px-6 md:px-8"
+      className={
+        fullPage
+          ? 'relative overflow-hidden px-4 py-8 text-white sm:px-6 md:px-10'
+          : 'relative mt-6 overflow-hidden rounded-[28px] px-4 py-7 text-white sm:px-6 md:px-8'
+      }
       style={{ background: 'linear-gradient(160deg, #1a1030 0%, #2d1b4e 38%, #1e3a5f 72%, #0f2e2a 100%)' }}>
       {/* Cormorant Garamond (Serif) + Be Vietnam Pro (Sans) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
