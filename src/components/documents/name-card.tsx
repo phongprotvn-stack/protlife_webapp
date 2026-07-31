@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Heart } from 'lucide-react';
 import type { DaughterName } from './daughter-names-data';
@@ -21,13 +21,25 @@ interface NameCardProps {
  * - Nút tim Ghim: bật/tắt yêu thích (GPU-friendly, chỉ animate transform/opacity)
  */
 export function NameCard({ data, index, featured, pinned, onTogglePin, reduceMotion }: NameCardProps) {
-  const [hovered, setHovered] = useState(false);
+  const [active, setActive] = useState(false); // hover (desktop) hoặc tap (mobile)
+  const shimmerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const Icon = data.icon;
+
+  const clearShimmerTimer = () => {
+    if (shimmerTimer.current) { clearTimeout(shimmerTimer.current); shimmerTimer.current = null; }
+  };
 
   return (
     <motion.div
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
+      onHoverStart={() => setActive(true)}
+      onHoverEnd={() => { clearShimmerTimer(); setActive(false); }}
+      onTapStart={() => { clearShimmerTimer(); setActive(true); }}
+      onTapCancel={() => { clearShimmerTimer(); setActive(false); }}
+      onTap={() => {
+        // Giữ shimmer nháy thêm 0.7s sau khi nhả tay (mobile feedback)
+        clearShimmerTimer();
+        shimmerTimer.current = setTimeout(() => setActive(false), 700);
+      }}
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
@@ -39,7 +51,7 @@ export function NameCard({ data, index, featured, pinned, onTogglePin, reduceMot
         gridColumn: featured ? 'span 2' : undefined,
         boxShadow: '0 4px 20px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.35)',
       }}>
-      {/* ─── Shimmer border (viền sáng chạy quanh khi hover) ─── */}
+      {/* ─── Shimmer border (hover hoặc tap đều chạy) ─── */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute inset-0 rounded-[22px]"
@@ -49,10 +61,10 @@ export function NameCard({ data, index, featured, pinned, onTogglePin, reduceMot
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
           maskComposite: 'exclude',
-          opacity: hovered && !reduceMotion ? 1 : 0,
+          opacity: active && !reduceMotion ? 1 : 0,
         }}
-        animate={reduceMotion ? undefined : { rotate: hovered ? 360 : 0 }}
-        transition={hovered ? { duration: 2, repeat: Infinity, ease: 'linear' } : { duration: 0.35 }}
+        animate={reduceMotion ? undefined : { rotate: active ? 360 : 0 }}
+        transition={active ? { duration: 2, repeat: Infinity, ease: 'linear' } : { duration: 0.35 }}
       />
 
       {/* ─── Nội dung ─── */}
@@ -67,6 +79,8 @@ export function NameCard({ data, index, featured, pinned, onTogglePin, reduceMot
           {/* Nút Ghim (Trái tim) */}
           <motion.button
             onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             whileTap={reduceMotion ? undefined : { scale: 0.7 }}
             animate={pinned ? { scale: [1, 1.35, 1] } : { scale: 1 }}
             transition={{ duration: 0.35 }}
