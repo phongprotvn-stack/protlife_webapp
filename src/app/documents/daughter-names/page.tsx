@@ -68,7 +68,7 @@ export default function DaughterNamesPage() {
   // Trộn danh sách ổn định (theo index, không đổi mỗi lần render)
   const items = useMemo(() => {
     // xáo nhẹ bằng seed cố định để card to/đẹp nằm rải đều
-    const seed = [6, 0, 13, 21, 3, 9, 17, 1, 11, 19, 4, 15, 22, 7, 2, 12, 20, 8, 5, 16, 23, 10, 14, 18];
+    const seed = [0, 6, 13, 21, 3, 9, 17, 1, 11, 19, 4, 15, 22, 7, 2, 12, 20, 8, 5, 16, 23, 10, 14, 18];
     return seed.map((idx) => ({ ...NAMES[idx], bento: BENTO[idx] }));
   }, []);
 
