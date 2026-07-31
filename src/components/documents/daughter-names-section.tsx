@@ -51,47 +51,52 @@ export function DaughterNamesSection({ fullPage = false }: DaughterNamesSectionP
     <section
       className={
         fullPage
-          ? 'relative overflow-hidden px-4 py-8 text-white sm:px-6 md:px-10'
+          ? 'relative px-4 pb-4 text-white sm:px-6 md:px-10'
           : 'relative mt-6 overflow-hidden rounded-[28px] px-4 py-7 text-white sm:px-6 md:px-8'
       }
-      style={{ background: 'linear-gradient(160deg, #1a1030 0%, #2d1b4e 38%, #1e3a5f 72%, #0f2e2a 100%)' }}>
+      style={fullPage ? { background: 'transparent' } : { background: 'linear-gradient(160deg, #1a1030 0%, #2d1b4e 38%, #1e3a5f 72%, #0f2e2a 100%)' }}>
       {/* Cormorant Garamond (Serif) + Be Vietnam Pro (Sans) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link
         href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Be+Vietnam+Pro:wght@400;500;600&display=swap"
         rel="stylesheet" />
-      {/* ─── Aurora background (chỉ animate transform — GPU) ─── */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-        {auroraBlobs.map((b, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full"
-            style={{
-              width: b.size, height: b.size, left: b.x, top: b.y,
-              background: `radial-gradient(circle at center, ${b.color} 0%, transparent 70%)`,
-              filter: 'blur(64px)', willChange: 'transform',
-            }}
-            animate={reduceMotion ? undefined : { x: [0, 50, -25, 0], y: [0, -40, 35, 0], scale: [1, 1.12, 0.96, 1] }}
-            transition={{ duration: b.dur, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        ))}
-      </div>
-
-      {/* ─── IntroHeader ─── */}
-      <div className="relative mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-white/45">Prot Life · Tài liệu</p>
-          <h2
-            className="mt-1.5 text-[26px] font-semibold leading-tight tracking-tight md:text-[32px]"
-            style={{ fontFamily: "'Cormorant Garamond', Georgia, 'Times New Roman', serif" }}>
-            Người tình kiếp trước
-          </h2>
-          <p className="mt-1 flex items-center gap-1.5 text-[12px] text-white/55">
-            <Sparkles size={12} className="text-pink-300" />
-            24 cái tên dành cho con gái tương lai — chạm tim để ghim
-          </p>
+      {/* ─── Aurora background (chỉ khi embedded — trang fullPage tự lo) ─── */}
+      {!fullPage && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+          {auroraBlobs.map((b, i) => (
+            <motion.div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                width: b.size, height: b.size, left: b.x, top: b.y,
+                background: `radial-gradient(circle at center, ${b.color} 0%, transparent 70%)`,
+                filter: 'blur(64px)', willChange: 'transform',
+              }}
+              animate={reduceMotion ? undefined : { x: [0, 50, -25, 0], y: [0, -40, 35, 0], scale: [1, 1.12, 0.96, 1] }}
+              transition={{ duration: b.dur, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          ))}
         </div>
+      )}
+
+      {/* ─── IntroHeader (fullPage: ẩn text vì trang đã có header, chỉ giữ chip ghim) ─── */}
+      <div className="relative mb-6 flex flex-wrap items-end justify-between gap-3">
+        {!fullPage && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-white/45">Prot Life · Tài liệu</p>
+            <h2
+              className="mt-1.5 text-[26px] font-semibold leading-tight tracking-tight md:text-[32px]"
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, 'Times New Roman', serif" }}>
+              Người tình kiếp trước
+            </h2>
+            <p className="mt-1 flex items-center gap-1.5 text-[12px] text-white/55">
+              <Sparkles size={12} className="text-pink-300" />
+              24 cái tên dành cho con gái tương lai — chạm tim để ghim
+            </p>
+          </div>
+        )}
+        {fullPage && <div />}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
