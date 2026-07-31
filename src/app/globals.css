@@ -287,3 +287,114 @@ html {
     font-size: 16px !important;
   }
 }
+
+/* ═══ Người tình kiếp trước 4 (v0 style) ═══ */
+.font-display {
+  font-family: "Cormorant Garamond", "Playfair Display", Georgia, "Times New Roman", serif;
+  letter-spacing: -0.01em;
+}
+
+.font-viet {
+  font-family: "Be Vietnam Pro", "Inter", system-ui, sans-serif;
+}
+
+.glass {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.02) 60%,
+    rgba(255, 255, 255, 0.05)
+  );
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.glass-strong {
+  background: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.03) 55%,
+    rgba(255, 255, 255, 0.06)
+  );
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+}
+
+.ring-hairline {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
+    0 1px 0 0 rgba(0, 0, 0, 0.2);
+}
+
+.inner-soft {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    inset 0 0 24px rgba(255, 255, 255, 0.04),
+    0 18px 40px -20px rgba(0, 0, 0, 0.7);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.shimmer-sweep {
+  background-image: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.22) 48%,
+    rgba(255, 255, 255, 0.05) 52%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  background-position: 180% 0;
+  animation: shimmer-sweep 7s ease-in-out infinite;
+}
+
+.card-pull {
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.4s ease;
+  will-change: transform;
+}
+
+.card-pull:hover,
+.card-pull:focus-visible {
+  transform: translateY(-12px) scale(1.035);
+}
+
+.pin-pop {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+}
+
+.float-slow {
+  animation: float-slow 9s ease-in-out infinite;
+}
+
+.fade-rise {
+  animation: fade-rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes shimmer-sweep {
+  0% { background-position: 180% 0; }
+  55% { background-position: -40% 0; }
+  100% { background-position: 180% 0; }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-sweep, .float-slow, .fade-rise, .card-pull {
+    animation: none !important;
+    transition: none !important;
+  }
+}

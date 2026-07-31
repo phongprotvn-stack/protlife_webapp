@@ -69,6 +69,20 @@ export default function DocumentsPage() {
           </div>
         </button>
 
+        {/* Featured: Người tình kiếp trước 4 (trang 6.4) */}
+        <button onClick={() => router.push('/documents/daughter-names4')}
+          className="w-full mb-3 overflow-hidden rounded-[16px] border border-white/40 p-4 text-left shadow-lg active:scale-[0.98] transition-transform"
+          style={{ background: 'linear-gradient(135deg, #0b0a12 0%, #2d2a4a 60%, #5c4a8a 120%)', boxShadow: '0 8px 24px rgba(90,74,138,0.35)' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[14px] bg-white/10 text-[20px] backdrop-blur-sm">🕯️</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-white" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Người tình kiếp trước 4</p>
+              <p className="mt-0.5 text-[11px] text-white/70">24 names · kept in glass · Cormorant Serif</p>
+            </div>
+            <span className="text-white/60 text-[18px]">›</span>
+          </div>
+        </button>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" />
@@ -142,6 +156,18 @@ export default function DocumentsPage() {
           <p className="mt-0.5 text-[11px] text-white/80">24 tên · Bento Glass · Ghim yêu thích</p>
         </div>
         <span className="text-[20px] text-white/70 transition-transform group-hover:translate-x-1">›</span>
+      </button>
+
+      {/* Featured: Người tình kiếp trước 4 (trang 6.4) */}
+      <button onClick={() => router.push('/documents/daughter-names4')}
+        className="group w-full mb-5 flex items-center gap-4 overflow-hidden rounded-[14px] border border-white/40 p-4 text-left shadow-lg transition-all hover:shadow-xl active:scale-[0.99]"
+        style={{ background: 'linear-gradient(120deg, #0b0a12 0%, #2d2a4a 60%, #5c4a8a 130%)', boxShadow: '0 8px 28px rgba(90,74,138,0.35)' }}>
+        <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[13px] bg-white/10 text-[22px] backdrop-blur-sm transition-transform group-hover:scale-110">🕯️</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-bold text-white" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Người tình kiếp trước 4</p>
+          <p className="mt-0.5 text-[11px] text-white/70">24 names · kept in glass · Cormorant Serif</p>
+        </div>
+        <span className="text-[20px] text-white/60 transition-transform group-hover:translate-x-1">›</span>
       </button>
 
       {loading ? (
