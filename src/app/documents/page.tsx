@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, FileText, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { documentService, type Document } from '@/lib/services/document-service';
 import { useRouter } from 'next/navigation';
+import { DaughterNamesSection } from '@/components/documents/daughter-names-section';
 
 export default function DocumentsPage() {
   const router = useRouter();
@@ -88,6 +89,9 @@ export default function DocumentsPage() {
             ))}
           </div>
         )}
+
+        {/* Mục Người tình kiếp trước (v0 Bento Glass) */}
+        <DaughterNamesSection />
       </div>
     );
   }
@@ -162,6 +166,9 @@ export default function DocumentsPage() {
           </table>
         </div>
       )}
+
+      {/* Mục Người tình kiếp trước (v0 Bento Glass) */}
+      <DaughterNamesSection />
     </div>
   );
 }
