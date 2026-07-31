@@ -40,6 +40,21 @@ export default function DocumentsPage() {
             </button>
           </div>
         </div>
+
+        {/* Featured: Người tình kiếp trước */}
+        <button onClick={() => router.push('/documents/daughter-names')}
+          className="w-full mb-3 overflow-hidden rounded-[16px] border border-white/40 p-4 text-left shadow-lg active:scale-[0.98] transition-transform"
+          style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #db2777 55%, #f59e0b 120%)', boxShadow: '0 8px 24px rgba(219,39,119,0.25)' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[14px] bg-white/20 text-[20px] backdrop-blur-sm">💖</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-white" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Người tình kiếp trước</p>
+              <p className="mt-0.5 text-[11px] text-white/80">24 cái tên dành cho con gái tương lai · Bento Aurora</p>
+            </div>
+            <span className="text-white/70 text-[18px]">›</span>
+          </div>
+        </button>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" />
@@ -79,7 +94,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="page-content">
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-3 mb-4">
         <div className="flex-1 relative">
           <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
           <input type="text" placeholder="Tìm kiếm tài liệu..."
@@ -90,6 +105,18 @@ export default function DocumentsPage() {
           <Plus size={16} strokeWidth={2.5} /> Thêm tài liệu
         </button>
       </div>
+
+      {/* Featured: Người tình kiếp trước */}
+      <button onClick={() => router.push('/documents/daughter-names')}
+        className="group w-full mb-5 flex items-center gap-4 overflow-hidden rounded-[14px] border border-white/40 p-4 text-left shadow-lg transition-all hover:shadow-xl active:scale-[0.99]"
+        style={{ background: 'linear-gradient(120deg, #6d28d9 0%, #db2777 55%, #f59e0b 130%)', boxShadow: '0 8px 28px rgba(219,39,119,0.22)' }}>
+        <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[13px] bg-white/20 text-[22px] backdrop-blur-sm transition-transform group-hover:scale-110">💖</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-bold text-white" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Người tình kiếp trước</p>
+          <p className="mt-0.5 text-[11px] text-white/80">24 cái tên dành cho con gái tương lai · Bento Aurora Glass</p>
+        </div>
+        <span className="text-[20px] text-white/70 transition-transform group-hover:translate-x-1">›</span>
+      </button>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
