@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users } from 'lucide-react';
+import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
 import { eventService } from '@/lib/services/event-service';
 import { supabase } from '@/lib/supabase/client';
@@ -10,6 +10,7 @@ import { useAppStore } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
 import type { EventItem } from '@/types/database';
 import { formatDate, getMoodEmoji, getImportanceColor, formatVND } from '@/lib/utils';
+import { DateInput } from '@/components/ui/date-input';
 
 const PAGE_SIZE = 10;
 
@@ -48,6 +49,14 @@ export default function EventsPage() {
 
   // Participant count per event
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
+  // Participant names per event (for participant search)
+  const [participantNames, setParticipantNames] = useState<Record<string, string[]>>({});
+
+  // Advanced filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [participantSearch, setParticipantSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const selectEvent = useAppStore((s) => s.selectEvent);
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -60,19 +69,37 @@ export default function EventsPage() {
         const data = await eventService.getAll();
         setEvents(data);
 
-        // Fetch participant counts for ALL events
-        const { data: participants } = await supabase
-          .from('participants')
-          .select('EventID')
-          .in('EventID', data.map((e: EventItem) => e.EventID));
+        const eventIds = data.map((e: EventItem) => e.EventID);
 
-        const counts: Record<string, number> = {};
-        if (participants) {
-          participants.forEach((p: any) => {
-            counts[p.EventID] = (counts[p.EventID] || 0) + 1;
-          });
+        // Fetch participant counts AND names for ALL events
+        if (eventIds.length > 0) {
+          const { data: participants } = await supabase
+            .from('participants')
+            .select(`
+              EventID,
+              ContactID,
+              contacts!inner(Name)
+            `)
+            .in('EventID', eventIds);
+
+          const counts: Record<string, number> = {};
+          const names: Record<string, string[]> = {};
+          if (participants) {
+            participants.forEach((p: any) => {
+              counts[p.EventID] = (counts[p.EventID] || 0) + 1;
+              if (!names[p.EventID]) names[p.EventID] = [];
+              const contactName = p.contacts?.Name?.trim();
+              if (contactName && !names[p.EventID].includes(contactName)) {
+                names[p.EventID].push(contactName);
+              }
+            });
+          }
+          setParticipantCounts(counts);
+          setParticipantNames(names);
+        } else {
+          setParticipantCounts({});
+          setParticipantNames({});
         }
-        setParticipantCounts(counts);
       } catch (e: any) {
         const msg = e.message || '';
         if (msg.includes('connection pool') && retries > 0) {
@@ -90,8 +117,19 @@ export default function EventsPage() {
 
   const processed = useMemo(() => {
     let f = events.filter((e) => {
+      // Type filter
       if (activeFilter && e.EventType !== activeFilter) return false;
+      // Title search
       if (searchQuery && !e.Title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      // Participant name search
+      if (participantSearch) {
+        const names = participantNames[e.EventID] || [];
+        const match = names.some((n) => n.toLowerCase().includes(participantSearch.toLowerCase()));
+        if (!match) return false;
+      }
+      // Date range filter
+      if (fromDate && e.StartDate && e.StartDate < fromDate) return false;
+      if (toDate && e.StartDate && e.StartDate > toDate) return false;
       return true;
     });
     f.sort((a, b) => {
@@ -107,7 +145,7 @@ export default function EventsPage() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return f;
-  }, [events, activeFilter, searchQuery, sortField, sortDir, participantCounts]);
+  }, [events, activeFilter, searchQuery, sortField, sortDir, participantCounts, participantNames, participantSearch, fromDate, toDate]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
@@ -117,6 +155,51 @@ export default function EventsPage() {
     if (sortField === f) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortField(f); setSortDir('asc'); }
   };
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setActiveFilter('');
+    setParticipantSearch('');
+    setFromDate('');
+    setToDate('');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = !!searchQuery || !!activeFilter || !!participantSearch || !!fromDate || !!toDate;
+
+  const filterBar = showFilters && (
+    <div className="flex flex-wrap items-end gap-2.5">
+      {/* Participant search */}
+      <div className="flex-1 min-w-[160px]">
+        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Người tham gia</p>
+        <div className="relative">
+          <Users size={13} className="absolute left-[10px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          <input value={participantSearch} onChange={(e) => { setParticipantSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Tìm theo tên người tham gia..."
+            className="w-full h-[36px] pl-[30px] pr-[8px] rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] text-[12px] outline-none focus:border-[#E6002D] transition-all" />
+        </div>
+      </div>
+      {/* From date */}
+      <div className="min-w-[130px]">
+        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Từ ngày</p>
+        <DateInput value={fromDate} onChange={(v) => { setFromDate(v); setCurrentPage(1); }}
+          className="w-full h-[36px] px-[10px] rounded-[8px] border border-[rgba(0,0,0,0.06)] text-[12px] outline-none focus:border-[#E6002D] transition-all" />
+      </div>
+      {/* To date */}
+      <div className="min-w-[130px]">
+        <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Đến ngày</p>
+        <DateInput value={toDate} onChange={(v) => { setToDate(v); setCurrentPage(1); }}
+          className="w-full h-[36px] px-[10px] rounded-[8px] border border-[rgba(0,0,0,0.06)] text-[12px] outline-none focus:border-[#E6002D] transition-all" />
+      </div>
+      {/* Reset */}
+      {hasActiveFilters && (
+        <button onClick={resetFilters}
+          className="h-[36px] px-3 rounded-[8px] text-[11px] font-medium text-[#E6002D] bg-[rgba(230,0,45,0.06)] hover:bg-[rgba(230,0,45,0.1)] flex items-center gap-1 transition-all">
+          <X size={13} /> Xoá lọc
+        </button>
+      )}
+    </div>
+  );
 
   if (!isDesktop) {
     return (
@@ -140,8 +223,14 @@ export default function EventsPage() {
           <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
           <input type="text" placeholder="Tìm kiếm sự kiện..." value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[40px] pl-[36px] pr-[12px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[16px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[rgba(230,0,45,0.25)] transition-all" />
+            className="w-full h-[40px] pl-[36px] pr-[36px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[16px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[rgba(230,0,45,0.25)] transition-all" />
+          <button onClick={() => setShowFilters(!showFilters)}
+            className={`absolute right-[10px] top-1/2 -translate-y-1/2 p-1 rounded-[6px] transition-all ${showFilters ? 'text-[#E6002D] bg-[rgba(230,0,45,0.08)]' : 'text-[#9CA3AF]'}`}>
+            <SlidersHorizontal size={15} />
+          </button>
         </div>
+        {/* Filter bar on Mobile */}
+        {filterBar && <div className="mb-3">{filterBar}</div>}
         <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
           {EVENT_TYPES.map((t) => (
             <button key={t.id} onClick={() => { setActiveFilter(t.id); setCurrentPage(1); }}
@@ -157,7 +246,7 @@ export default function EventsPage() {
         ) : error ? (
           <div className="glass-card p-6 text-center"><p className="text-[13px] font-medium text-[#E6002D]">{error}</p><button onClick={loadEvents} className="mt-3 px-4 py-1.5 rounded-[8px] text-[11px] font-medium text-white bg-[#E6002D]">Thử lại</button></div>
         ) : processed.length === 0 ? (
-          <div className="glass-card p-8 text-center"><div className="w-12 h-12 rounded-full bg-[#007AFF]/5 mx-auto mb-3 flex items-center justify-center"><Calendar size={22} className="text-[#007AFF]/30" /></div><p className="text-[13px] font-medium text-[#6B7280]">{searchQuery || activeFilter ? 'Không tìm thấy kết quả' : 'Chưa có sự kiện nào'}</p></div>
+          <div className="glass-card p-8 text-center"><div className="w-12 h-12 rounded-full bg-[#007AFF]/5 mx-auto mb-3 flex items-center justify-center"><Calendar size={22} className="text-[#007AFF]/30" /></div><p className="text-[13px] font-medium text-[#6B7280]">{hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có sự kiện nào'}</p></div>
         ) : (
           <div className="space-y-2">{paginated.map((event) => (<EventCard key={event.EventID} event={event} />))}</div>
         )}
@@ -173,12 +262,16 @@ export default function EventsPage() {
       {!isLoading && !error && (
         <>
           {/* TOP ROW */}
-          <div className="flex items-center gap-3 mb-5">
+          <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 relative">
               <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
               <input type="text" placeholder="Tìm kiếm sự kiện..." value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="w-full h-[38px] pl-[34px] pr-[12px] rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] text-[13px] outline-none focus:border-[#E6002D] transition-all" />
+                className="w-full h-[38px] pl-[34px] pr-[36px] rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] text-[13px] outline-none focus:border-[#E6002D] transition-all" />
+              <button onClick={() => setShowFilters(!showFilters)}
+                className={`absolute right-[10px] top-1/2 -translate-y-1/2 p-1 rounded-[6px] transition-all ${showFilters ? 'text-[#E6002D] bg-[rgba(230,0,45,0.08)]' : 'text-[#9CA3AF] hover:text-[#5F6368]'}`}>
+                <SlidersHorizontal size={15} />
+              </button>
             </div>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-[45%]">
               {EVENT_TYPES.map((t) => (
@@ -193,6 +286,9 @@ export default function EventsPage() {
               <Plus size={16} strokeWidth={2.5} /> Thêm sự kiện
             </button>
           </div>
+
+          {/* FILTER BAR — Desktop */}
+          {filterBar && <div className="mb-4 p-3 rounded-[10px] bg-[rgba(0,0,0,0.02)] border border-[rgba(0,0,0,0.04)]">{filterBar}</div>}
 
           {/* TABLE */}
           <div className="glass-card-compact overflow-hidden" style={{ borderRadius: '12px', border: '1px solid rgba(0,0,0,0.04)' }}>
