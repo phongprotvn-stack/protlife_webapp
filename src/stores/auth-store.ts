@@ -13,9 +13,12 @@ interface AuthState {
   isLoggedIn: boolean;
   user: UserProfile | null;
   isSigningOut: boolean;
+  /** true khi AuthListener đã check xong Supabase session ở lần mount đầu (getSession) */
+  sessionChecked: boolean;
   login: (user: UserProfile) => void;
   logout: () => void;
   setSigningOut: (v: boolean) => void;
+  setSessionChecked: (v: boolean) => void;
 }
 
 const DEFAULT_ADMIN: UserProfile = {
@@ -31,11 +34,13 @@ export const useAuthStore = create<AuthState>()(
       isLoggedIn: false,
       user: null,
       isSigningOut: false,
+      sessionChecked: false,
       login: (user) => {
         set({ isLoggedIn: true, user });
       },
       logout: () => set({ isLoggedIn: false, user: null, isSigningOut: false }),
       setSigningOut: (v) => set({ isSigningOut: v }),
+      setSessionChecked: (v) => set({ sessionChecked: v }),
     }),
     {
       name: 'protlife-auth',

@@ -65,7 +65,10 @@ function AuthListener() {
         if (store.isLoggedIn) store.logout();
       }
     };
-    initFromSession();
+    // Báo cho AuthGuard biết đã check xong session thật (thay cho setTimeout cứng)
+    initFromSession().finally(() => {
+      useAuthStore.getState().setSessionChecked(true);
+    });
 
     // ─── 2. React to auth events ───
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {

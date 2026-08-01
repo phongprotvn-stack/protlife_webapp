@@ -10,6 +10,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const userId = useAuthStore((s) => s.user?.id);
+  const sessionChecked = useAuthStore((s) => s.sessionChecked);
   const [hydrated, setHydrated] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -27,24 +28,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
+
+    // Đã đăng nhập (localStorage hydrate xong) — hiện ngay, không cần chờ gì thêm
     if (isLoggedIn) {
       setChecking(false);
       return;
     }
 
-    // isLoggedIn=false — could be a fresh tab where AuthListener hasn't
-    // finished checking the Supabase session yet. Wait before redirecting.
-    const timer = setTimeout(() => {
-      // Re-check the store (AuthListener may have updated it)
-      const stillLoggedIn = useAuthStore.getState().isLoggedIn;
-      if (!stillLoggedIn) {
-        router.replace('/login');
-      } else {
-        setChecking(false);
-      }
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [isLoggedIn, router, hydrated]);
+    // Chưa đăng nhập — chờ AuthListener check session thật (getSession từ cookie).
+    // Chỉ redirect khi việc check ĐÃ xong và vẫn chưa có session (không dùng timer cứng).
+    if (!sessionChecked) return;
+
+    const stillLoggedIn = useAuthStore.getState().isLoggedIn;
+    if (!stillLoggedIn) {
+      router.replace('/login');
+    } else {
+      setChecking(false);
+    }
+  }, [hydrated, isLoggedIn, sessionChecked, router]);
 
   // Load settings from Supabase when user logs in
   useEffect(() => {
