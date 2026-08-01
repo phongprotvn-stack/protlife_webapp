@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { goalService } from '@/lib/services/goal-service';
 import { organizationService } from '@/lib/services/organization-service';
@@ -58,19 +59,13 @@ function calcTrend(values: number[]): TrendInfo {
 }
 
 export default function StatisticalPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeChart, setActiveChart] = useState<'contacts' | 'events'>('events');
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  async function loadStats() {
-    setLoading(true);
-    try {
+  const { data: stats = null, isLoading: loading, refetch } = useQuery({
+    queryKey: ['statistical'],
+    queryFn: async (): Promise<DashboardStats> => {
       const now = new Date();
       const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString();
 
@@ -160,7 +155,7 @@ export default function StatisticalPage() {
         { label: 'Mục tiêu', score: goalScore, max: 100, color: '#10B981' },
       ];
 
-      setStats({
+      return {
         contacts: contactCount || 0,
         events: eventCount || 0,
         memories: memoryCount || 0,
@@ -175,13 +170,13 @@ export default function StatisticalPage() {
         eventTrend,
         lifeScore,
         lifeSubScores,
-      });
-    } catch (e) {
-      console.error('Stats error:', e);
-    } finally {
-      setLoading(false);
-    }
-  }
+      };
+    },
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
+  });
 
   // ─── Export handlers ───
   const handleExportJson = useCallback(async () => {
@@ -286,7 +281,7 @@ export default function StatisticalPage() {
             <p className="text-[12px] text-[#8E8E93] mt-0.5">Báo cáo và phân tích dữ liệu</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={loadStats} disabled={loading}
+            <button onClick={() => refetch()} disabled={loading}
               className="px-4 py-2.5 rounded-[12px] border border-[#EDEDF1] bg-white text-[13px] font-bold cursor-pointer hover:bg-[#FAFAFB] active:scale-[.97] transition-all disabled:opacity-50">
               {loading ? '⏳ Đang tải...' : '🔄 Làm mới'}
             </button>
@@ -557,7 +552,7 @@ export default function StatisticalPage() {
         ) : (
           <div className="text-center py-20">
             <p className="text-[14px] text-[#E6002D]">Không thể tải dữ liệu. Vui lòng thử lại.</p>
-            <button onClick={loadStats} className="mt-3 px-5 py-2.5 rounded-[12px] text-[13px] font-bold text-white cursor-pointer"
+            <button onClick={() => refetch()} className="mt-3 px-5 py-2.5 rounded-[12px] text-[13px] font-bold text-white cursor-pointer"
               style={{ background: 'var(--color-primary)' }}>Thử lại</button>
           </div>
         )}

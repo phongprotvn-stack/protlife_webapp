@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Plus, Sparkles } from 'lucide-react';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
@@ -75,22 +76,23 @@ function memoryIcon(moodEmoji?: string | null): string {
 }
 
 export default function TimelinePage() {
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [memories, setMemories] = useState<MemoryWithEvent[]>([]);
-  const [dbLoaded, setDbLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['timeline'],
+    queryFn: async () => {
+      const [eventsData, memoriesData] = await Promise.all([
+        eventService.getAll(),
+        memoryService.getAllWithEvent(),
+      ]);
+      return { events: eventsData, memories: memoriesData };
+    },
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
+  });
 
-  useEffect(() => {
-    Promise.all([
-      eventService.getAll(),
-      memoryService.getAllWithEvent(),
-    ]).then(([eventsData, memoriesData]) => {
-      setEvents(eventsData);
-      setMemories(memoriesData);
-      setDbLoaded(true);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+  const { events = [], memories = [] } = data ?? {};
+  const dbLoaded = !!data;
 
   const list = useMemo<MemoryItem[]>(() => {
     if (!dbLoaded) return [];

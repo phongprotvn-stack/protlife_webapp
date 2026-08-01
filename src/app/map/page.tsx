@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { eventService } from '@/lib/services/event-service';
 import { organizationService } from '@/lib/services/organization-service';
 import type { EventItem } from '@/types/database';
@@ -26,54 +27,48 @@ export default function MapPage() {
   const markersLayerRef = useRef<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [places, setPlaces] = useState<MapPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<MapPlace | null>(null);
   const [leafletReady, setLeafletReady] = useState(false);
   const user = useAuthStore((s) => s.user);
 
-  // Load data
-  useEffect(() => {
-    if (!user?.id) return;
-    const loadPlaces = async () => {
-      try {
-        console.log('[map] Loading events...');
-        const events = await eventService.getAll();
-        console.log('[map] Events loaded:', events.length);
-        const eventPlaces: MapPlace[] = events
-          .filter((e) => e.Lat && e.Lng && e.Place)
-          .map((e) => ({
-            id: `event-${e.EventID}`,
-            type: 'event' as const,
-            title: e.Title,
-            meta: e.Place || '',
-            date: e.StartDate || '',
-            lat: Number(e.Lat),
-            lng: Number(e.Lng),
-          }));
-        console.log('[map] Event places with coords:', eventPlaces.length);
+  // Load data (events + orgs → places) qua useQuery — cache 60s
+  const { data: places = [] } = useQuery({
+    queryKey: ['map-places', user?.id],
+    queryFn: async () => {
+      const events = await eventService.getAll();
+      const eventPlaces: MapPlace[] = events
+        .filter((e) => e.Lat && e.Lng && e.Place)
+        .map((e) => ({
+          id: `event-${e.EventID}`,
+          type: 'event' as const,
+          title: e.Title,
+          meta: e.Place || '',
+          date: e.StartDate || '',
+          lat: Number(e.Lat),
+          lng: Number(e.Lng),
+        }));
 
-        const orgs = await organizationService.getAll();
-        const orgPlaces: MapPlace[] = orgs
-          .filter((o) => o.Lat && o.Lng && o.Address)
-          .map((o) => ({
-            id: `org-${o.OrganizationID}`,
-            type: 'org' as const,
-            title: o.Name,
-            meta: o.Address || '',
-            date: '',
-            lat: Number(o.Lat),
-            lng: Number(o.Lng),
-          }));
-        console.log('[map] Org places with coords:', orgPlaces.length);
-        console.log('[map] Total places:', eventPlaces.length + orgPlaces.length);
+      const orgs = await organizationService.getAll();
+      const orgPlaces: MapPlace[] = orgs
+        .filter((o) => o.Lat && o.Lng && o.Address)
+        .map((o) => ({
+          id: `org-${o.OrganizationID}`,
+          type: 'org' as const,
+          title: o.Name,
+          meta: o.Address || '',
+          date: '',
+          lat: Number(o.Lat),
+          lng: Number(o.Lng),
+        }));
 
-        setPlaces([...eventPlaces, ...orgPlaces]);
-      } catch (e) {
-        console.error('[map] Failed to load map data', e);
-      }
-    };
-    loadPlaces();
-  }, [user?.id]);
+      return [...eventPlaces, ...orgPlaces];
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
+  });
 
   // Init Leaflet map
   useEffect(() => {

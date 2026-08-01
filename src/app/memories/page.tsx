@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Plus, Search, BookHeart, RefreshCw, Calendar, Image as ImageIcon, ArrowLeft } from 'lucide-react';
@@ -22,40 +23,30 @@ const MOOD_FILTERS: { emoji: MoodEmoji | 'ALL'; label: string }[] = [
 export default function MemoriesPage() {
   const router = useRouter();
   const selectMemory = useAppStore((s) => s.selectMemory);
-  const [memories, setMemories] = useState<MemoryWithEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const refreshKey = useAppStore((s) => s.refreshKey);
   const [isDesktop, setIsDesktop] = useState(false);
   const [moodFilter, setMoodFilter] = useState<MoodEmoji | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => { setIsDesktop(window.innerWidth >= 768); }, []);
-  useEffect(() => { loadMemories(); }, []);
 
-  const loadMemories = async () => {
-    const tryLoad = async (retries = 3): Promise<void> => {
-      try {
-        const data = await memoryService.getAllWithEvent();
-        data.sort((a, b) => {
-          const aDate = a.EventDate || a.MemoryDate || a.CreatedDate;
-          const bDate = b.EventDate || b.MemoryDate || b.CreatedDate;
-          return new Date(aDate).getTime() - new Date(bDate).getTime();
-        });
-        setMemories(data);
-      } catch (e: any) {
-        const msg = e.message || '';
-        if (msg.includes('connection pool') && retries > 0) {
-          await new Promise(r => setTimeout(r, 1500));
-          return tryLoad(retries - 1);
-        }
-        throw e;
-      }
-    };
-    setIsLoading(true); setError('');
-    try { await tryLoad(); }
-    catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
-    finally { setIsLoading(false); }
-  };
+  const { data: memories = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['memories', refreshKey],
+    queryFn: async () => {
+      const data = await memoryService.getAllWithEvent();
+      data.sort((a, b) => {
+        const aDate = a.EventDate || a.MemoryDate || a.CreatedDate;
+        const bDate = b.EventDate || b.MemoryDate || b.CreatedDate;
+        return new Date(aDate).getTime() - new Date(bDate).getTime();
+      });
+      return data;
+    },
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
+  });
+  const loadError = error ? (error as Error).message || 'Không thể tải dữ liệu' : '';
 
   const filtered = useMemo(() => {
     let f = memories;
@@ -81,7 +72,7 @@ export default function MemoriesPage() {
             <p className="text-[12px] text-[#8E8E93] mt-0.5">{memories.length} ký ức</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={loadMemories} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
+            <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
             <button onClick={() => router.push('/memories/add')}
@@ -125,10 +116,10 @@ export default function MemoriesPage() {
             <div className="w-7 h-7 border-2 border-[#FF2D55]/20 border-t-[#FF2D55] rounded-full animate-spin mb-2" />
             <p className="text-[12px] text-[#8E8E93]">Đang tải...</p>
           </div>
-        ) : error ? (
+        ) : loadError ? (
           <div className="p-6 text-center bg-white rounded-[16px] shadow-sm">
-            <p className="text-[13px] font-medium text-[#E6002D]">{error}</p>
-            <button onClick={loadMemories} className="mt-3 px-4 py-1.5 rounded-[8px] text-[11px] font-medium text-white bg-[#FF2D55]">Thử lại</button>
+            <p className="text-[13px] font-medium text-[#E6002D]">{loadError}</p>
+            <button onClick={() => refetch()} className="mt-3 px-4 py-1.5 rounded-[8px] text-[11px] font-medium text-white bg-[#FF2D55]">Thử lại</button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-8 text-center bg-white rounded-[16px] shadow-sm">
@@ -197,7 +188,7 @@ export default function MemoriesPage() {
             </button>
           ))}
         </div>
-        <button onClick={loadMemories} className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)]">
+        <button onClick={() => refetch()} className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)]">
           <RefreshCw size={13} className="text-[#8E8E93]" />
         </button>
       </div>
@@ -207,10 +198,10 @@ export default function MemoriesPage() {
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-[#FF2D55]/20 border-t-[#FF2D55] rounded-full animate-spin" />
         </div>
-      ) : error ? (
+      ) : loadError ? (
         <div className="p-8 text-center bg-white rounded-[12px] shadow-sm border border-[rgba(0,0,0,0.04)]">
-          <p className="text-[14px] font-medium text-[#E6002D]">{error}</p>
-          <button onClick={loadMemories} className="mt-3 px-5 py-2 rounded-[8px] text-[12px] font-medium text-white bg-[#FF2D55]">Thử lại</button>
+          <p className="text-[14px] font-medium text-[#E6002D]">{loadError}</p>
+          <button onClick={() => refetch()} className="mt-3 px-5 py-2 rounded-[8px] text-[12px] font-medium text-white bg-[#FF2D55]">Thử lại</button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="p-10 text-center bg-white rounded-[12px] shadow-sm border border-[rgba(0,0,0,0.04)]">

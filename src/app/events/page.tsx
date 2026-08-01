@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
@@ -39,18 +40,10 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const router = useRouter();
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const [isDesktop, setIsDesktop] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<SortField>('StartDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-
-  // Participant count per event
-  const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
-  // Participant names per event (for participant search)
-  const [participantNames, setParticipantNames] = useState<Record<string, string[]>>({});
 
   // Advanced filters
   const [showFilters, setShowFilters] = useState(false);
@@ -61,59 +54,54 @@ export default function EventsPage() {
   const selectEvent = useAppStore((s) => s.selectEvent);
   const refreshKey = useAppStore((s) => s.refreshKey);
 
-  useEffect(() => { setIsDesktop(window.innerWidth >= 768); loadEvents(); }, [refreshKey]);
+  useEffect(() => { setIsDesktop(window.innerWidth >= 768); }, []);
 
-  const loadEvents = async () => {
-    const tryLoad = async (retries = 3): Promise<void> => {
-      try {
-        const data = await eventService.getAll();
-        setEvents(data);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['events', refreshKey],
+    queryFn: async () => {
+      const data = await eventService.getAll();
 
-        const eventIds = data.map((e: EventItem) => e.EventID);
+      const eventIds = data.map((e: EventItem) => e.EventID);
 
-        // Fetch participant counts AND names for ALL events
-        if (eventIds.length > 0) {
-          const { data: participants } = await supabase
-            .from('participants')
-            .select(`
-              EventID,
-              ContactID,
-              contacts!inner(Name)
-            `)
-            .in('EventID', eventIds);
+      // Fetch participant counts AND names for ALL events
+      let participantCounts: Record<string, number> = {};
+      let participantNames: Record<string, string[]> = {};
+      if (eventIds.length > 0) {
+        const { data: participants } = await supabase
+          .from('participants')
+          .select(`
+            EventID,
+            ContactID,
+            contacts!inner(Name)
+          `)
+          .in('EventID', eventIds);
 
-          const counts: Record<string, number> = {};
-          const names: Record<string, string[]> = {};
-          if (participants) {
-            participants.forEach((p: any) => {
-              counts[p.EventID] = (counts[p.EventID] || 0) + 1;
-              if (!names[p.EventID]) names[p.EventID] = [];
-              const contactName = p.contacts?.Name?.trim();
-              if (contactName && !names[p.EventID].includes(contactName)) {
-                names[p.EventID].push(contactName);
-              }
-            });
-          }
-          setParticipantCounts(counts);
-          setParticipantNames(names);
-        } else {
-          setParticipantCounts({});
-          setParticipantNames({});
+        const counts: Record<string, number> = {};
+        const names: Record<string, string[]> = {};
+        if (participants) {
+          participants.forEach((p: any) => {
+            counts[p.EventID] = (counts[p.EventID] || 0) + 1;
+            if (!names[p.EventID]) names[p.EventID] = [];
+            const contactName = p.contacts?.Name?.trim();
+            if (contactName && !names[p.EventID].includes(contactName)) {
+              names[p.EventID].push(contactName);
+            }
+          });
         }
-      } catch (e: any) {
-        const msg = e.message || '';
-        if (msg.includes('connection pool') && retries > 0) {
-          await new Promise(r => setTimeout(r, 1500));
-          return tryLoad(retries - 1);
-        }
-        throw e;
+        participantCounts = counts;
+        participantNames = names;
       }
-    };
-    setIsLoading(true); setError('');
-    try { await tryLoad(); }
-    catch (e: any) { setError(e.message || 'Không thể tải dữ liệu'); }
-    finally { setIsLoading(false); }
-  };
+
+      return { events: data, participantCounts, participantNames };
+    },
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
+  });
+
+  const { events, participantCounts, participantNames } = data ?? { events: [], participantCounts: {}, participantNames: {} };
+  const loadError = error ? (error as Error).message || 'Không thể tải dữ liệu' : '';
 
   const processed = useMemo(() => {
     let f = events.filter((e) => {
@@ -210,7 +198,7 @@ export default function EventsPage() {
             <p className="text-[12px] text-[#8E8E93] mt-0.5">{events.length} sự kiện</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={loadEvents} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
+            <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
             <button onClick={() => router.push('/events/add')}
@@ -243,8 +231,8 @@ export default function EventsPage() {
         </div>
         {isLoading ? (
           <div className="flex flex-col items-center py-12"><div className="w-7 h-7 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin mb-2" /><p className="text-[12px] text-[#8E8E93]">Đang tải...</p></div>
-        ) : error ? (
-          <div className="glass-card p-6 text-center"><p className="text-[13px] font-medium text-[#E6002D]">{error}</p><button onClick={loadEvents} className="mt-3 px-4 py-1.5 rounded-[8px] text-[11px] font-medium text-white bg-[#E6002D]">Thử lại</button></div>
+        ) : loadError ? (
+          <div className="glass-card p-6 text-center"><p className="text-[13px] font-medium text-[#E6002D]">{loadError}</p><button onClick={() => refetch()} className="mt-3 px-4 py-1.5 rounded-[8px] text-[11px] font-medium text-white bg-[#E6002D]">Thử lại</button></div>
         ) : processed.length === 0 ? (
           <div className="glass-card p-8 text-center"><div className="w-12 h-12 rounded-full bg-[#007AFF]/5 mx-auto mb-3 flex items-center justify-center"><Calendar size={22} className="text-[#007AFF]/30" /></div><p className="text-[13px] font-medium text-[#6B7280]">{hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có sự kiện nào'}</p></div>
         ) : (
@@ -258,8 +246,8 @@ export default function EventsPage() {
   return (
     <div className="page-content">
       {isLoading && <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" /></div>}
-      {!isLoading && error && (<div className="glass-card p-8 text-center"><p className="text-[14px] font-medium text-[#E6002D]">{error}</p><button onClick={loadEvents} className="btn-glass-primary mt-4 px-5 py-2 text-[12px]">Thử lại</button></div>)}
-      {!isLoading && !error && (
+      {!isLoading && loadError && (<div className="glass-card p-8 text-center"><p className="text-[14px] font-medium text-[#E6002D]">{loadError}</p><button onClick={() => refetch()} className="btn-glass-primary mt-4 px-5 py-2 text-[12px]">Thử lại</button></div>)}
+      {!isLoading && !loadError && (
         <>
           {/* TOP ROW */}
           <div className="flex items-center gap-3 mb-4">

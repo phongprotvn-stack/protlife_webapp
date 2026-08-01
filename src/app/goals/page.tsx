@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, Target, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { goalService, type Goal } from '@/lib/services/goal-service';
 import { useRouter } from 'next/navigation';
@@ -8,30 +9,22 @@ import { useRouter } from 'next/navigation';
 export default function GoalsPage() {
   const router = useRouter();
   const [isDesktop, setIsDesktop] = useState(false);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setIsDesktop(window.innerWidth >= 768);
-    loadGoals();
   }, []);
 
-  const loadGoals = async () => {
-    const tryLoad = async (retries = 2): Promise<void> => {
+  const { data: goals = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['goals'],
+    queryFn: async () => {
       const data = await goalService.getAll();
-      setGoals(data);
-    };
-    setLoading(true);
-    try {
-      await tryLoad();
-    } catch (e: any) {
-      const msg = e.message || '';
-      if (msg.includes('connection pool')) {
-        // silently retry once more via inner function
-      }
-    }
-    setLoading(false);
-  };
+      return data;
+    },
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
+  });
 
   if (!isDesktop) {
     return (
@@ -39,7 +32,7 @@ export default function GoalsPage() {
         <div className="flex items-center justify-between mb-4">
           <div><h1 className="text-[22px] font-bold text-[#111] tracking-tight">Mục tiêu</h1><p className="text-[12px] text-[#8E8E93] mt-0.5">{goals.length} mục tiêu</p></div>
           <div className="flex items-center gap-2">
-            <button onClick={loadGoals} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
+            <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
             <button onClick={() => router.push('/goals/add')}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, Building2, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, Users } from 'lucide-react';
 import { organizationService, type Organization } from '@/lib/services/organization-service';
 import { contactService } from '@/lib/services/contact-service';
@@ -9,22 +10,22 @@ import { useRouter } from 'next/navigation';
 export default function OrganizationsPage() {
   const router = useRouter();
   const [isDesktop, setIsDesktop] = useState(false);
-  const [orgs, setOrgs] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setIsDesktop(window.innerWidth >= 768);
-    loadOrgs();
   }, []);
 
-  const loadOrgs = async () => {
-    setLoading(true);
-    try {
+  const { data: orgs = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: async () => {
       const data = await organizationService.getAll();
-      setOrgs(data);
-    } catch {}
-    setLoading(false);
-  };
+      return data;
+    },
+    staleTime: 60_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
+  });
 
   if (!isDesktop) {
     return (
@@ -32,7 +33,7 @@ export default function OrganizationsPage() {
         <div className="flex items-center justify-between mb-4">
           <div><h1 className="text-[22px] font-bold text-[#111] tracking-tight">Tổ chức</h1><p className="text-[12px] text-[#8E8E93] mt-0.5">{orgs.length} tổ chức</p></div>
           <div className="flex items-center gap-2">
-            <button onClick={loadOrgs} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
+            <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
             <button onClick={() => router.push('/organizations/add')}
