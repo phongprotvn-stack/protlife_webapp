@@ -20,6 +20,45 @@ export default function LandingPage() {
     }
   }, [isLoggedIn, router]);
 
+  // ─── OAuth callback (PKCE): exchange ?code= khi Supabase redirect về ───
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (!code) return;
+
+    (async () => {
+      try {
+        await supabase.auth.exchangeCodeForSession(code);
+      } catch { /* supabase-js có thể đã tự exchange — bỏ qua */ }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const u = session.user;
+        let realName = u.user_metadata?.name || '';
+        let userRole: 'public' | 'viewer' | 'contributor' | 'admin' | undefined;
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, role')
+            .eq('id', u.id)
+            .single();
+          if (profile?.name) realName = profile.name;
+          userRole = profile?.role;
+        } catch { /* fallback */ }
+        login({
+          id: u.id,
+          email: u.email || '',
+          name: realName || u.email?.split('@')[0] || 'User',
+          role: userRole || 'viewer',
+        });
+        loadSettingsFromServer(u.id);
+        recordDeviceLogin(u.id, 'google', null);
+        router.replace('/dashboard');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ─── Login method tab ───
   const [method, setMethod] = useState<'password' | 'magic'>('password');
 

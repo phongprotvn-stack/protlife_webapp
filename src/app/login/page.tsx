@@ -114,7 +114,17 @@ export default function LoginPage() {
 
   // Check if already authenticated with Supabase on mount
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // ─── OAuth callback (PKCE): exchange ?code= khi Supabase redirect về ───
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    const handleAuthCode = async () => {
+      if (code) {
+        try {
+          await supabase.auth.exchangeCodeForSession(code);
+        } catch { /* supabase-js có thể đã tự exchange — bỏ qua */ }
+      }
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const u = session.user;
         const existingUser = useAuthStore.getState().user;
@@ -147,10 +157,11 @@ export default function LoginPage() {
           role: userRole || 'viewer',
         });
         loadSettingsFromServer(u.id);
-        recordDeviceLogin(u.id, 'session', sessionSid);
+        recordDeviceLogin(u.id, code ? 'google' : 'session', sessionSid);
         router.push('/dashboard');
       }
-    });
+    };
+    handleAuthCode();
   }, []);
 
   const isAdminEmail = email === 'phongprot.vn@gmail.com';
