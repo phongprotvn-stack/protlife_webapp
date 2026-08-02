@@ -93,14 +93,23 @@ export default function LoginPage() {
     setPassword('123456');
   };
 
-  const handleSocialLogin = useCallback((provider: 'google') => {
+  const handleSocialLogin = useCallback(async (provider: 'google') => {
     setSocialLoading(provider);
     setError('');
 
-    setTimeout(() => {
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin + '/dashboard' },
+      });
+      if (oauthError) {
+        setError(oauthError.message || 'Đăng nhập thất bại');
+        setSocialLoading(null);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Lỗi kết nối, vui lòng thử lại');
       setSocialLoading(null);
-      setError('Đăng nhập bằng Google đang được phát triển. Vui lòng đăng nhập bằng email.');
-    }, 1200);
+    }
   }, []);
 
   // Check if already authenticated with Supabase on mount
