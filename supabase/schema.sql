@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
   name TEXT,
-  role TEXT DEFAULT 'admin' CHECK (role IN ('public', 'viewer', 'contributor', 'admin')),
+  role TEXT DEFAULT 'viewer' CHECK (role IN ('public', 'viewer', 'contributor', 'admin')),
   avatar_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -191,6 +191,8 @@ CREATE POLICY "Public can view profiles"
   USING (true);
 
 -- Trigger to create profile on signup
+-- Owner email (phongprot.vn@gmail.com / phongprotvn@gmail.com — Gmail ignores dots)
+-- gets 'admin'; everyone else gets 'viewer'. NEVER default new users to admin.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -199,7 +201,10 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', 'User'),
-    'admin'
+    CASE
+      WHEN LOWER(NEW.email) IN ('phongprot.vn@gmail.com', 'phongprotvn@gmail.com') THEN 'admin'
+      ELSE 'viewer'
+    END
   );
   RETURN NEW;
 END;
