@@ -4,8 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   Check, X, Sun, Moon, Monitor, Eye, EyeOff,
   User, Shield, Bell, Palette, Database, Users, Calendar, BookHeart, MapPin,
-  FileText, FileSpreadsheet, Download, Upload, RefreshCw,
-  } from 'lucide-react';
+  FileText, FileSpreadsheet, Download, Upload, RefreshCw, Trash2, Lock,
+    } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useSettingsStore, fontSizeValue } from '@/stores/settings-store';
 import type { SettingsState, ThemeMode } from '@/stores/settings-store';
@@ -721,53 +721,173 @@ function RolePill({ role, label }: { role: RoleKey; label: string }) {
 }
 
 // ─── Permissions Tab ───
-function PermissionsTab() {
-  const [roleCounts, setRoleCounts] = useState<Record<RoleKey, number>>({
-    admin: 0, contributor: 0, viewer: 0, public: 0,
-  });
-  const [loadingRoles, setLoadingRoles] = useState(true);
+const ROLE_LABELS: Record<RoleKey, string> = {
+  admin: 'Admin',
+  contributor: 'Người đóng góp',
+  viewer: 'Chỉ xem',
+  public: 'Khách công khai',
+};
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from('profiles').select('role');
-      if (cancelled) return;
-      const counts: Record<RoleKey, number> = { admin: 0, contributor: 0, viewer: 0, public: 0 };
-      (data || []).forEach(p => {
-        const r = p.role as RoleKey;
-        if (r in counts) counts[r]++;
+// Email chủ — KHÔNG được phép hạ vai trò / xoá (tránh khoá ngoài)
+const OWNER_EMAILS = ['phongprot.vn@gmail.com', 'phongprotvn@gmail.com'];
+
+interface MemberRow {
+  id: string;
+  email: string | null;
+  name: string | null;
+  role: RoleKey;
+}
+
+function PermissionsTab() {
+  const currentUser = useAuthStore(s => s.user);
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<MemberRow | null>(null);
+  const [error, setError] = useState('');
+
+  const load = useCallback(() => {
+    setLoading(true);
+    supabase.from('profiles').select('id,email,name,role')
+      .then(({ data, error }) => {
+        if (error) { setError(error.message); }
+        else setMembers((data || []) as MemberRow[]);
+        setLoading(false);
       });
-      setRoleCounts(counts);
-    })().catch(() => {}).finally(() => { if (!cancelled) setLoadingRoles(false); });
-    return () => { cancelled = true; };
   }, []);
 
-  const PERM_LABELS: [string, string][] = [
-    ['view','Xem dữ liệu'], ['add','Thêm mới'], ['edit','Sửa'], ['del','Xoá'],
-    ['import','Import'], ['export','Export'], ['ai','AI Insight'],
-  ];
+  useEffect(() => { load(); }, [load]);
+
+  const isOwner = (m: MemberRow) => OWNER_EMAILS.includes((m.email || '').toLowerCase().trim());
+  const isSelf = (m: MemberRow) => m.email && currentUser?.email && m.email.toLowerCase() === currentUser.email.toLowerCase();
+
+  const changeRole = async (m: MemberRow, role: RoleKey) => {
+    if (role === m.role || busyId) return;
+    if (isOwner(m)) { toast('⛔ Không thể hạ vai trò của chủ'); return; }
+    setBusyId(m.id);
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', m.id);
+    setBusyId(null);
+    if (error) { toast('❌ ' + error.message); return; }
+    toast('✅ Đã đổi vai trò ' + (m.name || m.email) + ' → ' + ROLE_LABELS[role]);
+    load();
+  };
+
+  const confirmRemove = async () => {
+    if (!confirmDelete || busyId) return;
+    const m = confirmDelete;
+    setBusyId(m.id);
+    const { error } = await supabase.from('profiles').delete().eq('id', m.id);
+    setBusyId(null);
+    setConfirmDelete(null);
+    if (error) { toast('❌ ' + error.message); return; }
+    toast('🗑 Đã xoá ' + (m.name || m.email) + ' khỏi danh sách thành viên');
+    load();
+  };
+
+  const counts: Record<RoleKey, number> = { admin: 0, contributor: 0, viewer: 0, public: 0 };
+  members.forEach(m => { if (m.role in counts) counts[m.role]++; });
+
+  const myRole = currentUser?.email
+    ? members.find(m => m.email && m.email.toLowerCase() === currentUser.email!.toLowerCase())?.role || 'viewer'
+    : 'viewer';
+
   return (
-    <Card>
-      <div className="text-[14.5px] font-extrabold mb-4">Phân quyền thành viên</div>
-      <div className="text-[12px] text-[#6B7280] mb-4">Vai trò của bạn: <strong>Quản trị viên</strong> — toàn quyền.</div>
-      <table className="w-full text-[12.5px] border-collapse">
-        <thead><tr className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-[.4px]"><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">Vai trò</th><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">Quyền</th><th className="text-left px-2 pb-2.5 border-b border-[#EDEDF1]">SL</th></tr></thead>
-        <tbody>
-          {[
-            { key:'admin' as RoleKey, label:'Admin', desc:'Toàn quyền quản lý', count: roleCounts.admin },
-            { key:'contributor' as RoleKey, label:'Người đóng góp', desc:'Được thêm/sửa dữ liệu, không xoá', count: roleCounts.contributor },
-            { key:'viewer' as RoleKey, label:'Chỉ xem', desc:'Xem được, không chỉnh sửa', count: roleCounts.viewer },
-            { key:'public' as RoleKey, label:'Khách công khai', desc:'Xem giới hạn qua link chia sẻ', count: roleCounts.public },
-          ].map(r => (
-            <tr key={r.key} className="border-b border-[#EDEDF1] hover:bg-[#FAFAFB]">
-              <td className="px-2 py-3"><RolePill role={r.key} label={r.label} /></td>
-              <td className="px-2 py-3 text-[12px] text-[#6B7280]">{r.desc}</td>
-              <td className="px-2 py-3 text-[12.5px]">{loadingRoles ? '...' : r.count}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
+    <>
+      <Card>
+        <div className="text-[14.5px] font-extrabold mb-1">Phân quyền thành viên</div>
+        <div className="text-[12px] text-[#6B7280] mb-4">
+          Vai trò của bạn: <strong>{ROLE_LABELS[myRole]}</strong>
+          {myRole === 'admin' ? ' — toàn quyền.' : ' — cần Admin để quản lý thành viên.'}
+        </div>
+
+        {loading ? (
+          <div className="text-[13px] text-[#6B7280] py-6 text-center">Đang tải thành viên...</div>
+        ) : error ? (
+          <div className="text-[13px] text-[#E6002D] bg-[rgba(230,0,45,.05)] rounded-[11px] px-3.5 py-3">{error}</div>
+        ) : members.length === 0 ? (
+          <div className="text-[13px] text-[#6B7280] py-6 text-center">Chưa có thành viên nào.</div>
+        ) : (
+          <div className="space-y-2">
+            {members.map(m => {
+              const owner = isOwner(m);
+              const self = isSelf(m);
+              return (
+                <div key={m.id} className="flex items-center gap-3 p-2.5 rounded-[13px] border border-[#EDEDF1] hover:bg-[#FAFAFB]">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-extrabold text-[14px] shrink-0"
+                    style={{ background: self ? 'linear-gradient(135deg,#D60032,#FF4B3A)' : '#C7C7CC' }}>
+                    {(m.name || m.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold truncate flex items-center gap-1.5">
+                      {m.name || 'Chưa đặt tên'}
+                      {self && <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-[6px] bg-[rgba(230,0,45,.08)]" style={{color:'var(--color-primary)'}}>BẠN</span>}
+                      {owner && <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-[6px] bg-[#F1F1F4] text-[#6B7280]">CHỦ</span>}
+                    </div>
+                    <div className="text-[11.5px] text-[#6B7280] truncate">{m.email || '—'}</div>
+                  </div>
+                  {owner ? (
+                    <span className="text-[11px] font-bold text-[#9CA3AF] flex items-center gap-1 shrink-0"><Lock size={12} /> Bảo vệ</span>
+                  ) : myRole !== 'admin' ? (
+                    <RolePill role={m.role} label={ROLE_LABELS[m.role]} />
+                  ) : (
+                    <>
+                      <select
+                        value={m.role}
+                        disabled={busyId === m.id}
+                        onChange={e => changeRole(m, e.target.value as RoleKey)}
+                        className="text-[11.5px] font-bold px-2 py-1.5 rounded-[9px] border border-[#EDEDF1] bg-white outline-none focus:border-[var(--color-primary)] cursor-pointer shrink-0 disabled:opacity-50"
+                      >
+                        {(Object.keys(ROLE_LABELS) as RoleKey[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                      </select>
+                      <button
+                        onClick={() => setConfirmDelete(m)}
+                        disabled={busyId === m.id}
+                        title="Xoá thành viên"
+                        className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[#E6002D] hover:bg-[rgba(230,0,45,.07)] shrink-0 disabled:opacity-40"
+                      >
+                        <Trash2 size={14.5} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-[#EDEDF1]">
+          <div className="text-[11.5px] text-[#6B7280] mb-3">Số lượng theo vai trò</div>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['admin', 'Admin'],
+              ['contributor', 'Người đóng góp'],
+              ['viewer', 'Chỉ xem'],
+              ['public', 'Khách công khai'],
+            ] as [RoleKey, string][]).map(([k, label]) => (
+              <span key={k} className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#6B7280] bg-[#FAFAFB] border border-[#EDEDF1] px-2.5 py-1.5 rounded-[9px]">
+                <RolePill role={k} label={label} /> <span className="text-[12px]">{loading ? '...' : counts[k]}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {confirmDelete && (
+        <Modal title="Xoá thành viên" onClose={() => setConfirmDelete(null)}>
+          <div className="text-[13px] text-[#3A3A3C] leading-relaxed mb-5">
+            Xoá <strong>{confirmDelete.name || confirmDelete.email}</strong>{' '}
+            ({confirmDelete.email}) khỏi danh sách thành viên?
+            <br />Người này sẽ <strong>mất quyền truy cập</strong> Prot Life ngay lập tức.
+          </div>
+          <div className="flex gap-3">
+            <Btn onClick={() => setConfirmDelete(null)}>Huỷ</Btn>
+            <BtnP onClick={confirmRemove} disabled={busyId === confirmDelete.id}>
+              {busyId === confirmDelete.id ? 'Đang xoá...' : 'Xoá vĩnh viễn'}
+            </BtnP>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 
