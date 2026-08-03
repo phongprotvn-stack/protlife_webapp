@@ -5,8 +5,10 @@ import { motion } from 'framer-motion';
 const CHAPTERS = ['Quá khứ', 'Hiện tại', 'Tương lai'];
 
 export function ChapterProgress({ step, total }: { step: number; total: number }) {
-  // step: 0-based index của màn hiện tại. Mỗi chương = 3 màn (0-2, 3-5, 6-7#).
-  const chapter = step < 3 ? 0 : step < 6 ? 1 : 2;
+  // step: 0-based index của màn hiện tại.
+  // Chương I (Quá khứ): 0-3 (Welcome, Node, Name, DOB) — mốc Hiện tại chỉ chạy tới
+  // khi ấn "Tạo Life Timeline" → bước sang Chương II (Hiện tại): 4-5, Chương III: 6-7.
+  const chapter = step < 4 ? 0 : step < 6 ? 1 : 2;
   const percent = Math.round(((step + 1) / total) * 100);
 
   return (

@@ -144,18 +144,21 @@ export function NodeAnimationScreen({ onNext }: ScreenProps) {
       </motion.p>
 
       <div className="relative w-full max-w-[300px] md:max-w-[560px] h-[260px] md:h-[300px] mx-auto">
-        {/* Horizontal flow line */}
-        <div className="absolute top-1/2 left-[9%] right-[9%] h-[2px] -translate-y-1/2" style={{ background: 'linear-gradient(90deg,rgba(255,0,45,.6),transparent)' }} />
+        {/* Horizontal flow line — nối từ tâm node đầu (12%) đến tâm node cuối (88%) */}
+        <div className="absolute top-1/2 left-[12%] right-[12%] h-[2px] -translate-y-1/2" style={{ background: 'linear-gradient(90deg,rgba(255,0,45,.6),transparent)' }} />
 
         <AnimatePresence>
           {NODES.slice(0, active).map((n) => (
-            <motion.div key={n.key} className="absolute top-0 bottom-0 flex flex-col items-center justify-center"
-              initial={{ opacity: 0, x: 18, scale: .85 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+            <div key={n.key} className="absolute top-0 bottom-0 flex flex-col items-center justify-center"
               style={{ left: `${n.pct}%`, transform: 'translateX(-50%)' }}>
-              <div className="flex flex-col items-center gap-2">
+              {/* motion.div bên trong để framer-motion không ghi đè translateX(-50%) của wrapper */}
+              <motion.div
+                className="flex flex-col items-center gap-2"
+                initial={{ opacity: 0, x: 18, scale: .85 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+              >
                 <motion.div
                   className="w-[48px] h-[48px] md:w-[58px] md:h-[58px] rounded-[14px] md:rounded-[16px] flex items-center justify-center"
                   style={{ background: 'rgba(230,0,45,.14)', border: '1px solid rgba(230,0,45,.35)', boxShadow: '0 8px 24px rgba(230,0,45,.2)' }}
@@ -165,8 +168,8 @@ export function NodeAnimationScreen({ onNext }: ScreenProps) {
                   <n.Icon size={24} strokeWidth={1.6} className="text-white md:w-7 md:h-7" />
                 </motion.div>
                 <span className="text-[12px] md:text-[13px] font-semibold whitespace-nowrap" style={{ color: 'rgba(255,255,255,.6)' }}>{n.label}</span>
-              </div>
-            </motion.div>
+              </motion.div>
+            </div>
           ))}
         </AnimatePresence>
       </div>
@@ -193,6 +196,9 @@ export function AskNameScreen({ onNext }: ScreenProps) {
 
   return (
     <div className="flex flex-col">
+      <motion.h2 {...fadeUp} className="text-[15px] font-bold tracking-[.5px] uppercase mb-2" style={{ color: '#FF4B3A' }}>
+        CHƯƠNG I · QUÁ KHỨ
+      </motion.h2>
       <motion.h2 {...fadeUp} className="text-[26px] md:text-[30px] font-extrabold mb-1">Chúng mình bắt đầu với</motion.h2>
       <motion.div {...fadeT(0.08)} className="flex items-center justify-center gap-2 text-[22px] md:text-[24px] mb-9" style={{ color: '#FF4B3A' }}>
         <MessageSquare size={22} strokeWidth={1.8} /> Tên của bạn?
@@ -366,7 +372,7 @@ export function AddContactScreen({ onNext, onBack }: ScreenProps & { onBack: () 
   return (
     <div className="flex flex-col">
       <motion.h2 {...fadeUp} className="text-[15px] font-bold tracking-[.5px] uppercase mb-2" style={{ color: '#FF4B3A' }}>
-        Chương 2 · Hiện tại
+        CHƯƠNG II · HIỆN TẠI
       </motion.h2>
       <motion.p {...fadeUp} className="text-[22px] font-extrabold leading-tight mb-8">Cuộc sống gồm những mối quan hệ. Ai quan trọng với bạn?</motion.p>
 
@@ -416,7 +422,7 @@ export function AddEventScreen({ onNext, onBack, initial }: ScreenProps & { onBa
 
   return (
     <div className="flex flex-col">
-      <motion.p {...fadeUp} className="text-[15px] font-bold tracking-[.5px] uppercase mb-2" style={{color:'#FF4B3A'}}>Chương 2 · Hiện tại</motion.p>
+      <motion.p {...fadeUp} className="text-[15px] font-bold tracking-[.5px] uppercase mb-2" style={{color:'#FF4B3A'}}>CHƯƠNG II · HIỆN TẠI</motion.p>
       <motion.div {...fadeUp} className="text-[20px] font-extrabold leading-tight mb-2">Mọi mối quan hệ tốt đẹp đều nhờ những <span style={{color:'#FF4B3A'}}>kỷ niệm</span>.<br/>Sự kiện đầu tiên của bạn?</motion.div>
       {contactName && <motion.p {...fadeT(0.06)} className="text-[12px] mb-7" style={{color:'rgba(255,255,255,.55)'}}>Gắn với <span className="text-white font-bold">{contactName}</span></motion.p>}
 
@@ -453,7 +459,7 @@ export function MarkMemoryScreen({ onNext, onBack, initial }: ScreenProps & { on
 
   return (
     <div className="flex flex-col">
-      <motion.p {...fadeUp} className="text-[15px] font-bold tracking-[.5px] uppercase mb-2" style={{color:'#FF4B3A'}}>Chương 3 · Tương lai</motion.p>
+      <motion.p {...fadeUp} className="text-[15px] font-bold tracking-[.5px] uppercase mb-2" style={{color:'#FF4B3A'}}>CHƯƠNG III · TƯƠNG LAI</motion.p>
       <motion.div {...fadeUp} className="text-[21px] font-extrabold leading-tight mb-6">
         {initial?.title ? (
           <>Lưu giữ <span style={{color:'#FF4B3A'}}>mối kỷ niệm</span> này làm <span style={{color:'#FF4B3A'}}>Ký ức</span>?</>
@@ -469,7 +475,7 @@ export function MarkMemoryScreen({ onNext, onBack, initial }: ScreenProps & { on
             : <Camera size={30} strokeWidth={1.5} className="text-violet-300" />}
         </div>
         <p className="text-[13px] max-w-[260px] text-center" style={{color:'rgba(255,255,255,.55)'}}>
-          <i>Memory sinh ra từ Event</i> — mỗi ký ức gắn với một sự kiện, mỗi sự kiện gắn với một con người.
+          <i>Ký ức sinh ra từ sự kiện</i> — mỗi sự kiện gắn với từng con người.
         </p>
       </motion.div>
 
