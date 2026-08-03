@@ -14,6 +14,13 @@ import { ThemeProvider } from '@/components/layout/theme-provider';
 // Pages that don't need the app layout (login, register, etc.)
 const AUTH_PAGES = ['/login', '/register', '/', '/_not-found'];
 
+// Các trang tĩnh được public — không cần AuthGuard (đăng nhập) cũng không cần
+// sidebar layout. Chúng tự vẽ full-screen + nút quay lại riêng.
+const PUBLIC_PATH_PREFIXES = ['/documents/daughter-names'];
+
+const isPublicPage = (pathname: string) =>
+  PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p));
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
@@ -45,8 +52,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <ThemeProvider />
           {isAuthPage ? (
-                      children
-                    ) : pathname === '/onboarding' ? (
+                                children
+                              ) : isPublicPage(pathname) ? (
+                                /* Trang tĩnh công khai (docs/daughter-names...) — không AuthGuard, không sidebar */
+                                children
+                              ) : pathname === '/onboarding' ? (
                       /* Onboarding: full-screen, có AuthGuard (đòi login) nhưng KHÔNG sidebar layout */
                       <AuthGuard>
                         <div className="min-h-screen w-full bg-[#0A0A0F] text-white">
