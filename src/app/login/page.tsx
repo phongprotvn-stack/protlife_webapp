@@ -336,7 +336,7 @@ export default function LoginPage() {
                     type="text"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="phongprot.vn@gmail.com"
+                    placeholder="prot@example.com"
                     className="w-full px-[14px] py-[12px] rounded-[11px] text-[13.5px] outline-none transition-colors"
                     style={{ border: '1.5px solid #EEEEF1', background: '#FAFAFB' }}
                     onFocus={e => { e.target.style.borderColor = '#E6002D'; e.target.style.background = '#fff'; }}
