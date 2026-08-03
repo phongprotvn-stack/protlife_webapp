@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   Check, X, Sun, Moon, Monitor, Eye, EyeOff,
   User, Shield, Bell, Palette, Database, Users, Calendar, BookHeart, MapPin,
-} from 'lucide-react';
+  FileText, FileSpreadsheet, Download, Upload, RefreshCw,
+  } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useSettingsStore, fontSizeValue } from '@/stores/settings-store';
 import type { SettingsState, ThemeMode } from '@/stores/settings-store';
@@ -410,10 +411,10 @@ export default function SettingsPage() {
                     <StorageBar label="Database (Postgres)" used={`${stats.isEstimate ? '~' : ''}${stats.storageDbMb} MB`} total={`${stats.totalDbMb} MB`} pct={Math.round((stats.storageDbMb / stats.totalDbMb) * 100)} estimate={stats.isEstimate} />
                     <StorageBar label="File Storage" used={`${stats.isEstimate ? '~' : ''}${stats.storageFileMb} MB`} total={`${stats.totalFileMb} MB`} pct={Math.round((stats.storageFileMb / stats.totalFileMb) * 100)} color="linear-gradient(135deg,#F59E0B,#FBBF24)" estimate={stats.isEstimate} />
                     <div className="mt-4 space-y-0">
-                      <DataStat label="👥 Người thân & bạn bè" value={`${stats.contacts} hồ sơ`} />
-                      <DataStat label="📅 Sự kiện" value={`${stats.events} sự kiện`} />
-                      <DataStat label="📸 Ký ức" value={`${stats.memories} mục`} />
-                      <DataStat label="🗺️ Địa điểm đã lưu" value={`${stats.places} địa điểm`} />
+                      <DataStat icon={<Users size={14} />} label="Người thân & bạn bè" value={`${stats.contacts} hồ sơ`} />
+                      <DataStat icon={<Calendar size={14} />} label="Sự kiện" value={`${stats.events} sự kiện`} />
+                      <DataStat icon={<BookHeart size={14} />} label="Ký ức" value={`${stats.memories} mục`} />
+                      <DataStat icon={<MapPin size={14} />} label="Địa điểm đã lưu" value={`${stats.places} địa điểm`} />
                     </div>
                   </>
                 ) : (
@@ -423,10 +424,10 @@ export default function SettingsPage() {
 
               <div>
                 <Card title="Xuất / nhập dữ liệu">
-                  <Btn onClick={() => handleExportAll(stats)}>⬇️ Xuất toàn bộ dữ liệu (.json)</Btn>
-                  <Btn onClick={() => setShowExportModal(true)}>📄 Xuất báo cáo</Btn>
-                  <Btn onClick={() => setShowImportModal(true)}>⬆️ Nhập từ file (.json/.csv)</Btn>
-                </Card>
+                                  <Btn onClick={() => handleExportAll(stats)}><Download size={14} /> Xuất toàn bộ dữ liệu (.json)</Btn>
+                                  <Btn onClick={() => setShowExportModal(true)}><FileText size={14} /> Xuất báo cáo</Btn>
+                                  <Btn onClick={() => setShowImportModal(true)}><Upload size={14} /> Nhập từ file (.json/.csv)</Btn>
+                                </Card>
                 <Card title="Tích hợp Google">
                   <ToggleRow title="Google Calendar" desc="Đồng bộ sự kiện" checked={s.googleCalendar} onChange={v => setSetting({ googleCalendar: v })} />
                   <ToggleRow title="Google Contacts" desc="Nhập danh bạ" checked={s.googleContacts} onChange={v => setSetting({ googleContacts: v })} />
@@ -437,13 +438,13 @@ export default function SettingsPage() {
 
             {/* Google Sheets Sync */}
             <Card>
-              <div className="text-[14.5px] font-extrabold mb-[12px] flex items-center gap-2">🔄 Đồng bộ Google Sheets</div>
+              <div className="text-[14.5px] font-extrabold mb-[12px] flex items-center gap-2"><RefreshCw size={17} className="text-[#0F9D58]" /> Đồng bộ Google Sheets</div>
               <div className="text-[12px] text-[#6B7280] mb-4 leading-relaxed">Mọi thay đổi trong app tự động đẩy sang Google Sheet — sửa trong Sheet <strong>chưa</strong> tự động đẩy ngược lại app.</div>
               {googleLoading ? (
                 <div className="text-[13px] text-[#6B7280] py-2">Đang kiểm tra...</div>
               ) : googleLinked ? (
                 <div className="flex items-center gap-3 py-2.5">
-                  <div className="w-9 h-9 rounded-[11px] flex items-center justify-center text-white font-extrabold text-[15px] shrink-0" style={{background:'#0F9D58'}}>📊</div>
+                  <div className="w-9 h-9 rounded-[11px] flex items-center justify-center text-white font-extrabold text-[15px] shrink-0" style={{background:'#0F9D58'}}><FileSpreadsheet size={17} /></div>
                   <div className="flex-1">
                     <div className="text-[13px] font-bold">ProtLife_Data_Export.xlsx</div>
                     <div className="text-[11.5px] text-[#6B7280] mt-0.5">Đã liên kết{googleSheetUrl ? ' · ' : ''}{googleSheetUrl && <a href={googleSheetUrl} target="_blank" rel="noopener noreferrer" className="underline" style={{color:'var(--color-primary)'}}>Mở Sheet</a>}</div>
@@ -462,12 +463,12 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3 py-2.5">
-                  <div className="w-9 h-9 rounded-[11px] flex items-center justify-center font-extrabold text-[15px] shrink-0" style={{background:'#E5E5EA',color:'#9CA3AF'}}>📊</div>
+                  <div className="w-9 h-9 rounded-[11px] flex items-center justify-center font-extrabold text-[15px] shrink-0" style={{background:'#E5E5EA',color:'#9CA3AF'}}><FileSpreadsheet size={17} /></div>
                   <div className="flex-1">
                     <div className="text-[13px] font-bold">Chưa liên kết</div>
                     <div className="text-[11.5px] text-[#6B7280] mt-0.5">Cần cấp quyền Google để đồng bộ</div>
                   </div>
-                  <BtnP onClick={() => { window.location.href = '/api/auth/google'; }} className="!w-auto px-4">🔗 Liên kết</BtnP>
+                  <BtnP onClick={() => { window.location.href = '/api/auth/google'; }} className="!w-auto px-4">Liên kết</BtnP>
                 </div>
               )}
             </Card>
@@ -501,7 +502,7 @@ export default function SettingsPage() {
               <ToggleRow title="Sinh nhật" desc="Trước 3 ngày + trong ngày" checked={s.notifyBirthday} onChange={v => setSetting({ notifyBirthday: v })} />
               <ToggleRow title="Sự kiện sắp tới" desc="Nhắc trước 1 ngày" checked={s.notifyEventReminder} onChange={v => setSetting({ notifyEventReminder: v })} />
               <ToggleRow title="Kỷ niệm quan hệ" desc='VD: 1 năm ngày quen' checked={s.notifyAnniversary} onChange={v => setSetting({ notifyAnniversary: v })} />
-              <ToggleRow title="Gợi ý AI" desc='VD: "Lâu rồi chưa gặp Minh"' checked={s.notifyAiSuggest} onChange={v => setSetting({ notifyAiSuggest: v })} />
+              <ToggleRow title="Gợi ý AI" desc='VD: "Lâu rồi chưa gặp T"' checked={s.notifyAiSuggest} onChange={v => setSetting({ notifyAiSuggest: v })} />
             </Card>
             <div>
               <Card title="Kênh thông báo">
@@ -510,15 +511,15 @@ export default function SettingsPage() {
                 <ToggleRow title="SMS" checked={s.smsNotify} onChange={v => setSetting({ smsNotify: v })} />
               </Card>
               <Card title="Giờ yên lặng">
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Từ</label>
-                    <input type="time" className="w-full px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)]"
-                      value={s.quietFrom} onChange={e => setSetting({ quietFrom: e.target.value })} /></div>
-                  <div><label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Đến</label>
-                    <input type="time" className="w-full px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)]"
-                      value={s.quietTo} onChange={e => setSetting({ quietTo: e.target.value })} /></div>
-                </div>
-              </Card>
+                              <div className="grid grid-cols-2 gap-3 w-full">
+                                <div className="min-w-0"><label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Từ</label>
+                                  <input type="time" className="w-full min-w-0 px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)]"
+                                    value={s.quietFrom} onChange={e => setSetting({ quietFrom: e.target.value })} /></div>
+                                <div className="min-w-0"><label className="block text-[12px] font-bold text-[#6B7280] mb-1.5">Đến</label>
+                                  <input type="time" className="w-full min-w-0 px-[13px] py-[11px] rounded-[11px] border border-[#EDEDF1] bg-[#FAFAFB] text-[13px] outline-none focus:border-[var(--color-primary)]"
+                                    value={s.quietTo} onChange={e => setSetting({ quietTo: e.target.value })} /></div>
+                              </div>
+                            </Card>
             </div>
           </div>
         )}
@@ -698,8 +699,15 @@ function StorageBar({ label, used, total, pct, color, estimate }: { label: strin
   );
 }
 
-function DataStat({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between items-center py-[11px] border-b border-[#EDEDF1] text-[13px]"><span>{label}</span><span className="font-extrabold" style={{color: 'var(--color-primary)'}}>{value}</span></div>;
+function DataStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center py-[11px] border-b border-[#EDEDF1] text-[13px]">
+      <span className="flex items-center gap-2 text-[#3A3A3C]">
+        <span className="text-[#8E8E93]">{icon}</span>{label}
+      </span>
+      <span className="font-extrabold" style={{color: 'var(--color-primary)'}}>{value}</span>
+    </div>
+  );
 }
 
 function RolePill({ role, label }: { role: RoleKey; label: string }) {
