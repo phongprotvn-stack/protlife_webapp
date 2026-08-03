@@ -60,16 +60,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Redirect brand-new users (no name/dob yet) to onboarding, unless they're
     // already on it. Skip via the Skip button sets onboarded=true.
+    // NOTE: khi user CÓ identity ta CHỈ return, KHÔNG set onboarded:true vào
+    // store. Lý do: onboarded:true chỉ được ghi bởi chính onboarding page
+    // (Skip/Complete). Việc auto-set ở đây từng upsert onboarded:true lên
+    // server cho user chưa hề xem onboarding (khi localStorage cũ của tài
+    // khoản khác hydrate ra displayName/dob) → user mới thật bị bỏ qua vĩnh viễn.
     useEffect(() => {
       if (!checking || !isLoggedIn) return;
       if (!settingsLoaded) return; // wait until we know if server has name/dob
       if (onboarded) return;
       const hasIdentity = (displayName?.trim() || '') !== '' || (dob?.trim() || '') !== '';
-      if (hasIdentity) {
-        // Already has a real identity — treat as onboarded, never block again
-        useSettingsStore.setState({ onboarded: true });
-        return;
-      }
+      if (hasIdentity) return; // user cũ đã có tên/ngày sinh — không block, không ghi gì
       if (pathname !== '/onboarding') {
         router.replace('/onboarding');
       }
