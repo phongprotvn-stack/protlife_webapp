@@ -24,6 +24,14 @@ export interface SettingsState {
 
   // Onboarding (true = đã xem xong hoặc đã skip; false = user mới chưa onboard)
   onboarded: boolean;
+  /**
+   * Timestamp lúc user THẬT SỰ bấm Skip/Complete trên /onboarding UI.
+   * Chỉ onboarding page set giá trị này. Row user_preferences cũ bị nhiễm
+   * (auto-set onboarded:true của AuthGuard bản cũ upsert lên server) sẽ
+   * KHÔNG có onboardedAt → loadSettingsFromServer nhận diện và reset về
+   * trạng thái user mới (self-healing, không cần SQL dọn tay).
+   */
+  onboardedAt: string | null;
   /** true sau khi loadSettingsFromServer đã chạy xong (đủ điều kiện quyết định redirect) */
   settingsLoaded: boolean;
 
@@ -83,7 +91,8 @@ const DEFAULTS: Omit<SettingsState, 'set' | 'reset'> = {
   timezone: '(GMT+07:00) Bangkok, Hanoi, Jakarta',
 
   onboarded: false,
-  settingsLoaded: false,
+    onboardedAt: null,
+    settingsLoaded: false,
 
   googleLinked: false,
 
@@ -187,9 +196,29 @@ export async function loadSettingsFromServer(userId: string) {
       .single();
 
     if (!error && data?.settings) {
+      const serverSettings = data.settings as Partial<SettingsState>;
+
+      // SELF-HEALING: row bị nhiễm từ bản cũ (AuthGuard auto-set onboarded:true
+      // rồi upsert lên server) có onboarded:true nhưng KHÔNG có onboardedAt —
+      // vì onboardedAt chỉ onboarding page (Skip/Complete) mới set. Reset về
+      // trạng thái user mới → AuthGuard redirect /onboarding; subscribe bên
+      // dưới sẽ upsert row sạch (onboarded:false) lên server.
+      if (serverSettings.onboarded === true && !serverSettings.onboardedAt) {
+        useSettingsStore.setState({
+          displayName: '',
+          dob: '',
+          onboarded: false,
+          onboardedAt: null,
+          settingsLoaded: true,
+        });
+        // KHÔNG set _serverHydrate: subscribe bên dưới sẽ upsert row sạch
+        // (onboarded:false) lên server → tự dọn dữ liệu nhiễm vĩnh viễn.
+        return;
+      }
+
       _serverHydrate = true;
       useSettingsStore.setState({
-        ...(data.settings as Partial<SettingsState>),
+        ...serverSettings,
         settingsLoaded: true,
       });
       // Re-enable upsert after state settles
@@ -210,6 +239,7 @@ export async function loadSettingsFromServer(userId: string) {
       displayName: '',
       dob: '',
       onboarded: false,
+      onboardedAt: null,
       settingsLoaded: true,
     });
   }

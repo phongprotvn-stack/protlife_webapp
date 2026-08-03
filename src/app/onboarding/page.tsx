@@ -41,7 +41,7 @@ export default function OnboardingPage() {
 
   // Skip → mark onboarded and go to dashboard. Name/dob optional (kept if given).
   const skip = useCallback(() => {
-    set({ onboarded: true });
+    set({ onboarded: true, onboardedAt: new Date().toISOString() });
     router.replace('/dashboard');
   }, [set, router]);
 
@@ -50,6 +50,7 @@ export default function OnboardingPage() {
     const state = useSettingsStore.getState();
     set({
       onboarded: true,
+      onboardedAt: new Date().toISOString(),
       displayName: (state.displayName || '').trim() || collected?.name || state.displayName,
       dob: state.dob || collected?.dob || '',
     });
