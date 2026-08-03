@@ -392,6 +392,40 @@ html {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Aurora Banner (daughter-names3) ─── */
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 50%; opacity: 0.75; }
+  50% { background-position: 100% 50%; opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.aurora-banner {
+  background: linear-gradient(
+    120deg,
+    #ffd6e8 0%,
+    #ff9ec7 22%,
+    #a8e6cf 48%,
+    #89c4f4 70%,
+    #c3a6f0 100%
+  );
+  background-size: 220% 220%;
+  animation: shimmer 9s ease-in-out infinite;
+}
+
+.aurora-float {
+  animation: float 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-banner, .aurora-float {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shimmer-sweep, .float-slow, .fade-rise, .card-pull {
     animation: none !important;
