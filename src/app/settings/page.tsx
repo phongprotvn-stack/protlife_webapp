@@ -809,49 +809,57 @@ function PermissionsTab() {
         ) : (
           <div className="space-y-2">
             {members.map(m => {
-              const owner = isOwner(m);
-              const self = isSelf(m);
-              return (
-                <div key={m.id} className="flex items-center gap-3 p-2.5 rounded-[13px] border border-[#EDEDF1] hover:bg-[#FAFAFB]">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-extrabold text-[14px] shrink-0"
-                    style={{ background: self ? 'linear-gradient(135deg,#D60032,#FF4B3A)' : '#C7C7CC' }}>
-                    {(m.name || m.email || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold truncate flex items-center gap-1.5">
-                      {m.name || 'Chưa đặt tên'}
-                      {self && <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-[6px] bg-[rgba(230,0,45,.08)]" style={{color:'var(--color-primary)'}}>BẠN</span>}
-                      {owner && <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-[6px] bg-[#F1F1F4] text-[#6B7280]">CHỦ</span>}
-                    </div>
-                    <div className="text-[11.5px] text-[#6B7280] truncate">{m.email || '—'}</div>
-                  </div>
-                  {owner ? (
-                    <span className="text-[11px] font-bold text-[#9CA3AF] flex items-center gap-1 shrink-0"><Lock size={12} /> Bảo vệ</span>
-                  ) : myRole !== 'admin' ? (
-                    <RolePill role={m.role} label={ROLE_LABELS[m.role]} />
-                  ) : (
-                    <>
-                      <select
-                        value={m.role}
-                        disabled={busyId === m.id}
-                        onChange={e => changeRole(m, e.target.value as RoleKey)}
-                        className="text-[11.5px] font-bold px-2 py-1.5 rounded-[9px] border border-[#EDEDF1] bg-white outline-none focus:border-[var(--color-primary)] cursor-pointer shrink-0 disabled:opacity-50"
-                      >
-                        {(Object.keys(ROLE_LABELS) as RoleKey[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-                      </select>
-                      <button
-                        onClick={() => setConfirmDelete(m)}
-                        disabled={busyId === m.id}
-                        title="Xoá thành viên"
-                        className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[#E6002D] hover:bg-[rgba(230,0,45,.07)] shrink-0 disabled:opacity-40"
-                      >
-                        <Trash2 size={14.5} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                          const owner = isOwner(m);
+                          const self = isSelf(m);
+                          const canManage = myRole === 'admin' && !owner;
+                          return (
+                            <div key={m.id} className="p-3 rounded-[13px] border border-[#EDEDF1] hover:bg-[#FAFAFB] transition-colors">
+                              {/* Dòng 1: thông tin tài khoản (avatar + tên + email) */}
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-extrabold text-[14px] shrink-0"
+                                  style={{ background: self ? 'linear-gradient(135deg,#D60032,#FF4B3A)' : '#C7C7CC' }}>
+                                  {(m.name || m.email || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[13px] font-bold flex items-center gap-1.5">
+                                    {m.name || 'Chưa đặt tên'}
+                                    {self && <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-[6px] bg-[rgba(230,0,45,.08)]" style={{color:'var(--color-primary)'}}>BẠN</span>}
+                                    {owner && <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-[6px] bg-[#F1F1F4] text-[#6B7280]">CHỦ</span>}
+                                  </div>
+                                  <div className="text-[11.5px] text-[#6B7280] break-all">{m.email || '—'}</div>
+                                </div>
+                                {owner && (
+                                  <span className="text-[11px] font-bold text-[#9CA3AF] flex items-center gap-1 shrink-0"><Lock size={12} /> Bảo vệ</span>
+                                )}
+                                {myRole !== 'admin' && !owner && (
+                                  <RolePill role={m.role} label={ROLE_LABELS[m.role]} />
+                                )}
+                              </div>
+
+                              {/* Dòng 2: thao tác (đổi vai trò + xoá) — tách riêng, không che email */}
+                              {canManage && (
+                                <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#EDEDF1]">
+                                  <select
+                                    value={m.role}
+                                    disabled={busyId === m.id}
+                                    onChange={e => changeRole(m, e.target.value as RoleKey)}
+                                    className="flex-1 min-w-0 text-[12px] font-bold px-3 py-2 rounded-[10px] border border-[#EDEDF1] bg-white outline-none focus:border-[var(--color-primary)] cursor-pointer disabled:opacity-50"
+                                  >
+                                    {(Object.keys(ROLE_LABELS) as RoleKey[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                                  </select>
+                                  <button
+                                    onClick={() => setConfirmDelete(m)}
+                                    disabled={busyId === m.id}
+                                    title="Xoá thành viên"
+                                    className="w-9 h-9 rounded-[10px] flex items-center justify-center text-[#E6002D] hover:bg-[rgba(230,0,45,.07)] shrink-0 disabled:opacity-40"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
           </div>
         )}
 
