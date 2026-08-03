@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -45,7 +45,7 @@ export default function DashboardPage() {
   const setDashboardPanelContact = useAppStore((s) => s.setDashboardPanelContact);
 
   // ─── Data from TanStack Query cache (DataPrefetcher loads these at app root) ───
-  const { data: contacts = [], isFetching: loadingContacts } = useQuery({
+  const { data: contacts = [], isLoading: loadingContacts } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => contactService.getAll(),
     staleTime: 1000 * 60 * 5,
@@ -53,7 +53,7 @@ export default function DashboardPage() {
     retryDelay: 1500,
   });
 
-  const { data: events = [], isFetching: loadingEvents } = useQuery({
+  const { data: events = [], isLoading: loadingEvents } = useQuery({
     queryKey: ['events'],
     queryFn: () => eventService.getAll(),
     staleTime: 1000 * 60 * 5,
@@ -61,102 +61,88 @@ export default function DashboardPage() {
     retryDelay: 1500,
   });
 
-  const { data: goalCount = 0 } = useQuery({
-    queryKey: ['goalCount'],
+  // Dùng CHUNG key ['goals']/['memories'] với DataPrefetcher → hưởng cache 30p,
+  // không fetch riêng như ['goalCount']/['memoryCount'] trước đây
+  const { data: goals = [] } = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => goalService.getAll(),
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  const { data: memories = [] } = useQuery({
+    queryKey: ['memories'],
+    queryFn: () => memoryService.getAll(),
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  const goalCount = goals.length;
+  const memoryCount = memories.length;
+
+  // ─── Participants (cho gợi ý gặp gỡ) — 1 query 2 cột, cache 30p ───
+  // Trước đây fetch bằng .in('ContactID', [...]) → URL dài → timeout. Giờ lấy hết
+  // 2 cột (bảng nhỏ) rồi map client-side, không phụ thuộc số lượng contacts.
+  const { data: participants = [], error: participantsError } = useQuery({
+    queryKey: ['participants'],
     queryFn: async () => {
-      const g = await goalService.getAll();
-      return g.length;
+      const { data, error } = await supabase
+        .from('participants')
+        .select('ContactID, EventID');
+      if (error) throw error;
+      return data || [];
     },
-    staleTime: 1000 * 60 * 5,
-    retry: 2,
+    staleTime: 1000 * 60 * 30,
+    retry: 3,
+    retryDelay: (attempt: number) => Math.min(1500 * attempt, 5000),
+    refetchOnWindowFocus: true,
   });
 
-  const { data: memoryCount = 0 } = useQuery({
-    queryKey: ['memoryCount'],
-    queryFn: () => memoryService.count(),
-    staleTime: 1000 * 60 * 5,
-    retry: 2,
-  });
+  // ─── Reconnect suggestions — tính thuần từ cache, không fetch riêng ───
+  const reconnectSuggestions = useMemo<ReconnectSuggestion[]>(() => {
+    if (contacts.length === 0 || events.length === 0) return [];
 
-  // ─── Reconnect suggestions (loaded separately, non-blocking) ───
-  const [reconnectSuggestions, setReconnectSuggestions] = useState<ReconnectSuggestion[]>([]);
-  const [suggestionError, setSuggestionError] = useState(false);
+    // Build maps
+    const contactEventMap: Record<string, string[]> = {};
+    participants.forEach(p => {
+      if (!contactEventMap[p.ContactID]) contactEventMap[p.ContactID] = [];
+      contactEventMap[p.ContactID].push(p.EventID);
+    });
 
-  useEffect(() => {
-    if (contacts.length === 0 || events.length === 0) return;
-    let cancelled = false;
+    const eventsMap: Record<string, string> = {};
+    events.forEach(e => { eventsMap[e.EventID] = e.StartDate; });
 
-    const compute = async () => {
-      try {
-        // Add timeout for participants query to avoid statement timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const now = new Date();
+    const suggestionMap = new Map<string, ReconnectSuggestion>();
 
-        const { data: participants, error } = await supabase
-          .from('participants')
-          .select('ContactID, EventID')
-          .in('ContactID', contacts.map(c => c.ContactID));
+    contacts.forEach(c => {
+      const eventIds = contactEventMap[c.ContactID];
+      if (!eventIds || eventIds.length === 0) return;
 
-        clearTimeout(timeoutId);
+      let lastDate = '';
+      let lastId = '';
+      eventIds.forEach(eid => {
+        const d = eventsMap[eid];
+        if (d && (!lastDate || d > lastDate)) { lastDate = d; lastId = eid; }
+      });
 
-        if (error) throw error;
-        if (cancelled || !participants || participants.length === 0) {
-          if (!cancelled) setReconnectSuggestions([]);
-          return;
-        }
+      if (!lastDate) return;
+      const lastEventDate = new Date(lastDate);
+      const daysSince = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24));
+      const isFavorite = c.IsFavorite && daysSince >= 21;
+      const isHighScore = (c.RelationshipScore || 0) >= 80 && daysSince >= 180;
 
-        // Build maps
-        const contactEventMap: Record<string, string[]> = {};
-        participants.forEach(p => {
-          if (!contactEventMap[p.ContactID]) contactEventMap[p.ContactID] = [];
-          contactEventMap[p.ContactID].push(p.EventID);
-        });
-
-        const eventsMap: Record<string, string> = {};
-        events.forEach(e => { eventsMap[e.EventID] = e.StartDate; });
-
-        const now = new Date();
-        const suggestionMap = new Map<string, ReconnectSuggestion>();
-
-        contacts.forEach(c => {
-          const eventIds = contactEventMap[c.ContactID];
-          if (!eventIds || eventIds.length === 0) return;
-
-          let lastDate = '';
-          let lastId = '';
-          eventIds.forEach(eid => {
-            const d = eventsMap[eid];
-            if (d && (!lastDate || d > lastDate)) { lastDate = d; lastId = eid; }
-          });
-
-          if (!lastDate) return;
-          const lastEventDate = new Date(lastDate);
-          const daysSince = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24));
-          const isFavorite = c.IsFavorite && daysSince >= 21;
-          const isHighScore = (c.RelationshipScore || 0) >= 80 && daysSince >= 180;
-
-          if (isHighScore) {
-            suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'red' });
-          } else if (isFavorite && !suggestionMap.has(c.ContactID)) {
-            suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'yellow' });
-          }
-        });
-
-        if (!cancelled) {
-          setReconnectSuggestions(Array.from(suggestionMap.values()));
-          setSuggestionError(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setReconnectSuggestions([]);
-          setSuggestionError(true);
-        }
+      if (isHighScore) {
+        suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'red' });
+      } else if (isFavorite && !suggestionMap.has(c.ContactID)) {
+        suggestionMap.set(c.ContactID, { contact: c, daysSinceLastEvent: daysSince, lastEventDate: lastDate, lastEventId: lastId, type: 'yellow' });
       }
-    };
+    });
 
-    compute();
-    return () => { cancelled = true; };
-  }, [contacts, events]);
+    return Array.from(suggestionMap.values());
+  }, [contacts, events, participants]);
+
+  const suggestionError = !!participantsError;
 
   const handleSuggestionClick = (s: ReconnectSuggestion) => {
     const lastEvent = events.find(e => e.EventID === s.lastEventId);
