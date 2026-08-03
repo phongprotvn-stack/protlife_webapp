@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Sparkles, Heart,
   ArrowRight, ArrowLeft, Check,
-  Globe, User, Target, Brain, Sprout, MessageSquare,
+  User, Target, Brain, Sprout, MessageSquare,
   Baby, Backpack, GraduationCap, Briefcase, Rocket,
   Camera, PartyPopper, Star, Balloon,
 } from 'lucide-react';
@@ -70,11 +70,16 @@ export function WelcomeScreen({ onNext, onSkip }: ScreenProps) {
   return (
     <div className="flex flex-col items-center text-center md:py-6">
       <motion.div {...fadeUp} className="relative mb-9 md:mb-10">
-        {/* Emitting glow disk with Lucide Globe */}
-        <div className="w-[130px] h-[130px] md:w-[150px] md:h-[150px] rounded-[38px] md:rounded-[44px] flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg,#D60032 0%,#FF4B3A 100%)', boxShadow: '0 24px 60px rgba(255,0,45,.45)' }}>
-          <Globe size={58} strokeWidth={1.3} className="text-white md:hidden" />
-          <Globe size={68} strokeWidth={1.3} className="text-white hidden md:block" />
+        {/* Logo chữ P cách điệu (apple-touch-icon dựng cho PWA) */}
+        <div className="w-[130px] h-[130px] md:w-[150px] md:h-[150px] rounded-[38px] md:rounded-[44px] overflow-hidden flex items-center justify-center"
+          style={{ boxShadow: '0 24px 60px rgba(255,0,45,.45)' }}>
+          <img
+            src="/apple-touch-icon.png"
+            alt="PROT LIFE"
+            width={150}
+            height={150}
+            className="w-full h-full object-cover"
+          />
         </div>
         <motion.div
           className="absolute inset-0 -z-10 rounded-[38px] md:rounded-[44px]"
