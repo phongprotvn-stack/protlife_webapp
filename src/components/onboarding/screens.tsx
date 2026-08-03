@@ -382,7 +382,7 @@ export function AddContactScreen({ onNext, onBack }: ScreenProps & { onBack: () 
       <motion.p {...fadeUp} className="text-[22px] font-extrabold leading-tight mb-8">Cuộc sống gồm những mối quan hệ. Ai quan trọng với bạn?</motion.p>
 
       <motion.div {...fadeT(0.1)} className="mb-6">
-        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Tên người đầu tiên... (chỉ demo)"
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Tên người đầu tiên của bạn..."
           className="w-full text-[17px] font-semibold rounded-[13px] px-4 py-3.5 outline-none"
           style={{ background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.12)' }}
         />
