@@ -126,10 +126,12 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'protlife-settings',
       partialize: (state) => {
-        // Persist everything except actions
-        const { set: _, reset: _r, ...rest } = state;
-        return rest;
-      },
+              // Persist everything except actions. settingsLoaded is runtime-only
+              // (not persisted) so a DIFFERENT account on the same browser never
+              // inherits a stale "loaded" flag (or onboarded name/dob) of a prior one.
+              const { set: _, reset: _r, settingsLoaded: _s, ...rest } = state;
+              return rest;
+            },
     }
   )
 );
@@ -198,10 +200,19 @@ export async function loadSettingsFromServer(userId: string) {
     // fall through — no server data (new user)
   }
 
-  // No server data (new user) → still mark settings as loaded so onboarding
-  // decision isn't blocked waiting for a non-existent row.
-  useSettingsStore.setState({ settingsLoaded: true });
-}
+  // No server data (new user, or server never had a row for THIS user).
+    // This is the source of truth for "is this account brand-new": if the
+    // server has no preferences for this userId, reset identity back to
+    // "new user" state so onboarded=false and empty name/dob → AuthGuard
+    // redirects them to /onboarding. Crucially we do NOT trust leftover
+    // localStorage (which is shared across accounts on the same browser).
+    useSettingsStore.setState({
+      displayName: '',
+      dob: '',
+      onboarded: false,
+      settingsLoaded: true,
+    });
+  }
 
 // Helper: get CSS value based on settings
 export function fontSizeValue(index: number): string {
