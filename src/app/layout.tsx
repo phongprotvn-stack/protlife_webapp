@@ -45,16 +45,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <ThemeProvider />
           {isAuthPage ? (
-            children
-          ) : (
-            <AuthGuard>
-              {isMobile ? (
-                <MobileLayout>{children}</MobileLayout>
-              ) : (
-                <DesktopLayout>{children}</DesktopLayout>
-              )}
-            </AuthGuard>
-          )}
+                      children
+                    ) : pathname === '/onboarding' ? (
+                      /* Onboarding: full-screen, có AuthGuard (đòi login) nhưng KHÔNG sidebar layout */
+                      <AuthGuard>
+                        <div className="min-h-screen w-full bg-[#0A0A0F] text-white">
+                          {children}
+                        </div>
+                      </AuthGuard>
+                    ) : (
+                      <AuthGuard>
+                        {isMobile ? (
+                          <MobileLayout>{children}</MobileLayout>
+                        ) : (
+                          <DesktopLayout>{children}</DesktopLayout>
+                        )}
+                      </AuthGuard>
+                    )}
         </Providers>
       </body>
     </html>

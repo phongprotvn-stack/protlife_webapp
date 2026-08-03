@@ -3,14 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
-import { loadSettingsFromServer } from '@/stores/settings-store';
+import { useSettingsStore, loadSettingsFromServer } from '@/stores/settings-store';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
-  const userId = useAuthStore((s) => s.user?.id);
-  const sessionChecked = useAuthStore((s) => s.sessionChecked);
+    const userId = useAuthStore((s) => s.user?.id);
+    const sessionChecked = useAuthStore((s) => s.sessionChecked);
+    const onboarded = useSettingsStore((s) => s.onboarded);
+    const displayName = useSettingsStore((s) => s.displayName);
+    const dob = useSettingsStore((s) => s.dob);
+    const settingsLoaded = useSettingsStore((s) => s.settingsLoaded);
   const [hydrated, setHydrated] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -48,11 +52,28 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [hydrated, isLoggedIn, sessionChecked, router]);
 
   // Load settings from Supabase when user logs in
-  useEffect(() => {
-    if (!checking && userId) {
-      loadSettingsFromServer(userId);
-    }
-  }, [checking, userId]);
+    useEffect(() => {
+      if (!checking && userId) {
+        loadSettingsFromServer(userId);
+      }
+    }, [checking, userId]);
+
+    // Redirect brand-new users (no name/dob yet) to onboarding, unless they're
+    // already on it. Skip via the Skip button sets onboarded=true.
+    useEffect(() => {
+      if (!checking || !isLoggedIn) return;
+      if (!settingsLoaded) return; // wait until we know if server has name/dob
+      if (onboarded) return;
+      const hasIdentity = (displayName?.trim() || '') !== '' || (dob?.trim() || '') !== '';
+      if (hasIdentity) {
+        // Already has a real identity — treat as onboarded, never block again
+        useSettingsStore.setState({ onboarded: true });
+        return;
+      }
+      if (pathname !== '/onboarding') {
+        router.replace('/onboarding');
+      }
+    }, [checking, isLoggedIn, settingsLoaded, onboarded, displayName, dob, pathname, router]);
 
   if (checking) {
     return (

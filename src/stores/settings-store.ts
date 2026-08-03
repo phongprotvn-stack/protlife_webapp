@@ -22,6 +22,11 @@ export interface SettingsState {
   language: Language;
   timezone: string;
 
+  // Onboarding (true = đã xem xong hoặc đã skip; false = user mới chưa onboard)
+  onboarded: boolean;
+  /** true sau khi loadSettingsFromServer đã chạy xong (đủ điều kiện quyết định redirect) */
+  settingsLoaded: boolean;
+
   // Login methods
   googleLinked: boolean;
 
@@ -76,6 +81,9 @@ const DEFAULTS: Omit<SettingsState, 'set' | 'reset'> = {
   gender: 'Nam',
   language: 'Tiếng Việt',
   timezone: '(GMT+07:00) Bangkok, Hanoi, Jakarta',
+
+  onboarded: false,
+  settingsLoaded: false,
 
   googleLinked: false,
 
@@ -169,18 +177,30 @@ useSettingsStore.subscribe((state) => {
  * If server data exists, it overwrites localStorage defaults.
  */
 export async function loadSettingsFromServer(userId: string) {
-  const { data, error } = await supabase
-    .from('user_preferences')
-    .select('settings')
-    .eq('user_id', userId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .select('settings')
+      .eq('user_id', userId)
+      .single();
 
-  if (error || !data?.settings) return; // no server data yet
+    if (!error && data?.settings) {
+      _serverHydrate = true;
+      useSettingsStore.setState({
+        ...(data.settings as Partial<SettingsState>),
+        settingsLoaded: true,
+      });
+      // Re-enable upsert after state settles
+      setTimeout(() => { _serverHydrate = false; }, 200);
+      return;
+    }
+  } catch {
+    // fall through — no server data (new user)
+  }
 
-  _serverHydrate = true;
-  useSettingsStore.setState(data.settings as Partial<SettingsState>);
-  // Re-enable upsert after state settles
-  setTimeout(() => { _serverHydrate = false; }, 200);
+  // No server data (new user) → still mark settings as loaded so onboarding
+  // decision isn't blocked waiting for a non-existent row.
+  useSettingsStore.setState({ settingsLoaded: true });
 }
 
 // Helper: get CSS value based on settings
