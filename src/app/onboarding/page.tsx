@@ -77,12 +77,12 @@ export default function OnboardingPage() {
         style={{ background: 'linear-gradient(180deg, rgba(230,0,45,.18), transparent)' }} />
 
       {/* Top bar: skip + progress */}
-      <div className="w-full max-w-[420px] px-6 pt-6 pb-2 relative z-10">
+      <div className="w-full max-w-[420px] md:max-w-[620px] px-6 md:px-10 pt-6 pb-2 relative z-10">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-[9px] flex items-center justify-center text-[13px] font-black text-white"
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-[9px] flex items-center justify-center text-[13px] md:text-[14px] font-black text-white"
               style={{ background: 'linear-gradient(135deg,#D60032,#FF4B3A)' }}>P</div>
-            <span className="text-[13px] font-extrabold tracking-[-.2px]">PROT LIFE</span>
+            <span className="text-[13px] md:text-[14px] font-extrabold tracking-[-.2px]">PROT LIFE</span>
           </div>
           <button onClick={skip} className="flex items-center gap-1 px-2 py-1 rounded-full text-[12px] font-semibold transition-colors"
             style={{ background: 'rgba(255,255,255,.06)', color: 'rgba(255,255,255,.5)' }}>
@@ -93,7 +93,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Screen body */}
-      <div className="flex-1 w-full max-w-[420px] px-8 pb-10 flex flex-col justify-center relative z-10">
+      <div className="flex-1 w-full max-w-[420px] md:max-w-[620px] px-8 md:px-10 pb-10 flex flex-col justify-center relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
