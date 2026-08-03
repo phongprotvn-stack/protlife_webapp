@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/auth-store';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
@@ -16,14 +17,28 @@ import { documentService } from '@/lib/services/document-service';
  * Uses prefetchQuery (not useQuery) so the data is loaded into the cache
  * without subscribing to it. The page-level useQuery will find the data
  * already cached and return it immediately.
+ *
+ * ⚠️ CHỈ prefetch SAU KHI session thật đã được restore (sessionChecked &&
+ * isLoggedIn && userId). Bug cũ: prefetch chạy ngay khi mount, trước khi
+ * supabase có session → query chạy với anon role → RLS trả [] → cache rỗng
+ * 30 phút → dashboard/mọi trang hiển thị KHÔNG có dữ liệu dù đã đăng nhập.
  */
 export default function DataPrefetcher() {
   const queryClient = useQueryClient();
-  const prefetched = useRef(false);
+  const sessionChecked = useAuthStore((s) => s.sessionChecked);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const userId = useAuthStore((s) => s.user?.id);
+  const prefetchedFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (prefetched.current) return;
-    prefetched.current = true;
+    // Chỉ prefetch khi session thật đã xong và có user
+    if (!sessionChecked || !isLoggedIn || !userId) return;
+    // Mỗi tài khoản chỉ prefetch 1 lần (tránh refetch khi state rung)
+    if (prefetchedFor.current === userId) return;
+    prefetchedFor.current = userId;
+
+    // Tài khoản đổi → dọn cache cũ của tài khoản trước (tránh lộ dữ liệu)
+    queryClient.removeQueries();
 
     const prefetchAll = async () => {
       // Fire all prefetches in parallel
@@ -62,7 +77,7 @@ export default function DataPrefetcher() {
     };
 
     prefetchAll();
-  }, [queryClient]);
+  }, [queryClient, sessionChecked, isLoggedIn, userId]);
 
   return null;
 }
