@@ -271,11 +271,12 @@ export default function WeddingGuestsPage() {
   }
 
   async function handleGiftBlur(guestId: string, raw: string) {
-    const value = parseVND(raw);
-    setGiftInputs(prev => ({ ...prev, [guestId]: value ? formatVND(value) : '' }));
-    if (raw.trim() === '' && value === 0) return;
-    await updateGuest(guestId, { GiftAmount: value });
-  }
+      const value = parseVND(raw);
+      setGiftInputs(prev => ({ ...prev, [guestId]: value ? formatVND(value) : '' }));
+      // Luôn đồng bộ DB: rỗng -> set null (xoá số cũ), có giá trị -> lưu số tiền.
+      // (Trước đây early-return khi rỗng khiến GiftAmount cũ vẫn nằm lại DB và hiện lại sau F5)
+      await updateGuest(guestId, value ? { GiftAmount: value } : { GiftAmount: null });
+    }
 
   async function handleDelete(id: string) {
     try {
