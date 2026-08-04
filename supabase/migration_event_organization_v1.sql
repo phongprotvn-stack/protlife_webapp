@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS group_event_expenses (
   "PaidByContactID" TEXT NOT NULL REFERENCES contacts("ContactID") ON DELETE CASCADE, -- Who paid the bill
   "Amount" NUMERIC NOT NULL,
   "Description" TEXT,
+  "InvolvedContactIDs" TEXT[], -- Array of ContactIDs who participated in this specific expense
   "CreatedDate" TIMESTAMPTZ DEFAULT NOW(),
   "UpdatedDate" TIMESTAMPTZ DEFAULT NOW(),
   user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id)

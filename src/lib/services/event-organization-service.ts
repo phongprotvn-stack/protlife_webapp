@@ -17,6 +17,31 @@ export interface WeddingGuest {
   Notes?: string;
 }
 
+export interface WeddingDetails {
+  EventID: string;
+  BrideName?: string | null;
+  GroomName?: string | null;
+  BudgetLimit?: number;
+}
+
+export interface WeddingTask {
+  TaskID?: string;
+  EventID: string;
+  Title: string;
+  Description?: string | null;
+  Status?: 'Pending' | 'In Progress' | 'Done';
+  DueDate?: string | null;
+}
+
+export interface WeddingExpense {
+  ExpenseID?: string;
+  EventID: string;
+  Category: 'Apparel' | 'Photography' | 'Food' | 'Venue' | 'Decoration' | 'Transport' | 'Other';
+  EstimatedCost?: number;
+  ActualCost?: number;
+  Notes?: string;
+}
+
 export interface GroupEventFund {
   FundID?: string;
   EventID: string;
@@ -31,7 +56,60 @@ export interface GroupEventExpense {
   PaidByContactID: string;
   Amount: number;
   Description?: string;
+  InvolvedContactIDs?: string[];
   CreatedDate?: string;
+}
+
+// -----------------------------------------------------------------------------
+// HELPERS
+// -----------------------------------------------------------------------------
+
+/** Lấy danh sách event Party/đám cưới (cho EventPicker), ưu tiên event có tên cưới/wedding + sắp tới */
+export async function getPartyEvents(): Promise<{ EventID: string; Title: string; StartDate: string }[]> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('EventID, Title, StartDate')
+    .in('EventType', ['Party', 'Other', 'Entertainment'])
+    .order('StartDate', { ascending: true })
+    .limit(100);
+  if (error) throw error;
+
+  const list = (data || []) as { EventID: string; Title: string; StartDate: string }[];
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = list.filter(e => (e.StartDate || '') >= today);
+  const pool = upcoming.length > 0 ? upcoming : list;
+  const named = pool.filter(e => /cưới|wedding/i.test(e.Title));
+  const sorted = [...(named.length > 0 ? named : pool)].sort((a, b) => a.StartDate.localeCompare(b.StartDate));
+  return sorted;
+}
+
+/** Lấy event Party/đám cưới GẦN NHẤT (mặc định cho các trang không có [id]) */
+export async function getNearestPartyEvent(): Promise<{ EventID: string; Title: string; StartDate: string } | null> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('EventID, Title, StartDate')
+    .in('EventType', ['Party', 'Other', 'Entertainment'])
+    .order('StartDate', { ascending: true })
+    .limit(50);
+  if (error) throw error;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = (data || [])
+    .filter(e => (e.StartDate || '') >= today)
+    .sort((a, b) => a.StartDate.localeCompare(b.StartDate));
+  const pool = upcoming.length > 0 ? upcoming : (data || []).sort((a, b) => b.StartDate.localeCompare(a.StartDate));
+
+  // Ưu tiên event có tên chứa "cưới"/"wedding" hoặc đã có wedding_details
+  const named = pool.find(e => /cưới|wedding/i.test(e.Title));
+  if (named) return named;
+
+  const { data: wd } = await supabase.from('wedding_details').select('EventID').limit(1);
+  if (wd && wd.length > 0) {
+    const withDetails = pool.find(e => e.EventID === wd[0].EventID);
+    if (withDetails) return withDetails;
+  }
+
+  return pool[0] || null;
 }
 
 // -----------------------------------------------------------------------------
@@ -39,12 +117,114 @@ export interface GroupEventExpense {
 // -----------------------------------------------------------------------------
 
 export const weddingService = {
+  // --- Details ---
+  async getDetails(eventId: string): Promise<WeddingDetails | null> {
+    const { data, error } = await supabase
+      .from('wedding_details')
+      .select('*')
+      .eq('EventID', eventId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async upsertDetails(details: WeddingDetails): Promise<WeddingDetails> {
+    const { data, error } = await supabase
+      .from('wedding_details')
+      .upsert([details], { onConflict: 'EventID' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  // --- Tasks (Checklist) ---
+  async getTasks(eventId: string): Promise<WeddingTask[]> {
+    const { data, error } = await supabase
+      .from('wedding_tasks')
+      .select('*')
+      .eq('EventID', eventId)
+      .order('CreatedDate', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async addTask(task: WeddingTask): Promise<WeddingTask> {
+    const { data, error } = await supabase
+      .from('wedding_tasks')
+      .insert([task])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateTask(taskId: string, updates: Partial<WeddingTask>): Promise<WeddingTask> {
+    const { data, error } = await supabase
+      .from('wedding_tasks')
+      .update({ ...updates, UpdatedDate: new Date().toISOString() })
+      .eq('TaskID', taskId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteTask(taskId: string): Promise<void> {
+    const { error } = await supabase
+      .from('wedding_tasks')
+      .delete()
+      .eq('TaskID', taskId);
+    if (error) throw error;
+  },
+
+  // --- Expenses ---
+  async getExpenses(eventId: string): Promise<WeddingExpense[]> {
+    const { data, error } = await supabase
+      .from('wedding_expenses')
+      .select('*')
+      .eq('EventID', eventId)
+      .order('CreatedDate', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async addExpense(expense: WeddingExpense): Promise<WeddingExpense> {
+    const { data, error } = await supabase
+      .from('wedding_expenses')
+      .insert([expense])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateExpense(expenseId: string, updates: Partial<WeddingExpense>): Promise<WeddingExpense> {
+    const { data, error } = await supabase
+      .from('wedding_expenses')
+      .update({ ...updates, UpdatedDate: new Date().toISOString() })
+      .eq('ExpenseID', expenseId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteExpense(expenseId: string): Promise<void> {
+    const { error } = await supabase
+      .from('wedding_expenses')
+      .delete()
+      .eq('ExpenseID', expenseId);
+    if (error) throw error;
+  },
+
   // --- Guests ---
   async getGuests(eventId: string): Promise<WeddingGuest[]> {
     const { data, error } = await supabase
       .from('wedding_guests')
       .select('*')
-      .eq('EventID', eventId);
+      .eq('EventID', eventId)
+      .order('CreatedDate', { ascending: true });
     if (error) throw error;
     return data || [];
   },
@@ -62,7 +242,7 @@ export const weddingService = {
   async updateGuest(guestId: string, updates: Partial<WeddingGuest>): Promise<WeddingGuest> {
     const { data, error } = await supabase
       .from('wedding_guests')
-      .update(updates)
+      .update({ ...updates, UpdatedDate: new Date().toISOString() })
       .eq('GuestID', guestId)
       .select()
       .single();
@@ -81,11 +261,12 @@ export const weddingService = {
 
 export const groupEventService = {
   // --- Funds (Who paid) ---
-  async getFunds(eventId: string): Promise<GroupEventFund[]> {
+  async getFunds(eventId: string): Promise<(GroupEventFund & { contacts?: { Name: string } | null })[]> {
     const { data, error } = await supabase
       .from('group_event_funds')
       .select('*, contacts("Name")') // Join with contacts to get name
-      .eq('EventID', eventId);
+      .eq('EventID', eventId)
+      .order('CreatedDate', { ascending: true });
     if (error) throw error;
     return data || [];
   },
@@ -100,8 +281,16 @@ export const groupEventService = {
     return data;
   },
 
+  async deleteFund(fundId: string): Promise<void> {
+    const { error } = await supabase
+      .from('group_event_funds')
+      .delete()
+      .eq('FundID', fundId);
+    if (error) throw error;
+  },
+
   // --- Expenses ---
-  async getExpenses(eventId: string): Promise<GroupEventExpense[]> {
+  async getExpenses(eventId: string): Promise<(GroupEventExpense & { contacts?: { Name: string } | null })[]> {
     const { data, error } = await supabase
       .from('group_event_expenses')
       .select('*, contacts("Name")') // Join with contacts
