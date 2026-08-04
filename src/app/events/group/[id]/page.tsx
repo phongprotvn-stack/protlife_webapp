@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Receipt, Users, Calculator, Plus, UserPlus, X, Loader2, Trash2, ArrowLeft } from 'lucide-react'
+import { Receipt, Users, Calculator, Plus, UserPlus, X, Loader2, Trash2, ArrowLeft, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { groupEventService } from '@/lib/services/event-organization-service';
+import { groupEventService, createBigEvent } from '@/lib/services/event-organization-service';
 import { contactService } from '@/lib/services/contact-service';
 import { calculateSplitwise, type ExpenseDetail } from '@/lib/expense-calculator';
 import { formatVND } from '@/lib/utils';
@@ -13,8 +13,17 @@ import { supabase } from '@/lib/supabase/client';
 
 export default function GroupEventPage() {
   const params = useParams();
+  const router = useRouter();
   const eventId = params?.id as string;
+  const isNew = eventId === 'new';
   const queryClient = useQueryClient();
+
+  // Form — tạo sự kiện nhóm mới (chỉ hiện khi /events/group/new)
+  const [newTitle, setNewTitle] = useState('');
+  const [newStartDate, setNewStartDate] = useState('');
+  const [newEndDate, setNewEndDate] = useState('');
+  const [newSaving, setNewSaving] = useState(false);
+  const [newError, setNewError] = useState('');
 
   const [showMember, setShowMember] = useState(false);
   const [showExpense, setShowExpense] = useState(false);
@@ -128,6 +137,23 @@ export default function GroupEventPage() {
     } catch { setConfirmDel(null); }
   }
 
+  async function handleCreateGroup() {
+    if (!newTitle.trim() || !newStartDate) return;
+    setNewSaving(true); setNewError('');
+    try {
+      const newId = await createBigEvent({
+        title: newTitle.trim(),
+        startDate: newStartDate,
+        endDate: newEndDate || undefined,
+        eventType: 'Travel',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+      router.replace(`/events/group/${newId}`);
+    } catch (e: any) {
+      setNewError(e?.message || 'Không thể tạo sự kiện nhóm');
+    } finally { setNewSaving(false); }
+  }
+
   const availableContacts = contacts.filter(c => !funds.some(f => f.ContactID === c.ContactID));
   const memberOptions = (availableContacts.length > 0 ? availableContacts : contacts).filter(c => c.Status !== 'Blocked');
 
@@ -135,8 +161,73 @@ export default function GroupEventPage() {
 
   return (
     <div className="page-content min-h-[80vh]">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div className="flex items-center gap-3">
+      {isNew ? (
+        /* ═══ TẠO SỰ KIỆN NHÓM MỚI ═══ */
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center gap-3 mb-6">
+            <Link href="/events">
+              <button className="w-8 h-8 rounded-full bg-[rgba(0,0,0,0.04)] flex items-center justify-center hover:bg-[rgba(0,0,0,0.08)] transition-colors shrink-0">
+                <ArrowLeft size={18} className="text-[#5F6368]" />
+              </button>
+            </Link>
+            <div>
+              <h2 className="text-[22px] font-bold text-[#111] tracking-tight">Tạo sự kiện nhóm</h2>
+              <p className="text-[12px] text-[#8E8E93] mt-0.5">Sự kiện sẽ xuất hiện trong dòng thời gian chung</p>
+            </div>
+          </div>
+
+          <div className="glass-card p-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Tên sự kiện *</label>
+                <input
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  placeholder="VD: Chuyến đi Đà Nẵng 2026"
+                  autoFocus
+                  className="w-full h-[42px] px-3.5 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[#E6002D] transition-all"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Ngày bắt đầu *</label>
+                  <input
+                    type="date"
+                    value={newStartDate}
+                    onChange={e => setNewStartDate(e.target.value)}
+                    className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] outline-none focus:border-[#E6002D] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Ngày kết thúc</label>
+                  <input
+                    type="date"
+                    value={newEndDate}
+                    onChange={e => setNewEndDate(e.target.value)}
+                    className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] outline-none focus:border-[#E6002D] transition-all"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-[12px] text-[#8E8E93] bg-[rgba(0,0,0,0.02)] rounded-[10px] px-3 py-2.5">
+                <CalendarDays size={14} className="text-[#E6002D] shrink-0" />
+                Sự kiện nhóm này sẽ được ghi nhận đồng thời trong list sự kiện chung (dòng thời gian).
+              </div>
+              {newError && <p className="text-[12px] text-[#FF3B30]">{newError}</p>}
+              <button
+                onClick={handleCreateGroup}
+                disabled={newSaving || !newTitle.trim() || !newStartDate}
+                className="w-full h-[44px] rounded-[10px] bg-[#E6002D] text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 hover:bg-[#D40028] transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {newSaving && <Loader2 size={15} className="animate-spin" />}
+                {newSaving ? 'Đang tạo...' : 'Tạo sự kiện nhóm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div className="flex items-center gap-3">
           <Link href="/events">
             <button className="w-8 h-8 rounded-full bg-[rgba(0,0,0,0.04)] flex items-center justify-center hover:bg-[rgba(0,0,0,0.08)] transition-colors shrink-0">
               <ArrowLeft size={18} className="text-[#5F6368]" />
@@ -263,6 +354,7 @@ export default function GroupEventPage() {
           </div>
         </div>
       </div>
+      </>)}
 
       {/* Modal — Thêm thành viên */}
       {showMember && (

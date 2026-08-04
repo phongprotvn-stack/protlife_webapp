@@ -1,16 +1,21 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Circle, Users, Wallet, CalendarDays, Plus, X, Loader2, RefreshCw } from 'lucide-react'
+import React, { useMemo, useState, useEffect } from 'react';
+import { CheckCircle2, Circle, Users, Wallet, CalendarDays, Plus, X, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import EventPicker from '@/components/events/event-picker';
-import { weddingService, getPartyEvents } from '@/lib/services/event-organization-service';
+import { weddingService, createBigEvent } from '@/lib/services/event-organization-service';
 import { formatVND } from '@/lib/utils';
 
 export default function WeddingDashboardPage() {
   const queryClient = useQueryClient();
-  const [eventId, setEventId] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [eventId, setEventId] = useState<string | null>(() => searchParams?.get('event') || null);
+  const [resolving, setResolving] = useState(true);
+  const [noWedding, setNoWedding] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [taskError, setTaskError] = useState('');
@@ -19,12 +24,57 @@ export default function WeddingDashboardPage() {
   const [taskDue, setTaskDue] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
 
-  // Danh sách event cho picker (ưu tiên tên "cưới"/wedding + sắp tới)
-  const { data: pickerEvents = [], isLoading: pickerLoading } = useQuery({
-    queryKey: ['party-events'],
-    queryFn: getPartyEvents,
-    staleTime: 60_000,
-  });
+  // Tự resolve event đám cưới khi không có ?event= — lấy event Party có wedding_details gần nhất
+  useEffect(() => {
+    if (eventId) { setResolving(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase/client');
+        const { data: wd } = await supabase
+          .from('wedding_details')
+          .select('EventID')
+          .order('CreatedDate', { ascending: false })
+          .limit(1);
+        if (cancelled) return;
+        if (wd && wd.length > 0) {
+          const { data: ev } = await supabase
+            .from('events')
+            .select('EventID')
+            .eq('EventID', wd[0].EventID)
+            .maybeSingle();
+          if (!cancelled && ev) {
+            setEventId(ev.EventID);
+            router.replace(`/events/wedding?event=${ev.EventID}`, { scroll: false });
+            setResolving(false);
+            return;
+          }
+        }
+        if (!cancelled) { setNoWedding(true); setResolving(false); }
+      } catch {
+        if (!cancelled) { setNoWedding(true); setResolving(false); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [eventId, router]);
+
+  async function handleStartWedding() {
+    setCreating(true);
+    try {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const eventId = await createBigEvent({ title: 'Đám cưới của tôi', startDate: `${y}-${m}-${d}`, eventType: 'Party' });
+      await weddingService.upsertDetails({ EventID: eventId, BudgetLimit: 0 });
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+      router.replace(`/events/wedding?event=${eventId}`, { scroll: false });
+      setEventId(eventId);
+      setNoWedding(false);
+    } catch (e: any) {
+      alert('Không thể tạo đám cưới: ' + (e?.message || ''));
+    } finally { setCreating(false); }
+  }
 
   // Event hiện tại (lấy từ events để hiện tên/ngày)
   const { data: event = null } = useQuery({
@@ -144,7 +194,6 @@ export default function WeddingDashboardPage() {
           <p className="text-[12px] text-[#8E8E93] mt-0.5">Tổng quan sự kiện</p>
         </div>
         <div className="flex items-center gap-2">
-          <EventPicker value={eventId} onChange={setEventId} events={pickerEvents} loading={pickerLoading} />
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['wedding'] })}
             className="w-[38px] h-[38px] rounded-[10px] bg-white border border-[rgba(0,0,0,0.06)] flex items-center justify-center text-[#5F6368] hover:bg-[rgba(0,0,0,0.02)] transition-all shadow-sm shrink-0"
@@ -155,9 +204,26 @@ export default function WeddingDashboardPage() {
         </div>
       </div>
 
-      {!eventId ? (
-        <div className="glass-card p-10 text-center text-[13px] text-[#8E8E93]">
-          {pickerLoading ? 'Đang tải danh sách sự kiện...' : 'Chưa có sự kiện Party/Đám cưới. Hãy tạo sự kiện trước.'}
+      {resolving ? (
+        <div className="glass-card p-10 text-center text-[13px] text-[#8E8E93]">Đang tải sự kiện đám cưới...</div>
+      ) : noWedding || !eventId ? (
+        <div className="glass-card p-10 text-center">
+          <div className="w-14 h-14 rounded-full bg-[rgba(230,0,45,0.08)] mx-auto mb-4 flex items-center justify-center">
+            <Sparkles size={24} className="text-[#E6002D]" />
+          </div>
+          <h3 className="text-[17px] font-bold text-[#111] mb-1.5">Bắt đầu lên kế hoạch đám cưới</h3>
+          <p className="text-[13px] text-[#8E8E93] max-w-sm mx-auto mb-5">
+            Tạo sự kiện đám cưới để quản lý ngân sách, danh sách khách mời và checklist công việc.
+            Sự kiện sẽ xuất hiện trong dòng thời gian chung của bạn.
+          </p>
+          <button
+            onClick={handleStartWedding}
+            disabled={creating}
+            className="px-6 h-[44px] rounded-[10px] bg-[#E6002D] text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 mx-auto hover:bg-[#D40028] transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {creating && <Loader2 size={15} className="animate-spin" />}
+            {creating ? 'Đang tạo...' : 'Bắt đầu đám cưới'}
+          </button>
         </div>
       ) : (
         <>

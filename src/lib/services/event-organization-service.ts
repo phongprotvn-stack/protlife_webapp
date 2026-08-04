@@ -116,6 +116,55 @@ export async function getNearestPartyEvent(): Promise<{ EventID: string; Title: 
 // SERVICES
 // -----------------------------------------------------------------------------
 
+/**
+ * Tạo sự kiện LỚN (nhóm hoặc đám cưới) — luôn tạo 1 row trong bảng `events` chung
+ * để nó xuất hiện đồng thời trong timeline sự kiện. Trả về EventID mới.
+ */
+export async function createBigEvent(params: {
+  title: string;
+  startDate: string; // YYYY-MM-DD
+  endDate?: string;
+  eventType?: string; // mặc định 'Party' (đám cưới) hoặc 'Travel' (nhóm)
+}): Promise<string> {
+  const d = new Date(params.startDate + 'T00:00:00');
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const prefix = `EV${y}${m}${day}`;
+
+  const { data: maxEvent } = await supabase
+    .from('events')
+    .select('EventID')
+    .like('EventID', `${prefix}%`)
+    .order('EventID', { ascending: false })
+    .limit(1);
+
+  let seqNo = 1;
+  if (maxEvent && maxEvent.length > 0) {
+    seqNo = parseInt(maxEvent[0].EventID.slice(-3)) + 1;
+  }
+  const eventId = `${prefix}${String(seqNo).padStart(3, '0')}`;
+
+  const { data, error } = await supabase
+    .from('events')
+    .insert([{
+      EventID: eventId,
+      No: seqNo,
+      EventType: params.eventType || 'Party',
+      Title: params.title,
+      StartDate: params.startDate,
+      EndDate: params.endDate || null,
+      Source: 'Manual',
+      Importance: 'High',
+      CreatedDate: new Date().toISOString(),
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return eventId;
+}
+
 export const weddingService = {
   // --- Details ---
   async getDetails(eventId: string): Promise<WeddingDetails | null> {

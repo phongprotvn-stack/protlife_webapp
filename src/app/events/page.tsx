@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X } from 'lucide-react';
+import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X, Sparkles, UsersRound, Heart, ChevronDown } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
 import { eventService } from '@/lib/services/event-service';
 import { supabase } from '@/lib/supabase/client';
@@ -38,12 +38,13 @@ type SortDir = 'asc' | 'desc';
 
 export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('');
-  const router = useRouter();
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortField, setSortField] = useState<SortField>('StartDate');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+    const [activeFilter, setActiveFilter] = useState('');
+    const router = useRouter();
+    const [isDesktop, setIsDesktop] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [sortField, setSortField] = useState<SortField>('StartDate');
+    const [sortDir, setSortDir] = useState<SortDir>('desc');
+    const [showBigMenu, setShowBigMenu] = useState(false);
 
   // Advanced filters
   const [showFilters, setShowFilters] = useState(false);
@@ -205,6 +206,42 @@ export default function EventsPage() {
               className="w-[38px] h-[38px] rounded-[10px] bg-[#E6002D] text-white flex items-center justify-center shadow-md active:scale-90">
               <Plus size={18} strokeWidth={2.5} />
             </button>
+            <div className="relative">
+              <button onClick={() => setShowBigMenu(v => !v)}
+                className="h-[38px] px-3 rounded-[10px] text-white flex items-center gap-1 text-[12px] font-semibold shadow-md active:scale-90 bg-gradient-to-r from-[#7B2FF7] to-[#E6002D]">
+                <Sparkles size={14} /> Sự kiện lớn
+              </button>
+              {showBigMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowBigMenu(false)} />
+                  <div className="absolute right-0 top-[44px] z-40 w-[260px] bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] shadow-xl p-2">
+                    <button
+                      onClick={() => { setShowBigMenu(false); router.push('/events/group/new'); }}
+                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
+                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(0,122,255,0.1)] flex items-center justify-center shrink-0">
+                        <UsersRound size={17} className="text-[#007AFF]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-bold text-[#111]">Sự kiện nhóm</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Quỹ chung, chia tiền Splitwise cho chuyến đi / nhóm bạn</p>
+                      </div>
+                    </button>
+                    <div className="h-px bg-[rgba(0,0,0,0.06)] my-1" />
+                    <button
+                      onClick={() => { setShowBigMenu(false); router.push('/events/wedding'); }}
+                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
+                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(230,0,45,0.1)] flex items-center justify-center shrink-0">
+                        <Heart size={17} className="text-[#E6002D]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-bold text-[#111]">Đám cưới</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Ngân sách, khách mời, checklist tổ chức đám cưới</p>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="relative mb-3">
@@ -250,8 +287,8 @@ export default function EventsPage() {
       {!isLoading && !loadError && (
         <>
           {/* TOP ROW */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 relative">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-[28%] min-w-[180px] relative shrink-0">
               <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
               <input type="text" placeholder="Tìm kiếm sự kiện..." value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
@@ -261,18 +298,55 @@ export default function EventsPage() {
                 <SlidersHorizontal size={15} />
               </button>
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-[45%]">
+            <div className="flex-1 flex items-center gap-1.5 overflow-x-auto pb-1 min-w-0">
               {EVENT_TYPES.map((t) => (
                 <button key={t.id} onClick={() => { setActiveFilter(t.id); setCurrentPage(1); }}
-                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all whitespace-nowrap ${
+                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all whitespace-nowrap shrink-0 ${
                     activeFilter === t.id ? 'bg-[#E6002D] text-white border-[#E6002D]' : 'bg-white text-[#5F6368] border-[rgba(0,0,0,0.06)] hover:border-[rgba(0,0,0,0.12)]'
                   }`}>{t.icon} {t.label}</button>
               ))}
             </div>
             <button onClick={() => router.push('/events/add')}
-              className="h-[38px] px-4 rounded-[8px] bg-[#E6002D] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm">
+              className="h-[38px] px-4 rounded-[8px] bg-[#E6002D] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm shrink-0">
               <Plus size={16} strokeWidth={2.5} /> Thêm sự kiện
             </button>
+            {/* Thêm sự kiện lớn — dropdown menu */}
+            <div className="relative shrink-0">
+              <button onClick={() => setShowBigMenu(v => !v)}
+                className="h-[38px] px-4 rounded-[8px] text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-md shrink-0 bg-gradient-to-r from-[#7B2FF7] to-[#E6002D] hover:opacity-90">
+                <Sparkles size={15} /> Thêm sự kiện lớn <ChevronDown size={13} className={`transition-transform ${showBigMenu ? 'rotate-180' : ''}`} />
+              </button>
+              {showBigMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowBigMenu(false)} />
+                  <div className="absolute right-0 top-[44px] z-40 w-[260px] bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] shadow-xl p-2">
+                    <button
+                      onClick={() => { setShowBigMenu(false); router.push('/events/group/new'); }}
+                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
+                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(0,122,255,0.1)] flex items-center justify-center shrink-0">
+                        <UsersRound size={17} className="text-[#007AFF]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-bold text-[#111]">Sự kiện nhóm</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Quỹ chung, chia tiền Splitwise cho chuyến đi / nhóm bạn</p>
+                      </div>
+                    </button>
+                    <div className="h-px bg-[rgba(0,0,0,0.06)] my-1" />
+                    <button
+                      onClick={() => { setShowBigMenu(false); router.push('/events/wedding'); }}
+                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
+                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(230,0,45,0.1)] flex items-center justify-center shrink-0">
+                        <Heart size={17} className="text-[#E6002D]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-bold text-[#111]">Đám cưới</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Ngân sách, khách mời, checklist tổ chức đám cưới</p>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* FILTER BAR — Desktop */}
