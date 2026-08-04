@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, Plus, Users, ArrowLeft, X, Loader2, Trash2, CheckCheck, UserPlus, Phone, Building2, Table2, PartyPopper, Heart, Wallet } from 'lucide-react'
+import { Search, Plus, Users, ArrowLeft, X, Loader2, Trash2, CheckCheck, UserPlus, Phone, Building2, Table2, PartyPopper, Heart, Wallet, ArrowUp, ArrowDown, ChevronsUpDown, Filter } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { weddingService } from '@/lib/services/event-organization-service';
+import { weddingService, type WeddingGuest } from '@/lib/services/event-organization-service';
 import { contactService } from '@/lib/services/contact-service';
 import { formatVND, parseVND } from '@/lib/utils';
 
@@ -108,7 +108,55 @@ export default function WeddingGuestsPage() {
   const [assignTarget, setAssignTarget] = useState<string | null>(null); // TableName đang gán
 
   // ─── Bước 4: Tiền mừng ───
-  const [giftInputs, setGiftInputs] = useState<Record<string, string>>({});
+    const [giftInputs, setGiftInputs] = useState<Record<string, string>>({});
+
+    // ─── Tab Lời mời: lọc + sắp xếp ───
+    const [invFilter, setInvFilter] = useState('all'); // 'all' | trạng thái mời
+    const [sortKey, setSortKey] = useState<string>('Name'); // 'Name' | 'Org' | 'Phone' | 'Status' | 'Table'
+    const [sortDir, setSortDir] = useState<1 | -1>(1); // 1 asc, -1 desc
+
+    // Map ContactID -> Phone / Organization1 (để lấy SĐT & Tổ chức của khách thêm từ danh bạ)
+    const contactMap = useMemo(() => {
+      const map: Record<string, { phone: string; org: string }> = {};
+      contacts.forEach(c => {
+        map[c.ContactID] = { phone: c.Phone || '', org: c.Organization1 || '' };
+      });
+      return map;
+    }, [contacts]);
+
+    /** Lấy SĐT khách: ưu tiên phone đã lưu (tự nhập), fallback từ contact */
+    const phoneOf = (g: WeddingGuest) => g.PhoneNumber || (g.ContactID ? contactMap[g.ContactID]?.phone : '') || '';
+    /** Lấy Tổ chức khách: ưu tiên org đã lưu, fallback Organization1 từ contact */
+    const orgOf = (g: WeddingGuest) => g.Organization || (g.ContactID ? contactMap[g.ContactID]?.org : '') || '';
+
+    // Danh sách khách đã lọc + sắp xếp cho Tab Lời mời (không tự đẩy người đã mời xuống cuối)
+    const filteredSortableGuests = useMemo(() => {
+      let list = [...guests];
+      if (invFilter !== 'all') list = list.filter(g => (g.InvitationStatus || 'Not Sent') === invFilter);
+      const dir = sortDir;
+      const key = sortKey;
+      list.sort((a, b) => {
+        let va = '', vb = '';
+        if (key === 'Name') { va = a.Name || ''; vb = b.Name || ''; }
+        else if (key === 'Org') { va = orgOf(a).toLowerCase(); vb = orgOf(b).toLowerCase(); }
+        else if (key === 'Phone') { va = phoneOf(a); vb = phoneOf(b); }
+        else if (key === 'Status') { va = a.InvitationStatus || 'Not Sent'; vb = b.InvitationStatus || 'Not Sent'; }
+        else if (key === 'Table') { va = a.TableNumber || ''; vb = b.TableNumber || ''; }
+        return va.localeCompare(vb, 'vi') * dir;
+      });
+      return list;
+    }, [guests, invFilter, sortKey, sortDir, contactMap]);
+
+    function toggleSort(col: string) {
+      if (sortKey === col) setSortDir(d => (d === 1 ? -1 : 1));
+      else { setSortKey(col); setSortDir(1); }
+    }
+    function SortIcon({ col }: { col: string }) {
+      if (sortKey !== col) return <ChevronsUpDown size={12} className="inline ml-1 text-[#B8BCC4]" />;
+      return sortDir === 1
+        ? <ArrowUp size={12} className="inline ml-1 text-[#E6002D]" />
+        : <ArrowDown size={12} className="inline ml-1 text-[#E6002D]" />;
+    }
 
   // ─── Thống kê ───
   const totalGift = useMemo(() => guests.reduce((s, g) => s + (g.GiftAmount || 0), 0), [guests]);
@@ -502,101 +550,125 @@ export default function WeddingGuestsPage() {
                 <div className="glass-card p-10 text-center text-[13px] text-[#8E8E93]">Chưa có khách mời. Quay lại Bước 1 để thêm khách.</div>
               ) : (
                 <div className="glass-card-compact overflow-hidden border border-[rgba(0,0,0,0.04)] rounded-[12px]">
-                  <div className="hidden md:block w-full overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-[rgba(0,0,0,0.02)] border-b border-[rgba(0,0,0,0.03)]">
-                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase">Tên khách</th>
-                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase">Tổ chức / SĐT</th>
-                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase">Trạng thái mời</th>
-                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase">Bàn</th>
-                          <th className="py-2.5 px-4 text-center w-[40px]"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {guests.map((guest) => (
-                          <tr key={guest.GuestID} className="border-b border-[rgba(0,0,0,0.03)] last:border-b-0 hover:bg-[rgba(230,0,45,0.02)] transition-colors">
-                            <td className="py-3 px-4">
-                              <span className="text-[13px] font-semibold text-[#111]">{guest.Name}</span>
-                              {guest.Notes && <span className="block text-[11px] text-[#9CA3AF] truncate max-w-[180px]">{guest.Notes}</span>}
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-1.5 text-[11.5px] text-[#8E8E93]">
-                                {guest.Organization && <span className="inline-flex items-center gap-1"><Building2 size={11} />{guest.Organization}</span>}
-                                {guest.PhoneNumber && <span className="inline-flex items-center gap-1"><Phone size={11} />{guest.PhoneNumber}</span>}
-                                {!guest.Organization && !guest.PhoneNumber && '—'}
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <select
-                                value={guest.InvitationStatus || 'Not Sent'}
-                                onChange={e => updateGuest(guest.GuestID!, { InvitationStatus: e.target.value })}
-                                className={`text-[11.5px] font-medium rounded-[6px] border-0 outline-none cursor-pointer px-1.5 py-1 ${invBadge(guest.InvitationStatus || 'Not Sent')}`}
-                              >
-                                {INVITATION_FLOW.map(v => <option key={v} value={v}>{invLabel[v]}</option>)}
-                              </select>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <select
-                                value={guest.TableNumber || ''}
-                                onChange={e => updateGuest(guest.GuestID!, { TableNumber: e.target.value || null })}
-                                className="text-[11.5px] font-medium rounded-[6px] border border-[rgba(0,0,0,0.08)] outline-none cursor-pointer px-1.5 py-1 bg-white text-[#5F6368]"
-                              >
-                                <option value="">—</option>
-                                {tables.map(t => <option key={t.TableID} value={t.TableName}>{t.TableName}</option>)}
-                              </select>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <button
-                                onClick={() => setConfirmDelete(guest.GuestID!)}
-                                className="w-7 h-7 rounded-full flex items-center justify-center text-[#9CA3AF] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
-                                title="Xoá khách"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {/* Mobile */}
-                  <div className="md:hidden divide-y divide-[rgba(0,0,0,0.03)]">
-                    {guests.map((guest) => (
-                      <div key={guest.GuestID} className="p-4 bg-white space-y-2.5">
-                        <div className="flex justify-between items-start">
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-[14px] font-bold text-[#111]">{guest.Name}</h4>
-                            {(guest.Organization || guest.PhoneNumber) && (
-                              <p className="text-[11.5px] text-[#8E8E93] truncate">
-                                {guest.Organization}{guest.Organization && guest.PhoneNumber ? ' · ' : ''}{guest.PhoneNumber}
-                              </p>
-                            )}
-                          </div>
-                          <button onClick={() => setConfirmDelete(guest.GuestID!)} className="w-7 h-7 rounded-full flex items-center justify-center text-[#9CA3AF]" title="Xoá">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <select
-                            value={guest.InvitationStatus || 'Not Sent'}
-                            onChange={e => updateGuest(guest.GuestID!, { InvitationStatus: e.target.value })}
-                            className={`text-[11.5px] font-medium rounded-[6px] border-0 outline-none cursor-pointer px-1.5 py-1 ${invBadge(guest.InvitationStatus || 'Not Sent')}`}
-                          >
-                            {INVITATION_FLOW.map(v => <option key={v} value={v}>{invLabel[v]}</option>)}
-                          </select>
-                          <select
-                            value={guest.TableNumber || ''}
-                            onChange={e => updateGuest(guest.GuestID!, { TableNumber: e.target.value || null })}
-                            className="text-[11.5px] font-medium rounded-[6px] border border-[rgba(0,0,0,0.08)] outline-none cursor-pointer px-1.5 py-1 bg-white text-[#5F6368]"
-                          >
-                            <option value="">Bàn: —</option>
-                            {tables.map(t => <option key={t.TableID} value={t.TableName}>{t.TableName}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                                {/* Bộ lọc trạng thái */}
+                                <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-[rgba(0,0,0,0.04)] bg-white">
+                                  <Filter size={13} className="text-[#8E8E93]" />
+                                  <span className="text-[11px] font-semibold text-[#8E8E93] mr-1">Lọc:</span>
+                                  {([
+                                    ['all', 'Tất cả'],
+                                    ['Sent', 'Đã mời'],
+                                    ['Not Sent', 'Chưa mời'],
+                                    ['Unreachable', 'Không liên lạc được'],
+                                  ] as const).map(([val, label]) => (
+                                    <button
+                                      key={val}
+                                      onClick={() => setInvFilter(val)}
+                                      className={`px-2.5 py-1 rounded-[7px] text-[11px] font-semibold transition-colors ${
+                                        invFilter === val ? 'bg-[#E6002D] text-white' : 'bg-[rgba(0,0,0,0.05)] text-[#5F6368] hover:bg-[rgba(0,0,0,0.09)]'
+                                      }`}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="hidden md:block w-full overflow-x-auto">
+                                  <table className="w-full border-collapse">
+                                    <thead>
+                                      <tr className="bg-[rgba(0,0,0,0.02)] border-b border-[rgba(0,0,0,0.03)]">
+                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Name')}>Tên khách <SortIcon col="Name" /></th>
+                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" /></th>
+                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Org')}>Tổ chức <SortIcon col="Org" /></th>
+                                        <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Status')}>Trạng thái mời <SortIcon col="Status" /></th>
+                                        <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Table')}>Bàn <SortIcon col="Table" /></th>
+                                        <th className="py-2.5 px-4 text-center w-[40px]"></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {filteredSortableGuests.map((guest) => (
+                                        <tr key={guest.GuestID} className="border-b border-[rgba(0,0,0,0.03)] last:border-b-0 hover:bg-[rgba(230,0,45,0.02)] transition-colors">
+                                          <td className="py-3 px-4">
+                                            <span className="text-[13px] font-semibold text-[#111]">{guest.Name}</span>
+                                            {guest.Notes && <span className="block text-[11px] text-[#9CA3AF] truncate max-w-[180px]">{guest.Notes}</span>}
+                                          </td>
+                                          <td className="py-3 px-4">
+                                            <div className="flex items-center gap-1.5 text-[11.5px] text-[#8E8E93]">
+                                              {phoneOf(guest) ? <><Phone size={11} />{phoneOf(guest)}</> : '—'}
+                                            </div>
+                                          </td>
+                                          <td className="py-3 px-4">
+                                            <div className="flex items-center gap-1.5 text-[11.5px] text-[#8E8E93]">
+                                              {orgOf(guest) ? <><Building2 size={11} />{orgOf(guest)}</> : '—'}
+                                            </div>
+                                          </td>
+                                          <td className="py-3 px-4 text-center">
+                                            <select
+                                              value={guest.InvitationStatus || 'Not Sent'}
+                                              onChange={e => updateGuest(guest.GuestID!, { InvitationStatus: e.target.value })}
+                                              className={`text-[11.5px] font-medium rounded-[6px] border-0 outline-none cursor-pointer px-1.5 py-1 ${invBadge(guest.InvitationStatus || 'Not Sent')}`}
+                                            >
+                                              {INVITATION_FLOW.map(v => <option key={v} value={v}>{invLabel[v]}</option>)}
+                                            </select>
+                                          </td>
+                                          <td className="py-3 px-4 text-center">
+                                            <select
+                                              value={guest.TableNumber || ''}
+                                              onChange={e => updateGuest(guest.GuestID!, { TableNumber: e.target.value || null })}
+                                              className="text-[11.5px] font-medium rounded-[6px] border border-[rgba(0,0,0,0.08)] outline-none cursor-pointer px-1.5 py-1 bg-white text-[#5F6368]"
+                                            >
+                                              <option value="">—</option>
+                                              {tables.map(t => <option key={t.TableID} value={t.TableName}>{t.TableName}</option>)}
+                                            </select>
+                                          </td>
+                                          <td className="py-3 px-4 text-center">
+                                            <button
+                                              onClick={() => setConfirmDelete(guest.GuestID!)}
+                                              className="w-7 h-7 rounded-full flex items-center justify-center text-[#9CA3AF] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
+                                              title="Xoá khách"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                {/* Mobile */}
+                                <div className="md:hidden divide-y divide-[rgba(0,0,0,0.03)]">
+                                  {filteredSortableGuests.map((guest) => (
+                                    <div key={guest.GuestID} className="p-4 bg-white space-y-2.5">
+                                      <div className="flex justify-between items-start">
+                                        <div className="min-w-0 flex-1">
+                                          <h4 className="text-[14px] font-bold text-[#111]">{guest.Name}</h4>
+                                          <div className="text-[11.5px] text-[#8E8E93]">
+                                            <p className="flex items-center gap-1"><Phone size={11} />{phoneOf(guest) || '—'}</p>
+                                            <p className="flex items-center gap-1"><Building2 size={11} />{orgOf(guest) || '—'}</p>
+                                          </div>
+                                        </div>
+                                        <button onClick={() => setConfirmDelete(guest.GuestID!)} className="w-7 h-7 rounded-full flex items-center justify-center text-[#9CA3AF]" title="Xoá">
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <select
+                                          value={guest.InvitationStatus || 'Not Sent'}
+                                          onChange={e => updateGuest(guest.GuestID!, { InvitationStatus: e.target.value })}
+                                          className={`text-[11.5px] font-medium rounded-[6px] border-0 outline-none cursor-pointer px-1.5 py-1 ${invBadge(guest.InvitationStatus || 'Not Sent')}`}
+                                        >
+                                          {INVITATION_FLOW.map(v => <option key={v} value={v}>{invLabel[v]}</option>)}
+                                        </select>
+                                        <select
+                                          value={guest.TableNumber || ''}
+                                          onChange={e => updateGuest(guest.GuestID!, { TableNumber: e.target.value || null })}
+                                          className="text-[11.5px] font-medium rounded-[6px] border border-[rgba(0,0,0,0.08)] outline-none cursor-pointer px-1.5 py-1 bg-white text-[#5F6368]"
+                                        >
+                                          <option value="">Bàn: —</option>
+                                          {tables.map(t => <option key={t.TableID} value={t.TableName}>{t.TableName}</option>)}
+                                        </select>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                 </div>
               )}
             </div>
