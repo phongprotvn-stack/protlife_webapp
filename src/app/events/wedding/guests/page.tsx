@@ -112,6 +112,7 @@ export default function WeddingGuestsPage() {
 
     // ─── Tab Lời mời: lọc + sắp xếp ───
     const [invFilter, setInvFilter] = useState('all'); // 'all' | trạng thái mời
+    const [orgFilter, setOrgFilter] = useState('all'); // 'all' | tên tổ chức
     const [sortKey, setSortKey] = useState<string>('Name'); // 'Name' | 'Org' | 'Phone' | 'Status' | 'Table'
     const [sortDir, setSortDir] = useState<1 | -1>(1); // 1 asc, -1 desc
 
@@ -129,10 +130,18 @@ export default function WeddingGuestsPage() {
     /** Lấy Tổ chức khách: ưu tiên org đã lưu, fallback Organization1 từ contact */
     const orgOf = (g: WeddingGuest) => g.Organization || (g.ContactID ? contactMap[g.ContactID]?.org : '') || '';
 
-    // Danh sách khách đã lọc + sắp xếp cho Tab Lời mời (không tự đẩy người đã mời xuống cuối)
+    // Danh sách tổ chức duy nhất (cho bộ lọc)
+    const orgOptions = useMemo(() => {
+      const set = new Set<string>();
+      guests.forEach(g => { const o = orgOf(g); if (o) set.add(o); });
+      return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
+    }, [guests, contactMap]);
+
+    // Danh sách khách đã lọc + sắp xếp cho Tab Lời mời (sort ổn định — không tự đẩy người đã mời xuống cuối, không xáo khi refetch)
     const filteredSortableGuests = useMemo(() => {
       let list = [...guests];
       if (invFilter !== 'all') list = list.filter(g => (g.InvitationStatus || 'Not Sent') === invFilter);
+      if (orgFilter !== 'all') list = list.filter(g => orgOf(g) === orgFilter);
       const dir = sortDir;
       const key = sortKey;
       list.sort((a, b) => {
@@ -142,10 +151,32 @@ export default function WeddingGuestsPage() {
         else if (key === 'Phone') { va = phoneOf(a); vb = phoneOf(b); }
         else if (key === 'Status') { va = a.InvitationStatus || 'Not Sent'; vb = b.InvitationStatus || 'Not Sent'; }
         else if (key === 'Table') { va = a.TableNumber || ''; vb = b.TableNumber || ''; }
-        return va.localeCompare(vb, 'vi') * dir;
+        const cmp = va.localeCompare(vb, 'vi');
+        if (cmp !== 0) return cmp * dir;
+        // Tie-break ổn định: không bao giờ xáo thứ tự giữa 2 khách giống nhau khi refetch
+        return (a.GuestID || '').localeCompare(b.GuestID || '');
       });
       return list;
-    }, [guests, invFilter, sortKey, sortDir, contactMap]);
+    }, [guests, invFilter, orgFilter, sortKey, sortDir, contactMap]);
+
+    // Danh sách cho Tab Tiền mừng: bỏ khách "Không liên lạc được", sort ổn định theo cột
+    const giftGuests = useMemo(() => {
+      let list = guests.filter(g => (g.InvitationStatus || 'Not Sent') !== 'Unreachable');
+      const dir = sortDir;
+      const key = sortKey;
+      list.sort((a, b) => {
+        let va = '', vb = '';
+        if (key === 'Name') { va = a.Name || ''; vb = b.Name || ''; }
+        else if (key === 'Org') { va = orgOf(a).toLowerCase(); vb = orgOf(b).toLowerCase(); }
+        else if (key === 'Phone') { va = phoneOf(a); vb = phoneOf(b); }
+        else if (key === 'Status') { va = a.AttendanceStatus || 'Pending'; vb = b.AttendanceStatus || 'Pending'; }
+        else if (key === 'Table') { va = a.TableNumber || ''; vb = b.TableNumber || ''; }
+        const cmp = va.localeCompare(vb, 'vi');
+        if (cmp !== 0) return cmp * dir;
+        return (a.GuestID || '').localeCompare(b.GuestID || '');
+      });
+      return list;
+    }, [guests, sortKey, sortDir, contactMap]);
 
     function toggleSort(col: string) {
       if (sortKey === col) setSortDir(d => (d === 1 ? -1 : 1));
@@ -232,9 +263,16 @@ export default function WeddingGuestsPage() {
     } catch { /* ignore */ }
   }
 
+  /** Format tiền mừng live khi gõ: chỉ giữ số, chèn dấu chấm ngàn VN */
+  function handleGiftChange(guestId: string, raw: string) {
+    const digits = raw.replace(/[^0-9]/g, '');
+    const formatted = digits ? formatVND(parseInt(digits, 10) || 0) : '';
+    setGiftInputs(prev => ({ ...prev, [guestId]: formatted }));
+  }
+
   async function handleGiftBlur(guestId: string, raw: string) {
     const value = parseVND(raw);
-    setGiftInputs(prev => ({ ...prev, [guestId]: raw }));
+    setGiftInputs(prev => ({ ...prev, [guestId]: value ? formatVND(value) : '' }));
     if (raw.trim() === '' && value === 0) return;
     await updateGuest(guestId, { GiftAmount: value });
   }
@@ -550,7 +588,7 @@ export default function WeddingGuestsPage() {
                 <div className="glass-card p-10 text-center text-[13px] text-[#8E8E93]">Chưa có khách mời. Quay lại Bước 1 để thêm khách.</div>
               ) : (
                 <div className="glass-card-compact overflow-hidden border border-[rgba(0,0,0,0.04)] rounded-[12px]">
-                                {/* Bộ lọc trạng thái */}
+                                {/* Bộ lọc trạng thái + tổ chức */}
                                 <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-[rgba(0,0,0,0.04)] bg-white">
                                   <Filter size={13} className="text-[#8E8E93]" />
                                   <span className="text-[11px] font-semibold text-[#8E8E93] mr-1">Lọc:</span>
@@ -570,14 +608,23 @@ export default function WeddingGuestsPage() {
                                       {label}
                                     </button>
                                   ))}
+                                  <span className="w-px h-5 bg-[rgba(0,0,0,0.08)] mx-1 hidden sm:block" />
+                                  <select
+                                    value={orgFilter}
+                                    onChange={e => setOrgFilter(e.target.value)}
+                                    className="h-[26px] px-2 rounded-[7px] bg-white border border-[rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#5F6368] outline-none cursor-pointer focus:border-[#E6002D] transition-colors"
+                                  >
+                                    <option value="all">Tổ chức: Tất cả</option>
+                                    {orgOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                                  </select>
                                 </div>
                                 <div className="hidden md:block w-full overflow-x-auto">
                                   <table className="w-full border-collapse">
                                     <thead>
                                       <tr className="bg-[rgba(0,0,0,0.02)] border-b border-[rgba(0,0,0,0.03)]">
                                         <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Name')}>Tên khách <SortIcon col="Name" /></th>
-                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" /></th>
                                         <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Org')}>Tổ chức <SortIcon col="Org" /></th>
+                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" /></th>
                                         <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Status')}>Trạng thái mời <SortIcon col="Status" /></th>
                                         <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Table')}>Bàn <SortIcon col="Table" /></th>
                                         <th className="py-2.5 px-4 text-center w-[40px]"></th>
@@ -592,12 +639,12 @@ export default function WeddingGuestsPage() {
                                           </td>
                                           <td className="py-3 px-4">
                                             <div className="flex items-center gap-1.5 text-[11.5px] text-[#8E8E93]">
-                                              {phoneOf(guest) ? <><Phone size={11} />{phoneOf(guest)}</> : '—'}
+                                              {orgOf(guest) ? <><Building2 size={11} />{orgOf(guest)}</> : '—'}
                                             </div>
                                           </td>
                                           <td className="py-3 px-4">
                                             <div className="flex items-center gap-1.5 text-[11.5px] text-[#8E8E93]">
-                                              {orgOf(guest) ? <><Building2 size={11} />{orgOf(guest)}</> : '—'}
+                                              {phoneOf(guest) ? <><Phone size={11} />{phoneOf(guest)}</> : '—'}
                                             </div>
                                           </td>
                                           <td className="py-3 px-4 text-center">
@@ -696,26 +743,38 @@ export default function WeddingGuestsPage() {
                 </div>
               </div>
 
-              {guests.length === 0 ? (
-                <div className="glass-card p-10 text-center text-[13px] text-[#8E8E93]">Chưa có khách mời.</div>
+              {giftGuests.length === 0 ? (
+                <div className="glass-card p-10 text-center text-[13px] text-[#8E8E93]">Chưa có khách mời hợp lệ.</div>
               ) : (
                 <div className="glass-card-compact overflow-hidden border border-[rgba(0,0,0,0.04)] rounded-[12px]">
                   <div className="hidden md:block w-full overflow-x-auto">
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-[rgba(0,0,0,0.02)] border-b border-[rgba(0,0,0,0.03)]">
-                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase">Tên khách</th>
-                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase">Đã đến?</th>
+                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Name')}>Tên khách <SortIcon col="Name" /></th>
+                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Org')}>Tổ chức <SortIcon col="Org" /></th>
+                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" /></th>
+                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Status')}>Đã đến? <SortIcon col="Status" /></th>
                           <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase">Tiền mừng (VND)</th>
-                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase">Bàn</th>
+                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Table')}>Bàn <SortIcon col="Table" /></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {guests.map((guest) => (
+                        {giftGuests.map((guest) => (
                           <tr key={guest.GuestID} className="border-b border-[rgba(0,0,0,0.03)] last:border-b-0 hover:bg-[rgba(230,0,45,0.02)] transition-colors">
                             <td className="py-3 px-4">
                               <span className="text-[13px] font-semibold text-[#111]">{guest.Name}</span>
                               {guest.Notes && <span className="block text-[11px] text-[#9CA3AF] truncate max-w-[160px]">{guest.Notes}</span>}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-1.5 text-[11.5px] text-[#8E8E93]">
+                                {orgOf(guest) ? <><Building2 size={11} />{orgOf(guest)}</> : '—'}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-1.5 text-[11.5px] text-[#8E8E93]">
+                                {phoneOf(guest) ? <><Phone size={11} />{phoneOf(guest)}</> : '—'}
+                              </div>
                             </td>
                             <td className="py-3 px-4 text-center">
                               <select
@@ -731,7 +790,7 @@ export default function WeddingGuestsPage() {
                                 type="text"
                                 inputMode="numeric"
                                 value={giftInputs[guest.GuestID!] ?? (guest.GiftAmount ? formatVND(guest.GiftAmount) : '')}
-                                onChange={e => setGiftInputs(prev => ({ ...prev, [guest.GuestID!]: e.target.value }))}
+                                onChange={e => handleGiftChange(guest.GuestID!, e.target.value)}
                                 onBlur={e => handleGiftBlur(guest.GuestID!, e.target.value)}
                                 placeholder="0"
                                 className="w-full max-w-[160px] h-[36px] px-3 rounded-[8px] border border-[rgba(0,0,0,0.08)] text-[13px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[#E6002D] transition-all text-right"
@@ -747,12 +806,16 @@ export default function WeddingGuestsPage() {
                   </div>
                   {/* Mobile */}
                   <div className="md:hidden divide-y divide-[rgba(0,0,0,0.03)]">
-                    {guests.map((guest) => (
+                    {giftGuests.map((guest) => (
                       <div key={guest.GuestID} className="p-4 bg-white space-y-2.5">
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="text-[14px] font-bold text-[#111]">{guest.Name}</h4>
-                            <p className="text-[11.5px] text-[#8E8E93]">{guest.TableNumber ? `Bàn ${guest.TableNumber}` : 'Chưa xếp bàn'}</p>
+                            <p className="text-[11.5px] text-[#8E8E93]">
+                              {orgOf(guest) && <span className="flex items-center gap-1"><Building2 size={11} />{orgOf(guest)}</span>}
+                              {phoneOf(guest) && <span className="flex items-center gap-1"><Phone size={11} />{phoneOf(guest)}</span>}
+                              <span>{guest.TableNumber ? `Bàn ${guest.TableNumber}` : 'Chưa xếp bàn'}</span>
+                            </p>
                           </div>
                           <select
                             value={guest.AttendanceStatus || 'Pending'}
@@ -768,7 +831,7 @@ export default function WeddingGuestsPage() {
                             type="text"
                             inputMode="numeric"
                             value={giftInputs[guest.GuestID!] ?? (guest.GiftAmount ? formatVND(guest.GiftAmount) : '')}
-                            onChange={e => setGiftInputs(prev => ({ ...prev, [guest.GuestID!]: e.target.value }))}
+                            onChange={e => handleGiftChange(guest.GuestID!, e.target.value)}
                             onBlur={e => handleGiftBlur(guest.GuestID!, e.target.value)}
                             placeholder="0"
                             className="w-full h-[38px] px-3 rounded-[8px] border border-[rgba(0,0,0,0.08)] text-[14px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[#E6002D] transition-all"

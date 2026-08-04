@@ -286,7 +286,8 @@ export const weddingService = {
       .from('wedding_guests')
       .select('*')
       .eq('EventID', eventId)
-      .order('CreatedDate', { ascending: true });
+      .order('CreatedDate', { ascending: true })
+      .order('Name', { ascending: true });
     if (error) throw error;
     return data || [];
   },
