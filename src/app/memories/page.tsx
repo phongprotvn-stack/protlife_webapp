@@ -44,7 +44,7 @@ export default function MemoriesPage() {
     staleTime: 60_000,
     retry: 3,
     retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
   const loadError = error ? (error as Error).message || 'Không thể tải dữ liệu' : '';
 

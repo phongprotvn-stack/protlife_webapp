@@ -88,7 +88,7 @@ export default function TimelinePage() {
     staleTime: 60_000,
     retry: 3,
     retryDelay: (attempt) => Math.min(1500 * attempt, 5000),
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   const { events = [], memories = [] } = data ?? {};

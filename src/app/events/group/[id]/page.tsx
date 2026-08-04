@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { groupEventService, createBigEvent } from '@/lib/services/event-organization-service';
+import { DateInput } from '@/components/ui/date-input';
 import { contactService } from '@/lib/services/contact-service';
 import { calculateSplitwise, type ExpenseDetail } from '@/lib/expense-calculator';
 import { formatVND } from '@/lib/utils';
@@ -191,19 +192,17 @@ export default function GroupEventPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Ngày bắt đầu *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={newStartDate}
-                    onChange={e => setNewStartDate(e.target.value)}
+                    onChange={setNewStartDate}
                     className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] outline-none focus:border-[#E6002D] transition-all"
                   />
                 </div>
                 <div>
                   <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Ngày kết thúc</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={newEndDate}
-                    onChange={e => setNewEndDate(e.target.value)}
+                    onChange={setNewEndDate}
                     className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] outline-none focus:border-[#E6002D] transition-all"
                   />
                 </div>

@@ -1,5 +1,6 @@
 -- Supabase Database Schema Migration for Event Organization Module (v1.1.0)
 -- Run this in Supabase SQL Editor
+-- NOTE: file idempotent — an toàn chạy lại nhiều lần (DROP POLICY IF EXISTS trước mỗi CREATE).
 
 -------------------------------------------------------------------------------
 -- MODULE 1: WEDDING PLANNER
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS wedding_details (
 );
 
 ALTER TABLE wedding_details ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admin can do everything on wedding_details" ON wedding_details;
 CREATE POLICY "Admin can do everything on wedding_details"
   ON wedding_details FOR ALL
   USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'))
@@ -36,6 +38,7 @@ CREATE TABLE IF NOT EXISTS wedding_tasks (
 );
 
 ALTER TABLE wedding_tasks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admin can do everything on wedding_tasks" ON wedding_tasks;
 CREATE POLICY "Admin can do everything on wedding_tasks"
   ON wedding_tasks FOR ALL
   USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'))
@@ -55,6 +58,7 @@ CREATE TABLE IF NOT EXISTS wedding_expenses (
 );
 
 ALTER TABLE wedding_expenses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admin can do everything on wedding_expenses" ON wedding_expenses;
 CREATE POLICY "Admin can do everything on wedding_expenses"
   ON wedding_expenses FOR ALL
   USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'))
@@ -78,6 +82,7 @@ CREATE TABLE IF NOT EXISTS wedding_guests (
 );
 
 ALTER TABLE wedding_guests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admin can do everything on wedding_guests" ON wedding_guests;
 CREATE POLICY "Admin can do everything on wedding_guests"
   ON wedding_guests FOR ALL
   USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'))
@@ -101,6 +106,7 @@ CREATE TABLE IF NOT EXISTS group_event_funds (
 );
 
 ALTER TABLE group_event_funds ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admin can do everything on group_event_funds" ON group_event_funds;
 CREATE POLICY "Admin can do everything on group_event_funds"
   ON group_event_funds FOR ALL
   USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'))
@@ -120,6 +126,7 @@ CREATE TABLE IF NOT EXISTS group_event_expenses (
 );
 
 ALTER TABLE group_event_expenses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admin can do everything on group_event_expenses" ON group_event_expenses;
 CREATE POLICY "Admin can do everything on group_event_expenses"
   ON group_event_expenses FOR ALL
   USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'))

@@ -95,7 +95,7 @@ export default function DashboardPage() {
     staleTime: 1000 * 60 * 30,
     retry: 3,
     retryDelay: (attempt: number) => Math.min(1500 * attempt, 5000),
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   // ─── Reconnect suggestions — tính thuần từ cache, không fetch riêng ───

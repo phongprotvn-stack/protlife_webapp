@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { weddingService, createBigEvent } from '@/lib/services/event-organization-service';
+import { DateInput } from '@/components/ui/date-input';
 import { formatVND } from '@/lib/utils';
 
 export default function WeddingDashboardPage() {
@@ -16,6 +17,14 @@ export default function WeddingDashboardPage() {
   const [resolving, setResolving] = useState(true);
   const [noWedding, setNoWedding] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [weddingDate, setWeddingDate] = useState(() => {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, '0');
+    const d = String(t.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+  const [createError, setCreateError] = useState('');
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [taskError, setTaskError] = useState('');
@@ -59,13 +68,10 @@ export default function WeddingDashboardPage() {
   }, [eventId, router]);
 
   async function handleStartWedding() {
-    setCreating(true);
+    if (!weddingDate) { setCreateError('Vui lòng chọn ngày sự kiện'); return; }
+    setCreating(true); setCreateError('');
     try {
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth() + 1).padStart(2, '0');
-      const d = String(today.getDate()).padStart(2, '0');
-      const eventId = await createBigEvent({ title: 'Đám cưới của tôi', startDate: `${y}-${m}-${d}`, eventType: 'Party' });
+      const eventId = await createBigEvent({ title: 'Đám cưới của tôi', startDate: weddingDate, eventType: 'Party' });
       await weddingService.upsertDetails({ EventID: eventId, BudgetLimit: 0 });
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       router.replace(`/events/wedding?event=${eventId}`, { scroll: false });
@@ -216,9 +222,18 @@ export default function WeddingDashboardPage() {
             Tạo sự kiện đám cưới để quản lý ngân sách, danh sách khách mời và checklist công việc.
             Sự kiện sẽ xuất hiện trong dòng thời gian chung của bạn.
           </p>
+          <div className="max-w-[240px] mx-auto mb-4 text-left">
+            <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Ngày sự kiện (dd/mm/yyyy) *</label>
+            <DateInput
+              value={weddingDate}
+              onChange={setWeddingDate}
+              className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] outline-none focus:border-[#E6002D] transition-all text-center"
+            />
+          </div>
+          {createError && <p className="text-[12px] text-[#FF3B30] mb-3">{createError}</p>}
           <button
             onClick={handleStartWedding}
-            disabled={creating}
+            disabled={creating || !weddingDate}
             className="px-6 h-[44px] rounded-[10px] bg-[#E6002D] text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 mx-auto hover:bg-[#D40028] transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating && <Loader2 size={15} className="animate-spin" />}

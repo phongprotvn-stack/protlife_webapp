@@ -68,7 +68,7 @@ export default function AddEventPage() {
     staleTime: 1000 * 60 * 5,
     retry: 3,
     retryDelay: 1500,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   // Auto-generate maplink when place changes

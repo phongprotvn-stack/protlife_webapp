@@ -146,6 +146,8 @@ const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 60,    // 1 hour garbage collection
       retry: 3,
       retryDelay: 1500,
+      refetchOnWindowFocus: false,  // tắt refetch khi focus lại tab — tránh "đứng hình" mỗi lần quay lại app
+      refetchOnReconnect: false,    // không tự refetch loạt khi mạng nhấp nháy
     },
   },
 });
