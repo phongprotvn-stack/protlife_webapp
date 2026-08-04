@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { weddingService, createBigEvent } from '@/lib/services/event-organization-service';
 import { DateInput } from '@/components/ui/date-input';
-import { formatVND } from '@/lib/utils';
+import { formatVND, parseVND } from '@/lib/utils';
 
 export default function WeddingDashboardPage() {
   const queryClient = useQueryClient();
@@ -32,6 +32,9 @@ export default function WeddingDashboardPage() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
+  const [taskParent, setTaskParent] = useState('');
+  const [taskCost, setTaskCost] = useState('');
+  const [taskCategory, setTaskCategory] = useState('Other');
 
   // Tự resolve event đám cưới khi không có ?event= — lấy event Party có wedding_details gần nhất
   useEffect(() => {
@@ -122,8 +125,10 @@ export default function WeddingDashboardPage() {
   });
 
   const budgetLimit = details?.BudgetLimit ?? 0;
+  const taskBudget = tasks.reduce((s, t) => s + (t.EstimatedCost || 0), 0);
+  const totalBudget = budgetLimit + taskBudget;
   const totalSpent = expenses.reduce((s, e) => s + (e.ActualCost || 0), 0);
-  const budgetPct = budgetLimit > 0 ? Math.min(100, Math.round((totalSpent / budgetLimit) * 100)) : 0;
+  const budgetPct = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
   const doneCount = tasks.filter(t => t.Status === 'Done').length;
   const confirmedGuests = guests.filter(g => g.AttendanceStatus === 'Attending' || g.AttendanceStatus === 'Confirmed').length;
 
@@ -164,10 +169,13 @@ export default function WeddingDashboardPage() {
         Description: taskDesc.trim() || null,
         Status: 'Pending',
         DueDate: taskDue ? new Date(taskDue + 'T00:00:00').toISOString() : null,
+        ParentTaskID: taskParent || null,
+        EstimatedCost: parseVND(taskCost),
+        Category: taskCategory,
       });
       await queryClient.invalidateQueries({ queryKey: ['wedding-tasks', eventId] });
       setShowTaskModal(false);
-      setTaskTitle(''); setTaskDue(''); setTaskDesc('');
+      setTaskTitle(''); setTaskDue(''); setTaskDesc(''); setTaskParent(''); setTaskCost(''); setTaskCategory('Other');
     } catch (e: any) {
       setTaskError(e?.message || 'Không thể thêm công việc');
     } finally {
@@ -250,8 +258,8 @@ export default function WeddingDashboardPage() {
                 <span className="text-[13px] font-semibold text-[#5F6368]">Ngân sách dự kiến</span>
                 <Wallet size={16} className="text-[#E6002D]" />
               </div>
-              <div className="text-[24px] font-bold text-[#111] mb-1">{budgetLimit ? formatVND(budgetLimit) : '0'} đ</div>
-              <p className="text-[11px] text-[#8E8E93] mb-3">Đã chi {formatVND(totalSpent)} đ</p>
+              <div className="text-[24px] font-bold text-[#111] mb-1">{totalBudget ? formatVND(totalBudget) : '0'} đ</div>
+              <p className="text-[11px] text-[#8E8E93] mb-3">Đã chi {formatVND(totalSpent)} đ{taskBudget > 0 && <span className="text-[#34C759] font-semibold"> · {formatVND(taskBudget)} đ dự toán công việc</span>}</p>
               <div className="w-full bg-[rgba(0,0,0,0.06)] rounded-full h-1.5 overflow-hidden">
                 <div className="bg-[#E6002D] h-1.5 rounded-full transition-all" style={{ width: `${budgetPct}%` }}></div>
               </div>
@@ -299,26 +307,51 @@ export default function WeddingDashboardPage() {
                 </p>
               </div>
               <div className="space-y-3">
-                {tasks.map(task => {
-                  const done = task.Status === 'Done';
-                  return (
-                    <div key={task.TaskID} className="flex items-center justify-between p-3 border border-[rgba(0,0,0,0.06)] rounded-[10px] hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer" onClick={() => toggleTask(task.TaskID!, task.Status || 'Pending')}>
-                      <div className="flex items-center gap-3 min-w-0">
-                        {done ? (
-                          <CheckCircle2 size={18} className="text-[#34C759] shrink-0" />
-                        ) : (
-                          <Circle size={18} className="text-[#8E8E93] shrink-0" />
-                        )}
-                        <span className={`text-[13px] truncate ${done ? 'line-through text-[#8E8E93]' : 'font-medium text-[#111]'}`}>
-                          {task.Title}
-                        </span>
+                {(() => {
+                  const childrenOf = (parentId: string) => tasks.filter(t => t.ParentTaskID === parentId);
+                  const renderTask = (task: any, depth: number) => {
+                    const kids = childrenOf(task.TaskID);
+                    const kidsDone = kids.length > 0 && kids.every(k => k.Status === 'Done');
+                    const done = task.Status === 'Done' || kidsDone;
+                    return (
+                      <div key={task.TaskID}>
+                        <div
+                          className={`flex items-center justify-between p-3 border border-[rgba(0,0,0,0.06)] rounded-[10px] hover:bg-[rgba(0,0,0,0.02)] transition-colors cursor-pointer ${depth > 0 ? 'ml-5' : ''} ${done ? 'bg-[rgba(52,199,89,0.04)]' : 'bg-white'}`}
+                          onClick={() => {
+                            // Việc cha có con thì không toggle trực tiếp — chỉ con mới toggle
+                            if (kids.length === 0) toggleTask(task.TaskID!, task.Status || 'Pending');
+                          }}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {kids.length > 0 ? (
+                              done ? <CheckCircle2 size={18} className="text-[#34C759] shrink-0" /> : <Circle size={18} className="text-[#007AFF] shrink-0" />
+                            ) : done ? (
+                              <CheckCircle2 size={18} className="text-[#34C759] shrink-0" />
+                            ) : (
+                              <Circle size={18} className="text-[#8E8E93] shrink-0" />
+                            )}
+                            <span className={`text-[13px] truncate ${done ? 'line-through text-[#8E8E93]' : 'font-medium text-[#111]'}`}>
+                              {task.Title}
+                            </span>
+                            {task.EstimatedCost ? (
+                              <span className="text-[11px] font-semibold text-[#E6002D] shrink-0">{formatVND(task.EstimatedCost)} đ</span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            {kids.length > 0 && (
+                              <span className="text-[10px] font-medium text-[#007AFF]">{kids.filter(k => k.Status === 'Done').length}/{kids.length}</span>
+                            )}
+                            <span className={`px-2.5 py-1 rounded-[6px] text-[10px] font-medium ${done ? 'bg-[rgba(0,0,0,0.06)] text-[#8E8E93]' : 'bg-[rgba(230,0,45,0.1)] text-[#E6002D]'}`}>
+                              {task.DueDate ? new Date(task.DueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : 'Chưa hẹn'}
+                            </span>
+                          </div>
+                        </div>
+                        {kids.map(k => renderTask(k, depth + 1))}
                       </div>
-                      <span className={`px-2.5 py-1 rounded-[6px] text-[10px] font-medium shrink-0 ml-2 ${done ? 'bg-[rgba(0,0,0,0.06)] text-[#8E8E93]' : 'bg-[rgba(230,0,45,0.1)] text-[#E6002D]'}`}>
-                        {task.DueDate ? new Date(task.DueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : 'Chưa hẹn'}
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  };
+                  return tasks.filter(t => !t.ParentTaskID).map(t => renderTask(t, 0));
+                })()}
                 {!tasksLoading && tasks.length === 0 && (
                   <div className="text-center py-6 text-[12.5px] text-[#8E8E93]">Chưa có công việc nào — hãy thêm công việc đầu tiên.</div>
                 )}
@@ -379,14 +412,55 @@ export default function WeddingDashboardPage() {
                   autoFocus
                 />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Số tiền dự toán (VND)</label>
+                  <input
+                    value={taskCost}
+                    onChange={e => setTaskCost(e.target.value)}
+                    onBlur={e => {
+                      const n = parseVND(e.target.value);
+                      if (n > 0) setTaskCost(formatVND(n));
+                    }}
+                    inputMode="numeric"
+                    placeholder="VD: 10.000.000"
+                    className="w-full h-[42px] px-3.5 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[#E6002D] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Hạng mục</label>
+                  <select
+                    value={taskCategory}
+                    onChange={e => setTaskCategory(e.target.value)}
+                    className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] bg-white outline-none focus:border-[#E6002D] transition-all"
+                  >
+                    {Object.entries(CATEGORY_LABELS).map(([key, v]) => (
+                      <option key={key} value={key}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div>
-                <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Hạn chót</label>
-                <input
-                  type="date"
+                <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Hạn chót (dd/mm/yyyy)</label>
+                <DateInput
                   value={taskDue}
-                  onChange={e => setTaskDue(e.target.value)}
-                  className="w-full h-[42px] px-3.5 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] outline-none focus:border-[#E6002D] transition-all"
+                  onChange={setTaskDue}
+                  className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] outline-none focus:border-[#E6002D] transition-all text-center"
                 />
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Là việc phụ của</label>
+                <select
+                  value={taskParent}
+                  onChange={e => setTaskParent(e.target.value)}
+                  className="w-full h-[42px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.1)] text-[13.5px] text-[#111] bg-white outline-none focus:border-[#E6002D] transition-all"
+                >
+                  <option value="">— Việc lớn (không phải việc phụ) —</option>
+                  {tasks.filter(t => !t.ParentTaskID).map(t => (
+                    <option key={t.TaskID} value={t.TaskID}>{t.Title}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-[#9CA3AF] mt-1">Chọn việc cha để tạo việc phụ nhỏ bên trong việc lớn.</p>
               </div>
               <div>
                 <label className="block text-[12px] font-semibold text-[#5F6368] mb-1.5">Ghi chú</label>

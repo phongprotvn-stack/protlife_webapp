@@ -10,11 +10,20 @@ export interface WeddingGuest {
   ContactID?: string | null;
   Name: string;
   Group?: string;
+  Organization?: string;
+  PhoneNumber?: string;
   InvitationStatus?: string;
   AttendanceStatus?: string;
   TableNumber?: string;
   GiftAmount?: number;
   Notes?: string;
+}
+
+export interface WeddingTable {
+  TableID?: string;
+  EventID: string;
+  TableName: string;
+  Capacity: number; // 6 hoặc 10
 }
 
 export interface WeddingDetails {
@@ -31,6 +40,10 @@ export interface WeddingTask {
   Description?: string | null;
   Status?: 'Pending' | 'In Progress' | 'Done';
   DueDate?: string | null;
+  ParentTaskID?: string | null;
+  EstimatedCost?: number;
+  Category?: string;
+  Order?: number;
 }
 
 export interface WeddingExpense {
@@ -300,13 +313,45 @@ export const weddingService = {
   },
 
   async deleteGuest(guestId: string): Promise<void> {
-    const { error } = await supabase
-      .from('wedding_guests')
-      .delete()
-      .eq('GuestID', guestId);
-    if (error) throw error;
-  },
-};
+      const { error } = await supabase
+        .from('wedding_guests')
+        .delete()
+        .eq('GuestID', guestId);
+      if (error) throw error;
+    },
+
+    // --- Tables (Bàn tiệc) ---
+    async getTables(eventId: string): Promise<WeddingTable[]> {
+      const { data, error } = await supabase
+        .from('wedding_tables')
+        .select('*')
+        .eq('EventID', eventId)
+        .order('CreatedDate', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async addTable(table: WeddingTable): Promise<WeddingTable> {
+      const { data, error } = await supabase
+        .from('wedding_tables')
+        .insert([table])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    /** Thêm nhiều khách cùng lúc (chọn từ danh bạ hoặc tự nhập nhanh) */
+    async addGuestsBatch(guests: WeddingGuest[]): Promise<WeddingGuest[]> {
+      if (guests.length === 0) return [];
+      const { data, error } = await supabase
+        .from('wedding_guests')
+        .insert(guests)
+        .select();
+      if (error) throw error;
+      return data || [];
+    },
+  };
 
 export const groupEventService = {
   // --- Funds (Who paid) ---
