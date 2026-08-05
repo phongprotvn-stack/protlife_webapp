@@ -94,6 +94,8 @@ export function AddEventModal({ open, onClose }: Props) {
       ? form.participants.filter((id) => id !== contactId)
       : [...form.participants, contactId];
     update('participants', p);
+    // Đóng dropdown sau khi chọn/xoá — không kẹt danh sách mở
+    setShowParticipantDropdown(false);
   };
 
   const handleCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {

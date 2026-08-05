@@ -341,7 +341,7 @@ export default function AddEventPage() {
                 {filteredContacts.length > 0 ? (
                   filteredContacts.map((c) => (
                     <button key={c.ContactID} type="button"
-                      onMouseDown={(e) => { e.preventDefault(); toggleContact(c); setSearchTerm(''); inputRef.current?.focus(); }}
+                      onMouseDown={(e) => { e.preventDefault(); toggleContact(c); setSearchTerm(''); setSearchFocused(false); inputRef.current?.blur(); }}
                       className="w-full text-left px-3 py-2 text-[12px] text-[#111] hover:bg-[rgba(0,0,0,0.03)] flex items-center gap-2">
                       <div className="w-[22px] h-[22px] rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[9px] font-bold">{c.Name[0]}</div>
                       {c.Name}
