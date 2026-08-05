@@ -137,7 +137,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
       {/* ─── MAIN CONTENT ─── */}
       <main className="desktop-main">
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-[rgba(0,0,0,0.04)] bg-white/80 backdrop-blur-xl">
+        <div className="relative z-[60] flex items-center justify-between px-5 py-2.5 border-b border-[rgba(0,0,0,0.04)] bg-white/80 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <h1 className="text-[15px] font-semibold text-[#111]">
               {NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label || 'Prot Life'}
