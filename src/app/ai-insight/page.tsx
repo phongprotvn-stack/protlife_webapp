@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BrainCircuit, Sparkles, TrendingUp, Users, Calendar, Heart, Lightbulb, BarChart3, Zap } from 'lucide-react';
-import type { Contact, EventItem } from '@/types/database';
+import type { ContactListItem, EventItem } from '@/types/database';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
 import { getRelationshipLabel, getMoodEmoji } from '@/lib/utils';
@@ -21,7 +21,7 @@ interface Insight {
 
 export default function AIInsightPage() {
   const [loading, setLoading] = useState(true);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<ContactListItem[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
 
   useEffect(() => {

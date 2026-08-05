@@ -10,7 +10,7 @@ import { useAppStore } from '@/stores/app-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { cn, formatDate, getInitials, getAvatarColor, calculateLifeStage } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
-import type { Contact } from '@/types/database';
+import type { ContactListItem } from '@/types/database';
 
 const EVENT_TYPES = ['Meeting', 'Birthday', 'Travel', 'Work', 'Sport', 'Hospital', 'Meal', 'Call', 'Shopping', 'Study', 'Party', 'Date', 'Entertainment', 'Other'] as const;
 const MOODS = ['Happy', 'Normal', 'Sad', 'Excited', 'Tired', 'Angry', 'Thoughtful', 'Loved'] as const;
@@ -41,7 +41,7 @@ export function AddEventModal({ open, onClose }: Props) {
   const [costDisplay, setCostDisplay] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<ContactListItem[]>([]);
   const [participantSearch, setParticipantSearch] = useState('');
   const [showParticipantDropdown, setShowParticipantDropdown] = useState(false);
   const participantRef = useRef<HTMLDivElement>(null);
@@ -142,7 +142,7 @@ export function AddEventModal({ open, onClose }: Props) {
     finally { setSaving(false); }
   };
 
-  const selectedContacts = form.participants.map((id) => contacts.find((c) => c.ContactID === id)).filter(Boolean) as Contact[];
+  const selectedContacts = form.participants.map((id) => contacts.find((c) => c.ContactID === id)).filter(Boolean) as ContactListItem[];
   const filteredContacts = contacts.filter((c) =>
     c.Name.toLowerCase().includes(participantSearch.toLowerCase()) && !form.participants.includes(c.ContactID)
   );

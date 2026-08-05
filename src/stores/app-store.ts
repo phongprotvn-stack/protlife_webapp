@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { Contact } from '@/types/database';
+import type { ContactListItem } from '@/types/database';
 
 export interface DashboardPanelContact {
-  contact: Contact;
+  contact: ContactListItem;
   lastEventName: string;
   lastEventDate: string;
   lastEventLocation: string;

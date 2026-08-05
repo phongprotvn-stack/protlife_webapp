@@ -9,8 +9,8 @@ import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRouter } from 'next/navigation';
-import type { Contact } from '@/types/database';
-import { formatDate } from '@/lib/utils';
+import type { ContactListItem } from '@/types/database';
+import { formatDate, getAvatarColor, getInitials } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 
@@ -304,16 +304,10 @@ export default function ContactsPage() {
                         >
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2.5">
-                              {contact.Avatar ? (
-                                <div className="w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0">
-                                  <img src={contact.Avatar} alt="" className="w-full h-full object-cover" />
-                                </div>
-                              ) : (
-                                <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-white font-semibold text-[11px] flex-shrink-0"
-                                  style={{ backgroundColor: getColor(contact.Name) }}>
-                                  {(contact.Name || '?').charAt(0).toUpperCase()}
-                                </div>
-                              )}
+                              <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                                style={{ backgroundColor: getAvatarColor(contact.Name) }}>
+                                {getInitials(contact.Name)}
+                              </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-1">
                                   <span className="text-[13px] font-medium text-[#111] truncate">{contact.Name || '—'}</span>
@@ -423,13 +417,4 @@ function TH({
       </div>
     </th>
   );
-}
-
-/* ─── Color helper ─── */
-const COLORS = ['#E6002D', '#007AFF', '#FF9500', '#34C759', '#5856D6', '#AF52DE', '#FF4D6A', '#FF2D55', '#0A84FF', '#30B0C7'];
-function getColor(name: string): string {
-  if (!name) return '#8E8E93';
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return COLORS[Math.abs(hash) % COLORS.length];
 }

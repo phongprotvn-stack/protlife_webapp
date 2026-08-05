@@ -46,6 +46,29 @@ export interface Contact {
   user_id?: string;
 }
 
+/**
+ * Bản nhẹ của Contact dùng cho danh sách (getAll) — KHÔNG có Avatar (base64 ảnh
+ * rất nặng) và Notes. Tối ưu egress: tránh tải MB ảnh mỗi lần mở app.
+ * Chi tiết contact dùng Contact đầy đủ (getById).
+ */
+export interface ContactListItem {
+  ContactID: string;
+  Name: string;
+  Relationship: Relationship;
+  Gender: 'Male' | 'Female' | 'Other' | null;
+  Birthday: string | null;
+  Phone: string | null;
+  Email: string | null;
+  Organization1: string | null;
+  Organization2: string | null;
+  RelationshipScore: number;
+  Status: ContactStatus;
+  IsFavorite: boolean;
+  CreatedDate: string;
+  UpdatedDate: string;
+  user_id?: string;
+}
+
 export interface ContactFormData {
   Name: string;
   Relationship: Relationship;

@@ -2,14 +2,14 @@
 
 import { motion } from 'framer-motion';
 import { cn, getAvatarColor, getInitials } from '@/lib/utils';
-import type { Contact } from '@/types/database';
+import type { ContactListItem } from '@/types/database';
 import { Heart, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { ContactDetail } from '@/components/contacts/contact-detail';
 import { useAppStore } from '@/stores/app-store';
 
 interface ContactCardProps {
-  contact: Contact;
+  contact: ContactListItem;
   variant?: 'default' | 'compact';
   onSelect?: (id: string) => void;
 }
@@ -37,11 +37,7 @@ export function ContactCard({ contact, variant = 'default', onSelect }: ContactC
           className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white font-semibold text-[18px] flex-shrink-0"
           style={{ backgroundColor: avatarColor }}
         >
-          {contact.Avatar ? (
-            <img src={contact.Avatar} alt="" className="w-full h-full rounded-full object-cover" />
-          ) : (
-            getInitials(contact.Name)
-          )}
+          {getInitials(contact.Name)}
         </div>
 
         {/* Info */}

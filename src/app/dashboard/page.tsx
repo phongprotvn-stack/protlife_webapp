@@ -17,7 +17,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useAppStore } from '@/stores/app-store';
 import type { DashboardPanelContact } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
-import type { Contact, EventItem } from '@/types/database';
+import type { ContactListItem, EventItem } from '@/types/database';
 import { formatDate, getAvatarColor, getInitials } from '@/lib/utils';
 import { ContactDetail } from '@/components/contacts/contact-detail';
 import { EventDetail } from '@/components/events/event-detail';
@@ -25,7 +25,7 @@ import { DashboardContactPanel } from '@/components/dashboard/contact-panel';
 import { Modal } from '@/components/shared/modal';
 
 interface ReconnectSuggestion {
-  contact: Contact;
+  contact: ContactListItem;
   daysSinceLastEvent: number;
   lastEventDate: string;
   lastEventId: string;

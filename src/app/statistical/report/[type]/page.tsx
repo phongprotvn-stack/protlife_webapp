@@ -14,7 +14,7 @@ import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { exportExcel, exportWord, exportPDF } from '@/lib/export-utils';
-import type { Contact, EventItem, Memory } from '@/types/database';
+import type { ContactListItem, EventItem, Memory } from '@/types/database';
 
 const reportConfigs: Record<string, {
   label: string;
@@ -30,7 +30,7 @@ const reportConfigs: Record<string, {
     fields: ['STT', 'Họ tên', 'Mối quan hệ', 'Ngày sinh', 'SĐT', 'Email', 'Điểm thân thiết', 'Trạng thái'],
     fetchData: async () => {
       const data = await contactService.getAll();
-      return data.map((c: Contact, i: number) => ({
+      return data.map((c: ContactListItem, i: number) => ({
         'STT': String(i + 1),
         'Họ tên': c.Name,
         'Mối quan hệ': c.Relationship,
@@ -73,7 +73,7 @@ const reportConfigs: Record<string, {
         memoryService.getAll(),
       ]);
       const rows: Record<string, string>[] = [];
-      contacts.forEach((c: Contact, i: number) => {
+      contacts.forEach((c: ContactListItem, i: number) => {
         rows.push({
           'STT': String(rows.length + 1),
           'Loại': 'Quan hệ',

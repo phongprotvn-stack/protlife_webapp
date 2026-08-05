@@ -8,7 +8,7 @@ import { organizationService } from '@/lib/services/organization-service';
 import { participantService } from '@/lib/services/participant-service';
 import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
-import type { Contact } from '@/types/database';
+import type { ContactListItem } from '@/types/database';
 import { ArrowLeft, MapPin, X, Search, Plus, Globe, Navigation } from 'lucide-react';
 import { formatVND, parseVND } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
@@ -37,7 +37,7 @@ export default function AddEventPage() {
   const [error, setError] = useState('');
   const [geocoding, setGeocoding] = useState<Record<string, 'idle' | 'loading' | 'done' | 'fail'>>({});
 
-  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
+  const [selectedContacts, setSelectedContacts] = useState<ContactListItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +90,7 @@ export default function AddEventPage() {
     (c) => c.Name && c.Name.toLowerCase().includes(searchTerm.toLowerCase()) && !selectedContacts.find((sc) => sc.ContactID === c.ContactID)
   );
 
-  const toggleContact = (contact: Contact) => {
+  const toggleContact = (contact: ContactListItem) => {
     setSelectedContacts((prev) => {
       const exists = prev.find((c) => c.ContactID === contact.ContactID);
       if (exists) return prev.filter((c) => c.ContactID !== contact.ContactID);

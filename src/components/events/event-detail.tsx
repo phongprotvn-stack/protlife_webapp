@@ -7,7 +7,7 @@ import { memoryService } from '@/lib/services/memory-service';
 import { participantService } from '@/lib/services/participant-service';
 import { contactService } from '@/lib/services/contact-service';
 import type { EventItem, Memory, MoodEmoji } from '@/types/database';
-import type { Contact } from '@/types/database';
+import type { ContactListItem } from '@/types/database';
 import type { EventParticipant } from '@/lib/services/participant-service';
 import { formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
 import { formatVND, parseVND } from '@/lib/utils';
@@ -51,7 +51,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     Mood:'', Importance:'', Cost:0, Notes:'', Lat: null as number | null, Lng: null as number | null,
   });
   const [geocodeStatus, setGeocodeStatus] = useState<'idle'|'loading'|'done'|'fail'>('idle');
-  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [allContacts, setAllContacts] = useState<ContactListItem[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<{ContactID:string;ContactName:string}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showContactSearch, setShowContactSearch] = useState(false);
@@ -123,7 +123,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
     finally { setSaving(false); }
   };
 
-  const toggleParticipant = (contact: Contact) => {
+  const toggleParticipant = (contact: ContactListItem) => {
     const exists = selectedParticipants.find((p) => p.ContactID === contact.ContactID);
     if (exists) {
       setSelectedParticipants(selectedParticipants.filter((p) => p.ContactID !== contact.ContactID));
@@ -474,7 +474,7 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
                         <span key={p.ContactID}
                           className="inline-flex items-center gap-1 px-[8px] py-[3px] rounded-full bg-[rgba(52,199,89,0.1)] text-[11px] font-medium text-[#2C8E4A]">
                           {p.ContactName}
-                          <button type="button" onClick={() => toggleParticipant({ContactID:p.ContactID,Name:p.ContactName} as Contact)}
+                          <button type="button" onClick={() => toggleParticipant({ContactID:p.ContactID,Name:p.ContactName} as ContactListItem)}
                             className="hover:text-[#E6002D]"><X size={10}/></button>
                         </span>
                       ))}

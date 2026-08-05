@@ -65,13 +65,9 @@ export function DashboardContactPanel({ data, onClose }: Props) {
       <div className="text-center mb-6">
         <div
           className="w-[72px] h-[72px] rounded-full flex items-center justify-center text-white font-bold text-[26px] mx-auto mb-3 overflow-hidden"
-          style={{ backgroundColor: contact.Avatar ? 'transparent' : getAvatarColor(contact.Name) }}
+          style={{ backgroundColor: getAvatarColor(contact.Name) }}
         >
-          {contact.Avatar ? (
-            <img src={contact.Avatar} alt="" className="w-full h-full object-cover" />
-          ) : (
-            getInitials(contact.Name)
-          )}
+          {getInitials(contact.Name)}
         </div>
         <div className="flex items-center justify-center gap-1.5">
           <h2 className="text-[17px] font-bold text-[#111]">{contact.Name}</h2>

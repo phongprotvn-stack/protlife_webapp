@@ -1,12 +1,17 @@
 // Contact service for CRUD operations
 import { supabase } from '@/lib/supabase/client';
-import type { Contact, ContactFormData } from '@/types/database';
+import type { Contact, ContactListItem, ContactFormData } from '@/types/database';
 
 export const contactService = {
-  async getAll(): Promise<Contact[]> {
+  async getAll(): Promise<ContactListItem[]> {
+    // Liệt kê cột rõ ràng, BỎ Avatar + Notes: Avatar là base64 data URL (ảnh gốc,
+    // có thể 1-5MB/contact) — select('*') tải toàn bộ về mỗi lần vào app (21.8MB!).
+    // Danh sách chỉ cần text; chi tiết contact dùng getById() sẽ lấy đầy đủ Avatar/Notes.
     const { data, error } = await supabase
       .from('contacts')
-      .select('*')
+      .select(
+        'ContactID, Name, Relationship, Gender, Birthday, Phone, Email, Organization1, Organization2, RelationshipScore, Status, IsFavorite, CreatedDate, UpdatedDate, user_id'
+      )
       .order('Name', { ascending: true });
 
     if (error) throw error;
