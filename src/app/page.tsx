@@ -230,7 +230,7 @@ export default function LandingPage() {
           {/* Cover image — screen blend, dark overlay */}
           <div className="absolute inset-0 z-0"
             style={{
-              backgroundImage: 'url(/images/bg-panel-left.png)',
+              backgroundImage: 'url(/images/bg-panel-left.jpg)',
               backgroundSize: 'cover',
               backgroundPosition: '30% center',
               backgroundRepeat: 'no-repeat',

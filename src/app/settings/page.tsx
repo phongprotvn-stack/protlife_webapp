@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Check, X, Sun, Moon, Monitor, Eye, EyeOff,
   User, Shield, Bell, Palette, Database, Users, Calendar, BookHeart, MapPin,
@@ -13,9 +14,13 @@ import { settingsService, AppDataStats } from '@/lib/services/settings-service';
 import { getUserDevices, deleteOtherDevices, getCurrentDeviceId, formatDeviceName, getDeviceIcon } from '@/lib/services/device-service';
 import type { UserDevice } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
-import ExportModal from '@/components/settings/export-modal';
-import ImportModal from '@/components/settings/import-modal';
 import { DateInput } from '@/components/ui/date-input';
+
+// Các modal xuất/nhập dữ liệu kéo theo thư viện nặng (xlsx, docx, jspdf, html2canvas,
+// papaparse ~1.5MB). Dynamic import để chúng chỉ tải khi mở modal — giảm bundle
+// tải mọi trang, giảm egress Vercel đáng kể.
+const ExportModal = dynamic(() => import('@/components/settings/export-modal'), { ssr: false });
+const ImportModal = dynamic(() => import('@/components/settings/import-modal'), { ssr: false });
 
 // ─── Types ───
 type Tab = 'account' | 'data' | 'privacy' | 'notify' | 'appearance' | 'permissions' | 'backup';
