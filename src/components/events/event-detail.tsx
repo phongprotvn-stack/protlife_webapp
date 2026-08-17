@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
 import { memoryService } from '@/lib/services/memory-service';
@@ -35,6 +36,7 @@ const MOOD_EMOJIS: { emoji: MoodEmoji; label: string }[] = [
 ];
 
 export function EventDetail({ eventId, onClose, panelMode }: Props) {
+  const queryClient = useQueryClient();
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const dob = useSettingsStore((s) => s.dob);
   const [event, setEvent] = useState<EventItem | null>(null);
@@ -114,6 +116,10 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
         Importance:form.Importance as any, Cost:form.Cost, Notes:form.Notes||undefined,
       });
       await participantService.setParticipants(event.EventID, selectedParticipants.map(p => p.ContactID));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['events'] }),
+        queryClient.invalidateQueries({ queryKey: ['participants'] }),
+      ]);
       triggerRefresh(); setEditMode(false);
       const d = await eventService.getById(event.EventID);
       setEvent(d);
@@ -139,7 +145,14 @@ export function EventDetail({ eventId, onClose, panelMode }: Props) {
 
   const handleDelete = async () => {
     if (!eventId) return;
-    try { await eventService.delete(eventId); triggerRefresh(); onClose(); }
+    try {
+      await eventService.delete(eventId);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['events'] }),
+        queryClient.invalidateQueries({ queryKey: ['participants'] }),
+      ]);
+      triggerRefresh(); onClose();
+    }
     catch(e:any) { setError(e.message||'Lỗi khi xoá'); }
   };
 

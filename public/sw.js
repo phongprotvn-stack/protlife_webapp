@@ -1,5 +1,5 @@
 // PROT LIFE — Service Worker (Network First)
-const CACHE = 'protlife-v1';
+const CACHE = 'protlife-v2';
 const ASSETS = ['/', '/dashboard', '/contacts', '/events', '/ai-insight', '/timeline'];
 
 // Install: cache known routes instantly
@@ -29,14 +29,6 @@ self.addEventListener('fetch', (e) => {
 
   // Always bypass cache for API / Supabase
   if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) return;
-
-  // Bypass for non-page assets (already hashed by Next.js)
-  if (url.pathname.startsWith('/_next/static/')) {
-    e.respondWith(
-      caches.match(e.request).then((cached) => cached || fetch(e.request))
-    );
-    return;
-  }
 
   // Network First for pages and navigation
   e.respondWith(

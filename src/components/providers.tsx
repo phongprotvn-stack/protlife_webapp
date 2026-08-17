@@ -182,7 +182,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       persistOptions={{
         persister: idbPersister,
         maxAge: 1000 * 60 * 60 * 24,
-        buster: 'v2', // v2: dọn cache cũ (prefetch anon trước login → data rỗng)
+        buster: 'v3', // v3: dọn cache dữ liệu Dashboard trước khi đồng bộ participants
       }}
     >
       <AuthListener />

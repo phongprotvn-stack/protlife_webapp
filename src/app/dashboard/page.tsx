@@ -57,6 +57,7 @@ export default function DashboardPage() {
     queryKey: ['events'],
     queryFn: () => eventService.getAll(),
     staleTime: 1000 * 60 * 5,
+    refetchOnMount: 'always',
     retry: 3,
     retryDelay: 1500,
   });
@@ -93,6 +94,7 @@ export default function DashboardPage() {
       return data || [];
     },
     staleTime: 1000 * 60 * 30,
+    refetchOnMount: 'always',
     retry: 3,
     retryDelay: (attempt: number) => Math.min(1500 * attempt, 5000),
     refetchOnWindowFocus: false,

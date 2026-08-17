@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { MapPin, Link as LinkIcon, Users, DollarSign, X, Plus, Search } from 'lucide-react';
 import { Modal } from '@/components/shared/modal';
 import { eventService } from '@/lib/services/event-service';
+import { participantService } from '@/lib/services/participant-service';
 import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -30,6 +32,7 @@ function parseVNCurrency(str: string): number {
 interface Props { open: boolean; onClose: () => void; }
 
 export function AddEventModal({ open, onClose }: Props) {
+  const queryClient = useQueryClient();
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const dob = useSettingsStore((s) => s.dob);
   const [form, setForm] = useState({
@@ -124,7 +127,7 @@ export function AddEventModal({ open, onClose }: Props) {
     if (participantNames) notesStr += (notesStr ? '\n\n' : '') + `Người tham gia: ${participantNames}`;
 
     try {
-      await eventService.create({
+      const newEvent = await eventService.create({
         Title: form.Title.trim(),
         EventType: form.EventType as any,
         StartDate: form.StartDate,
@@ -137,6 +140,13 @@ export function AddEventModal({ open, onClose }: Props) {
         Cost: form.Cost,
         Notes: notesStr || undefined,
       });
+      if (form.participants.length > 0) {
+        await participantService.addParticipants(newEvent.EventID, form.participants);
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['events'] }),
+        queryClient.invalidateQueries({ queryKey: ['participants'] }),
+      ]);
       triggerRefresh(); onClose();
       setForm({ Title: '', EventType: 'Meeting', StartDate: new Date().toISOString().split('T')[0], EndDate: '', Mood: '', Importance: 'Medium', LifeStage: '', Cost: 0, Notes: '', places: [{ place: '', maplink: '' }], participants: [] });
       setCostDisplay('');

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { eventService } from '@/lib/services/event-service';
 import { organizationService } from '@/lib/services/organization-service';
@@ -31,6 +32,7 @@ interface LocationItem {
 
 export default function AddEventPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const dob = useSettingsStore((s) => s.dob);
   const [saving, setSaving] = useState(false);
@@ -198,6 +200,10 @@ export default function AddEventPage() {
         );
       }
 
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['events'] }),
+        queryClient.invalidateQueries({ queryKey: ['participants'] }),
+      ]);
       triggerRefresh();
       router.push('/events');
     } catch(e:any) { setError(e.message||'Lỗi khi lưu'); }

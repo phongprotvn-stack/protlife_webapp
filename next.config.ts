@@ -18,16 +18,6 @@ const nextConfig: NextConfig = {
       ],
     },
     {
-      // Static assets (JS/CSS): cache with hash busting via Next.js
-      source: '/_next/static/:path*',
-      headers: [
-        {
-          key: 'Cache-Control',
-          value: 'public, max-age=31536000, immutable',
-        },
-      ],
-    },
-    {
       // Service worker: never cache
       source: '/sw.js',
       headers: [
