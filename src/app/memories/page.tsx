@@ -66,7 +66,7 @@ export default function MemoriesPage() {
     return (
       <div className="page-content">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="mobile-page-header flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold text-[#111] tracking-tight">Ký ức</h1>
             <p className="text-[12px] text-[#8E8E93] mt-0.5">{memories.length} ký ức</p>

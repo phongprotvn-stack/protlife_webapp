@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase/client';
 import { goalService } from '@/lib/services/goal-service';
 import { organizationService } from '@/lib/services/organization-service';
 import { exportExcel, exportWord, exportPDF } from '@/lib/export-utils';
-import { Users, CalendarDays, BookHeart, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Heart, BrainCircuit, LayoutList } from 'lucide-react';
+import { Users, UserRound, CalendarDays, BookHeart, Image, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Heart, BrainCircuit, LayoutList } from 'lucide-react';
 import Link from 'next/link';
 
 // ─── Types ───
@@ -275,7 +275,7 @@ export default function StatisticalPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <div className="mobile-page-header flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
             <h1 className="text-[22px] font-bold text-[#111] tracking-tight">Thống kê</h1>
             <p className="text-[12px] text-[#8E8E93] mt-0.5">Báo cáo và phân tích dữ liệu</p>
@@ -434,7 +434,13 @@ export default function StatisticalPage() {
                           style={{
                             background: item.type === 'contact' ? 'rgba(230,0,45,.08)' : item.type === 'event' ? 'rgba(14,165,233,.08)' : 'rgba(139,92,246,.08)',
                           }}>
-                          {item.type === 'contact' ? '👤' : item.type === 'event' ? '📅' : '📸'}
+                          {item.type === 'contact' ? (
+                            <UserRound size={15} strokeWidth={2.1} className="text-[#E6002D]" />
+                          ) : item.type === 'event' ? (
+                            <CalendarDays size={15} strokeWidth={2.1} className="text-[#0EA5E9]" />
+                          ) : (
+                            <Image size={15} strokeWidth={2.1} className="text-[#8B5CF6]" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-[12.5px] font-bold truncate group-hover:text-[var(--color-primary)] transition-colors">{item.title}</div>
@@ -493,12 +499,16 @@ export default function StatisticalPage() {
                   <div className="grid grid-cols-2 gap-3 text-[13px]">
                     <div className="bg-[#FAFAFB] rounded-[12px] p-3 relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-[60px] h-[60px] rounded-full bg-[#F59E0B]/5 -translate-y-1/2 translate-x-1/3" />
-                      <div className="text-[11px] text-[#6B7280] font-semibold relative z-[1]">🎯 Mục tiêu</div>
+                      <div className="text-[11px] text-[#6B7280] font-semibold relative z-[1] flex items-center gap-1.5">
+                        <Target size={13} strokeWidth={2.2} className="text-[#F59E0B]" /> Mục tiêu
+                      </div>
                       <div className="text-[18px] font-extrabold mt-0.5 relative z-[1]">{stats.goals}</div>
                     </div>
                     <div className="bg-[#FAFAFB] rounded-[12px] p-3 relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-[60px] h-[60px] rounded-full bg-[#6366F1]/5 -translate-y-1/2 translate-x-1/3" />
-                      <div className="text-[11px] text-[#6B7280] font-semibold relative z-[1]">🏢 Tổ chức</div>
+                      <div className="text-[11px] text-[#6B7280] font-semibold relative z-[1] flex items-center gap-1.5">
+                        <Building2 size={13} strokeWidth={2.2} className="text-[#6366F1]" /> Tổ chức
+                      </div>
                       <div className="text-[18px] font-extrabold mt-0.5 relative z-[1]">{stats.organizations}</div>
                     </div>
                   </div>

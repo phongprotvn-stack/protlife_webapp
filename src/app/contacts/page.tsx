@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Search, Users, RefreshCw, ChevronLeft, ChevronRight, Heart, ArrowUpDown, ArrowRight } from 'lucide-react';
 import { ContactCard } from '@/components/contacts/contact-card';
+import { ListPagination } from '@/components/shared/list-pagination';
 import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -163,7 +164,7 @@ export default function ContactsPage() {
       {/* ── Mobile ── */}
       {!isDesktop && (
         <div className="page-content">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mobile-page-header flex items-center justify-between">
             <div>
               <h1 className="text-[22px] font-bold text-[#111] tracking-tight">Quan hệ</h1>
               <p className="text-[12px] text-[#8E8E93] mt-0.5">{contacts.length} người</p>
@@ -182,7 +183,7 @@ export default function ContactsPage() {
           <div className="relative mb-3">
             <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
             <input type="text" placeholder="Tìm kiếm quan hệ..." value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full h-[40px] pl-[36px] pr-[12px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[16px] text-[#111] placeholder:text-[#9CA3AF] outline-none border border-transparent focus:border-[rgba(230,0,45,0.25)] transition-all" />
           </div>
 
@@ -218,11 +219,20 @@ export default function ContactsPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {paginatedContacts.map((contact) => (
-                <ContactCard key={contact.ContactID} contact={contact} />
-              ))}
-            </div>
+            <>
+              <div className="space-y-2">
+                {paginatedContacts.map((contact) => (
+                  <ContactCard key={contact.ContactID} contact={contact} />
+                ))}
+              </div>
+              <ListPagination
+                total={processedContacts.length}
+                itemLabel="người"
+                page={safePage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </>
           )}
         </div>
       )}

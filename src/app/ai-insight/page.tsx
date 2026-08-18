@@ -150,7 +150,7 @@ export default function AIInsightPage() {
   return (
     <div className="page-content">
       {/* Header */}
-      <div className="page-header">
+      <div className="mobile-page-header page-header">
         <div>
           <h1 className="flex items-center gap-3 text-[22px] font-bold text-[#111] tracking-tight">
             AI Insight

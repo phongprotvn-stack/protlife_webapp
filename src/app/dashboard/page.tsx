@@ -252,7 +252,7 @@ export default function DashboardPage() {
     <>
       {/* ===== MOBILE VIEW ===== */}
       <div className="md:hidden p-3 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="mobile-page-header flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold text-[#111] tracking-tight">
               Xin chào, {user?.name || 'FREE'} 🐒

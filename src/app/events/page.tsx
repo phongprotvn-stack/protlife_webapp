@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X, Sparkles, UsersRound, Heart, ChevronDown } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
+import { ListPagination } from '@/components/shared/list-pagination';
 import { eventService } from '@/lib/services/event-service';
 import { supabase } from '@/lib/supabase/client';
 import { useAppStore } from '@/stores/app-store';
@@ -193,7 +194,7 @@ export default function EventsPage() {
   if (!isDesktop) {
     return (
       <div className="page-content">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mobile-page-header flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold text-[#111] tracking-tight">Sự kiện</h1>
             <p className="text-[12px] text-[#8E8E93] mt-0.5">{events.length} sự kiện</p>
@@ -247,7 +248,7 @@ export default function EventsPage() {
         <div className="relative mb-3">
           <Search size={15} className="absolute left-[12px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
           <input type="text" placeholder="Tìm kiếm sự kiện..." value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="w-full h-[40px] pl-[36px] pr-[36px] rounded-[10px] bg-[rgba(0,0,0,0.04)] text-[16px] text-[#111] placeholder:text-[#9CA3AF] outline-none focus:border-[rgba(230,0,45,0.25)] transition-all" />
           <button onClick={() => setShowFilters(!showFilters)}
             className={`absolute right-[10px] top-1/2 -translate-y-1/2 p-1 rounded-[6px] transition-all ${showFilters ? 'text-[#E6002D] bg-[rgba(230,0,45,0.08)]' : 'text-[#9CA3AF]'}`}>
@@ -273,7 +274,16 @@ export default function EventsPage() {
         ) : processed.length === 0 ? (
           <div className="glass-card p-8 text-center"><div className="w-12 h-12 rounded-full bg-[#007AFF]/5 mx-auto mb-3 flex items-center justify-center"><Calendar size={22} className="text-[#007AFF]/30" /></div><p className="text-[13px] font-medium text-[#6B7280]">{hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có sự kiện nào'}</p></div>
         ) : (
-          <div className="space-y-2">{paginated.map((event) => (<EventCard key={event.EventID} event={event} />))}</div>
+          <>
+            <div className="space-y-2">{paginated.map((event) => (<EventCard key={event.EventID} event={event} />))}</div>
+            <ListPagination
+              total={processed.length}
+              itemLabel="sự kiện"
+              page={safePage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </>
         )}
       </div>
     );

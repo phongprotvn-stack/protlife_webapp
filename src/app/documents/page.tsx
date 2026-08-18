@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Search, FileText, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, FileText, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { documentService, type Document } from '@/lib/services/document-service';
 import { useRouter } from 'next/navigation';
+import { ListPagination } from '@/components/shared/list-pagination';
+
+const PAGE_SIZE = 10;
 
 export default function DocumentsPage() {
   const router = useRouter();
   const [isDesktop, setIsDesktop] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setIsDesktop(window.innerWidth >= 768);
@@ -26,10 +30,14 @@ export default function DocumentsPage() {
     refetchOnWindowFocus: false,
   });
 
+  const totalPages = Math.max(1, Math.ceil(docs.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedDocs = docs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   if (!isDesktop) {
     return (
       <div className="page-content">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mobile-page-header flex items-center justify-between">
           <div><h1 className="text-[22px] font-bold text-[#111] tracking-tight">Tài liệu</h1><p className="text-[12px] text-[#8E8E93] mt-0.5">{docs.length} tài liệu</p></div>
           <div className="flex items-center gap-2">
             <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
@@ -112,7 +120,7 @@ export default function DocumentsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {docs.map((doc) => (
+            {paginatedDocs.map((doc) => (
               <div key={doc.DocumentID}
                 className="glass-card p-3.5 rounded-[14px] flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
                 onClick={() => router.push(`/documents/${doc.DocumentID}`)}>
@@ -129,6 +137,7 @@ export default function DocumentsPage() {
                 </div>
               </div>
             ))}
+            <ListPagination total={docs.length} itemLabel="tài liệu" page={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />
           </div>
         )}
       </div>
@@ -219,7 +228,7 @@ export default function DocumentsPage() {
               <th className="py-2.5 px-3 text-[11px] font-semibold text-[#8E8E93] uppercase tracking-[0.3px] text-center" style={{width:'80px'}}>Kích cỡ</th>
             </tr></thead>
             <tbody>
-              {docs.map((doc) => (
+              {paginatedDocs.map((doc) => (
                 <tr key={doc.DocumentID} className="border-t border-[rgba(0,0,0,0.03)] hover:bg-[rgba(0,0,0,0.01)] transition-colors cursor-pointer"
                   onClick={() => router.push(`/documents/${doc.DocumentID}`)}>
                   <td className="py-2.5 px-3">
@@ -239,7 +248,10 @@ export default function DocumentsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+      )}
+      {!loading && docs.length > 0 && (
+        <ListPagination total={docs.length} itemLabel="tài liệu" page={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />
       )}
     </div>
   );

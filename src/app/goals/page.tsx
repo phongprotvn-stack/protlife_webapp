@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Search, Target, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Target, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { goalService, type Goal } from '@/lib/services/goal-service';
 import { useRouter } from 'next/navigation';
+import { ListPagination } from '@/components/shared/list-pagination';
+
+const PAGE_SIZE = 10;
 
 export default function GoalsPage() {
   const router = useRouter();
   const [isDesktop, setIsDesktop] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setIsDesktop(window.innerWidth >= 768);
@@ -26,10 +30,14 @@ export default function GoalsPage() {
     refetchOnWindowFocus: false,
   });
 
+  const totalPages = Math.max(1, Math.ceil(goals.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedGoals = goals.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   if (!isDesktop) {
     return (
       <div className="page-content">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mobile-page-header flex items-center justify-between">
           <div><h1 className="text-[22px] font-bold text-[#111] tracking-tight">Mục tiêu</h1><p className="text-[12px] text-[#8E8E93] mt-0.5">{goals.length} mục tiêu</p></div>
           <div className="flex items-center gap-2">
             <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
@@ -55,7 +63,7 @@ export default function GoalsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {goals.map((goal) => (
+            {paginatedGoals.map((goal) => (
               <div key={goal.GoalID}
                 className="glass-card p-3.5 rounded-[14px] flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
                 onClick={() => router.push(`/goals/${goal.GoalID}`)}>
@@ -82,6 +90,7 @@ export default function GoalsPage() {
                 </div>
               </div>
             ))}
+            <ListPagination total={goals.length} itemLabel="mục tiêu" page={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />
           </div>
         )}
       </div>
@@ -127,7 +136,7 @@ export default function GoalsPage() {
               </tr>
             </thead>
             <tbody>
-              {goals.map((goal) => (
+              {paginatedGoals.map((goal) => (
                 <tr key={goal.GoalID} className="border-t border-[rgba(0,0,0,0.03)] hover:bg-[rgba(0,0,0,0.01)] transition-colors cursor-pointer"
                   onClick={() => router.push(`/goals/${goal.GoalID}`)}>
                   <td className="py-2.5 px-3">
@@ -160,6 +169,9 @@ export default function GoalsPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {!loading && goals.length > 0 && (
+        <ListPagination total={goals.length} itemLabel="mục tiêu" page={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />
       )}
     </div>
   );

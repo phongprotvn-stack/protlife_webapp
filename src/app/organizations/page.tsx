@@ -30,7 +30,7 @@ export default function OrganizationsPage() {
   if (!isDesktop) {
     return (
       <div className="page-content">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mobile-page-header flex items-center justify-between">
           <div><h1 className="text-[22px] font-bold text-[#111] tracking-tight">Tổ chức</h1><p className="text-[12px] text-[#8E8E93] mt-0.5">{orgs.length} tổ chức</p></div>
           <div className="flex items-center gap-2">
             <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
