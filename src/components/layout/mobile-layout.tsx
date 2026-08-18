@@ -53,13 +53,13 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="h-screen h-dvh overflow-hidden flex flex-col pb-[68px]">
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain relative">
+      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-y-contain relative">
         <motion.div
           key={pathname}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="min-h-full"
+          className="min-h-full min-w-0 w-full overflow-x-clip"
         >
           {children}
         </motion.div>

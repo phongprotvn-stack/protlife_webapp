@@ -251,7 +251,7 @@ export default function DashboardPage() {
   return (
     <>
       {/* ===== MOBILE VIEW ===== */}
-      <div className="md:hidden p-3 space-y-4">
+      <div className="md:hidden px-4 py-3 space-y-4">
         <div className="mobile-page-header flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold text-[#111] tracking-tight">

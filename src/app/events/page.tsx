@@ -7,6 +7,7 @@ import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, A
 import { EventCard } from '@/components/events/event-card';
 import { ListPagination } from '@/components/shared/list-pagination';
 import { eventService } from '@/lib/services/event-service';
+import { contactService } from '@/lib/services/contact-service';
 import { supabase } from '@/lib/supabase/client';
 import { useAppStore } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
@@ -50,6 +51,8 @@ export default function EventsPage() {
   // Advanced filters
   const [showFilters, setShowFilters] = useState(false);
   const [participantSearch, setParticipantSearch] = useState('');
+  const [selectedParticipantId, setSelectedParticipantId] = useState('');
+  const [showParticipantSuggestions, setShowParticipantSuggestions] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
@@ -68,6 +71,7 @@ export default function EventsPage() {
       // Fetch participant counts AND names for ALL events
       let participantCounts: Record<string, number> = {};
       let participantNames: Record<string, string[]> = {};
+      let participantContactIds: Record<string, string[]> = {};
       if (eventIds.length > 0) {
         const { data: participants } = await supabase
           .from('participants')
@@ -80,10 +84,15 @@ export default function EventsPage() {
 
         const counts: Record<string, number> = {};
         const names: Record<string, string[]> = {};
+        const contactIds: Record<string, string[]> = {};
         if (participants) {
           participants.forEach((p: any) => {
             counts[p.EventID] = (counts[p.EventID] || 0) + 1;
             if (!names[p.EventID]) names[p.EventID] = [];
+            if (!contactIds[p.EventID]) contactIds[p.EventID] = [];
+            if (p.ContactID && !contactIds[p.EventID].includes(p.ContactID)) {
+              contactIds[p.EventID].push(p.ContactID);
+            }
             const contactName = p.contacts?.Name?.trim();
             if (contactName && !names[p.EventID].includes(contactName)) {
               names[p.EventID].push(contactName);
@@ -92,9 +101,10 @@ export default function EventsPage() {
         }
         participantCounts = counts;
         participantNames = names;
+        participantContactIds = contactIds;
       }
 
-      return { events: data, participantCounts, participantNames };
+      return { events: data, participantCounts, participantNames, participantContactIds };
     },
     staleTime: 60_000,
     retry: 3,
@@ -102,8 +112,27 @@ export default function EventsPage() {
     refetchOnWindowFocus: false,
   });
 
-  const { events, participantCounts, participantNames } = data ?? { events: [], participantCounts: {}, participantNames: {} };
+  const { events, participantCounts, participantNames, participantContactIds } = data ?? {
+    events: [],
+    participantCounts: {},
+    participantNames: {},
+    participantContactIds: {},
+  };
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: () => contactService.getAll(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
   const loadError = error ? (error as Error).message || 'Không thể tải dữ liệu' : '';
+
+  const participantSuggestions = useMemo(() => {
+    const term = participantSearch.trim().toLocaleLowerCase('vi');
+    if (!term || selectedParticipantId) return [];
+    return contacts
+      .filter((contact) => contact.Name?.toLocaleLowerCase('vi').includes(term))
+      .slice(0, 8);
+  }, [contacts, participantSearch, selectedParticipantId]);
 
   const processed = useMemo(() => {
     let f = events.filter((e) => {
@@ -112,9 +141,12 @@ export default function EventsPage() {
       // Title search
       if (searchQuery && !e.Title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       // Participant name search
-      if (participantSearch) {
-        const names = participantNames[e.EventID] || [];
-        const match = names.some((n) => n.toLowerCase().includes(participantSearch.toLowerCase()));
+      if (selectedParticipantId || participantSearch) {
+        const match = selectedParticipantId
+          ? (participantContactIds[e.EventID] || []).includes(selectedParticipantId)
+          : (participantNames[e.EventID] || []).some((name) =>
+              name.toLocaleLowerCase('vi').includes(participantSearch.trim().toLocaleLowerCase('vi'))
+            );
         if (!match) return false;
       }
       // Date range filter
@@ -135,7 +167,7 @@ export default function EventsPage() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return f;
-  }, [events, activeFilter, searchQuery, sortField, sortDir, participantCounts, participantNames, participantSearch, fromDate, toDate]);
+  }, [events, activeFilter, searchQuery, sortField, sortDir, participantCounts, participantNames, participantContactIds, participantSearch, selectedParticipantId, fromDate, toDate]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
@@ -150,6 +182,8 @@ export default function EventsPage() {
     setSearchQuery('');
     setActiveFilter('');
     setParticipantSearch('');
+    setSelectedParticipantId('');
+    setShowParticipantSuggestions(false);
     setFromDate('');
     setToDate('');
     setCurrentPage(1);
@@ -162,11 +196,68 @@ export default function EventsPage() {
       {/* Participant search */}
       <div className="flex-1 min-w-[160px]">
         <p className="text-[9px] font-semibold text-[#6B7280] uppercase mb-1">Người tham gia</p>
-        <div className="relative">
+        <div
+          className="relative"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setShowParticipantSuggestions(false);
+            }
+          }}
+        >
           <Users size={13} className="absolute left-[10px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-          <input value={participantSearch} onChange={(e) => { setParticipantSearch(e.target.value); setCurrentPage(1); }}
+          <input value={participantSearch}
+            onChange={(e) => {
+              setParticipantSearch(e.target.value);
+              setSelectedParticipantId('');
+              setShowParticipantSuggestions(true);
+              setCurrentPage(1);
+            }}
+            onFocus={() => setShowParticipantSuggestions(true)}
             placeholder="Tìm theo tên người tham gia..."
-            className="w-full h-[36px] pl-[30px] pr-[8px] rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] text-[12px] outline-none focus:border-[#E6002D] transition-all" />
+            autoComplete="off"
+            className="w-full h-[36px] pl-[30px] pr-[30px] rounded-[8px] bg-white border border-[rgba(0,0,0,0.06)] text-[12px] outline-none focus:border-[#E6002D] transition-all" />
+          {participantSearch && (
+            <button type="button" aria-label="Xóa người tham gia"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setParticipantSearch('');
+                setSelectedParticipantId('');
+                setShowParticipantSuggestions(false);
+                setCurrentPage(1);
+              }}
+              className="absolute right-[8px] top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#E6002D]">
+              <X size={13} />
+            </button>
+          )}
+          {showParticipantSuggestions && participantSearch.trim() && !selectedParticipantId && (
+            <div className="absolute left-0 right-0 top-[40px] z-50 max-h-[240px] overflow-y-auto rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-white p-1 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
+              {participantSuggestions.length > 0 ? participantSuggestions.map((contact) => (
+                <button key={contact.ContactID} type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setParticipantSearch(contact.Name);
+                    setSelectedParticipantId(contact.ContactID);
+                    setShowParticipantSuggestions(false);
+                    setCurrentPage(1);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left hover:bg-[rgba(230,0,45,0.05)] active:bg-[rgba(230,0,45,0.08)]">
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[rgba(230,0,45,0.08)] text-[10px] font-bold text-[#E6002D]">
+                    {contact.Name.trim().charAt(0).toLocaleUpperCase('vi')}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12px] font-semibold text-[#111]">{contact.Name}</span>
+                    {(contact.Relationship || contact.Organization1) && (
+                      <span className="block truncate text-[10px] text-[#8E8E93]">
+                        {[contact.Relationship, contact.Organization1].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              )) : (
+                <p className="px-3 py-3 text-center text-[11px] text-[#8E8E93]">Không tìm thấy trong Quan hệ</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {/* From date */}
