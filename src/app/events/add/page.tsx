@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { eventService } from '@/lib/services/event-service';
 import { organizationService } from '@/lib/services/organization-service';
 import { participantService } from '@/lib/services/participant-service';
@@ -11,7 +11,7 @@ import { contactService } from '@/lib/services/contact-service';
 import { useAppStore } from '@/stores/app-store';
 import type { ContactListItem } from '@/types/database';
 import { ArrowLeft, MapPin, X, Search, Plus, Globe, Navigation } from 'lucide-react';
-import { formatVND, parseVND } from '@/lib/utils';
+import { formatVND, getEventTypeLabel, getImportanceLabel, getLifeStageLabel, getMoodLabel, parseVND } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
 import { geocodeAddress } from '@/lib/geocode';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -32,6 +32,7 @@ interface LocationItem {
 
 export default function AddEventPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const dob = useSettingsStore((s) => s.dob);
@@ -55,6 +56,7 @@ export default function AddEventPage() {
   });
 
   const [placeText, setPlaceText] = useState('');
+  const appliedPreset = useRef(false);
 
   // Auto-calculate LifeStage based on user's DOB + event StartDate
   useEffect(() => {
@@ -72,6 +74,20 @@ export default function AddEventPage() {
     retryDelay: 1500,
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    if (appliedPreset.current) return;
+    const type = searchParams.get('type');
+    const participantId = searchParams.get('participant');
+    const validType = EVENT_TYPES.includes(type as typeof EVENT_TYPES[number]);
+    if (validType) setForm((current) => ({ ...current, EventType: type! }));
+    if (participantId) {
+      const participant = contacts.find((contact) => contact.ContactID === participantId);
+      if (!participant) return;
+      setSelectedContacts((current) => current.some((contact) => contact.ContactID === participant.ContactID) ? current : [...current, participant]);
+    }
+    appliedPreset.current = true;
+  }, [contacts, searchParams]);
 
   // Auto-generate maplink when place changes
   useEffect(() => {
@@ -213,7 +229,7 @@ export default function AddEventPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-2 mb-5">
-        <button onClick={()=>router.back()} className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"><ArrowLeft size={18}/></button>
+        <button onClick={()=>router.back()} aria-label="Quay lại" className="w-[44px] h-[44px] flex items-center justify-center rounded-lg hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"><ArrowLeft size={18}/></button>
         <div>
           <h1 className="text-[18px] font-bold text-[#111]">Thêm sự kiện mới</h1>
           <p className="text-[11px] text-[#8E8E93]">Nhập thông tin sự kiện mới</p>
@@ -231,12 +247,12 @@ export default function AddEventPage() {
           <div className="grid grid-cols-2 gap-2.5">
             <FormField label="Loại sự kiện">
               <select value={form.EventType} onChange={(e)=>setForm((f)=>({...f,EventType:e.target.value}))} className="input-glass text-[16px]">
-                {EVENT_TYPES.map((t)=><option key={t} value={t}>{t}</option>)}
+                {EVENT_TYPES.map((t)=><option key={t} value={t}>{getEventTypeLabel(t)}</option>)}
               </select>
             </FormField>
             <FormField label="Mức độ">
               <select value={form.Importance} onChange={(e)=>setForm((f)=>({...f,Importance:e.target.value}))} className="input-glass text-[16px]">
-                {IMPORTANCE.map((i)=><option key={i} value={i}>{i}</option>)}
+                {IMPORTANCE.map((i)=><option key={i} value={i}>{getImportanceLabel(i)}</option>)}
               </select>
             </FormField>
           </div>
@@ -244,7 +260,7 @@ export default function AddEventPage() {
             <select value={form.LifeStage} onChange={(e)=>setForm((f)=>({...f,LifeStage:e.target.value}))} disabled={!!dob}
               className="input-glass text-[16px] disabled:opacity-60 disabled:cursor-not-allowed">
               <option value="">Chưa xác định</option>
-              {LIFE_STAGES.map((s)=><option key={s} value={s}>{s}</option>)}
+              {LIFE_STAGES.map((s)=><option key={s} value={s}>{getLifeStageLabel(s)}</option>)}
             </select>
             {!dob && (
               <p className="text-[11px] text-[#FF9500] mt-1">
@@ -281,7 +297,7 @@ export default function AddEventPage() {
                   className="flex-1 input-glass text-[16px]" placeholder="VD: Hà Nội, quán cafe..."/>
                 <button type="button" onClick={() => handleGeocode(loc.id)}
                   disabled={geocoding[loc.id] === 'loading'}
-                  className="shrink-0 px-2.5 h-[30px] rounded-[8px] text-[11px] font-medium flex items-center gap-1 border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)] disabled:opacity-50 transition-all">
+                  className="shrink-0 px-2.5 min-h-[44px] rounded-[8px] text-[11px] font-medium flex items-center gap-1 border border-[rgba(0,0,0,0.06)] bg-white hover:bg-[rgba(0,0,0,0.03)] disabled:opacity-50 transition-all">
                   {geocoding[loc.id] === 'loading' ? (
                     <span className="w-3.5 h-3.5 border-2 border-[#E6002D]/20 border-t-[#E6002D] rounded-full animate-spin" />
                   ) : geocoding[loc.id] === 'done' ? (
@@ -295,7 +311,7 @@ export default function AddEventPage() {
                     {geocoding[loc.id] === 'loading' ? 'Đang xác định...'
                     : geocoding[loc.id] === 'done' ? 'Đã có toạ độ'
                     : geocoding[loc.id] === 'fail' ? 'Không tìm thấy'
-                    : '📍 Lấy toạ độ'}
+                    : 'Lấy toạ độ'}
                   </span>
                 </button>
               </div>
@@ -368,7 +384,7 @@ export default function AddEventPage() {
             <FormField label="Cảm xúc">
               <select value={form.Mood} onChange={(e)=>setForm((f)=>({...f,Mood:e.target.value}))} className="input-glass text-[16px]">
                 <option value="">Không</option>
-                {MOODS.map((m)=><option key={m} value={m}>{m}</option>)}
+                {MOODS.map((m)=><option key={m} value={m}>{getMoodLabel(m)}</option>)}
               </select>
             </FormField>
             <FormField label="Chi phí (VNĐ)">
@@ -391,11 +407,11 @@ export default function AddEventPage() {
         </FormSection>
       </div>
 
-      <div className="flex gap-2 pt-4 border-t border-[rgba(0,0,0,0.04)] mt-4">
+      <div className="flex gap-2 pt-4 border-t border-[rgba(0,0,0,0.04)] mt-4 shrink-0 bg-white/90 backdrop-blur-sm">
         <button onClick={()=>router.back()}
-          className="flex-1 h-[42px] rounded-[10px] text-[13px] font-medium text-[#5F6368] bg-[rgba(0,0,0,0.04)]">Huỷ</button>
+          className="flex-1 h-[44px] rounded-[10px] text-[13px] font-medium text-[#5F6368] bg-[rgba(0,0,0,0.04)]">Huỷ</button>
         <button onClick={handleSave} disabled={saving}
-          className="flex-1 h-[42px] rounded-[10px] text-[13px] font-semibold text-white bg-[#E6002D]">{saving?'Đang lưu...':'Lưu lại'}</button>
+          className="flex-1 h-[44px] rounded-[10px] text-[13px] font-semibold text-white bg-[#E6002D]">{saving?'Đang lưu...':'Lưu lại'}</button>
       </div>
     </div>
   );

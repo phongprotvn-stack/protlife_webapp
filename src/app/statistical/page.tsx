@@ -7,6 +7,7 @@ import { goalService } from '@/lib/services/goal-service';
 import { organizationService } from '@/lib/services/organization-service';
 import { exportExcel, exportWord, exportPDF } from '@/lib/export-utils';
 import { Users, UserRound, CalendarDays, BookHeart, Image, MapPin, ArrowUpRight, Download, ChevronRight, TrendingUp, Activity, Target, Building2, TrendingDown, Heart, BrainCircuit, LayoutList } from 'lucide-react';
+import { clampScore, getEventTypeLabel } from '@/lib/utils';
 import Link from 'next/link';
 
 // ─── Types ───
@@ -83,7 +84,7 @@ export default function StatisticalPage() {
         supabase.from('events').select('*', { count: 'exact', head: true }),
         supabase.from('memories').select('*', { count: 'exact', head: true }),
         supabase.from('contacts').select('"ContactID","Name","CreatedDate"').order('"CreatedDate"', { ascending: false }).limit(5),
-        supabase.from('events').select('"EventID","Title","StartDate"').order('"StartDate"', { ascending: false }).limit(5),
+        supabase.from('events').select('"EventID","Title","StartDate"').lte('StartDate', now.toISOString().slice(0, 10)).order('"StartDate"', { ascending: false }).limit(5),
         supabase.from('memories').select('"MemoryID","Title","CreatedDate"').order('"CreatedDate"', { ascending: false }).limit(5),
         supabase.from('events').select('"StartDate"').gte('"StartDate"', threeMonthsAgo),
         supabase.from('contacts').select('"Relationship","RelationshipScore"'),
@@ -138,13 +139,13 @@ export default function StatisticalPage() {
       // ─── Life Score ───
       const contactScores = (allContacts || []).map((c: any) => c.RelationshipScore ?? 0);
       const avgRelScore = contactScores.length > 0
-        ? Math.round(contactScores.reduce((a: number, b: number) => a + b, 0) / contactScores.length * 10)
+        ? Math.round(contactScores.reduce((a: number, b: number) => a + b, 0) / contactScores.length)
         : 0;
       const activityScore = Math.min((eventCount || 0) * 2, 100);
       const memoryScore = Math.min((memoryCount || 0) * 5, 100);
       const socialScore = Math.min((contactCount || 0) * 2, 100);
       const goalScore = Math.min((allGoals.length || 0) * 25, 100);
-      const lifeScore = Math.round(
+      const lifeScore = clampScore(
         avgRelScore * 0.30 + activityScore * 0.25 + memoryScore * 0.20 + socialScore * 0.15 + goalScore * 0.10
       );
       const lifeSubScores = [

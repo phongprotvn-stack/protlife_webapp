@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import {
   Users, Calendar, Heart, TrendingUp, Clock, MapPin,
   Target, PieChart, RefreshCw, Gift, Coffee,
-  BookHeart, FileText, Building2,
+  BookHeart, FileText, Building2, Utensils,
 } from 'lucide-react';
 import { contactService } from '@/lib/services/contact-service';
 import { eventService } from '@/lib/services/event-service';
@@ -18,7 +18,7 @@ import { useAppStore } from '@/stores/app-store';
 import type { DashboardPanelContact } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
 import type { ContactListItem, EventItem } from '@/types/database';
-import { formatDate, getAvatarColor, getInitials } from '@/lib/utils';
+import { clampScore, formatDate, getAvatarColor, getEventTypeLabel, getInitials } from '@/lib/utils';
 import { ContactDetail } from '@/components/contacts/contact-detail';
 import { EventDetail } from '@/components/events/event-detail';
 import { DashboardContactPanel } from '@/components/dashboard/contact-panel';
@@ -179,17 +179,17 @@ export default function DashboardPage() {
   const lifeScore = useMemo(() => {
     const contactScores = contacts.map(c => c.RelationshipScore || 0);
     const avgRelScore = contactScores.length > 0
-      ? Math.round(contactScores.reduce((a, b) => a + b, 0) / contactScores.length * 10)
+      ? Math.round(contactScores.reduce((a, b) => a + b, 0) / contactScores.length)
       : 0;
     const activityScore = Math.min(events.length * 2, 100);
     const memScore = Math.min(memoryCount * 5, 100);
     const socialScore = Math.min(contacts.length * 2, 100);
     const goalSc = Math.min(goalCount * 25, 100);
-    return Math.round(avgRelScore * 0.30 + activityScore * 0.25 + memScore * 0.20 + socialScore * 0.15 + goalSc * 0.10);
+    return clampScore(avgRelScore * 0.30 + activityScore * 0.25 + memScore * 0.20 + socialScore * 0.15 + goalSc * 0.10);
   }, [contacts, events, memoryCount, goalCount]);
 
   const lifeSubScores = useMemo(() => [
-    { label: 'Quan hệ', score: contacts.length > 0 ? Math.round(contacts.reduce((s, c) => s + (c.RelationshipScore || 0), 0) / contacts.length * 10) : 0, max: 100, color: '#E6002D' },
+    { label: 'Quan hệ', score: contacts.length > 0 ? clampScore(contacts.reduce((s, c) => s + (c.RelationshipScore || 0), 0) / contacts.length) : 0, max: 100, color: '#E6002D' },
     { label: 'Hoạt động', score: Math.min(events.length * 2, 100), max: 100, color: '#0EA5E9' },
     { label: 'Ký ức', score: Math.min(memoryCount * 5, 100), max: 100, color: '#8B5CF6' },
     { label: 'Kết nối', score: Math.min(contacts.length * 2, 100), max: 100, color: '#F59E0B' },
@@ -211,7 +211,7 @@ export default function DashboardPage() {
     .sort((a, b) => a.days - b.days)
     .slice(0, 5);
 
-  const recentEvents = [...events]
+  const recentEvents = events.filter(e => new Date(e.StartDate).getTime() <= Date.now())
     .sort((a, b) => new Date(b.StartDate).getTime() - new Date(a.StartDate).getTime())
     .slice(0, 5);
 
@@ -309,8 +309,8 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-[#E6002D]">{s.daysSinceLastEvent} ngày chưa gặp</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white">☕</button>
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white">🍽️</button>
+                    <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meeting&participant=${encodeURIComponent(s.contact.ContactID)}`); }} aria-label={`Tạo cuộc gặp với ${s.contact.Name}`} className="w-8 h-8 flex items-center justify-center text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white"><Coffee size={14}/></button>
+                    <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meal&participant=${encodeURIComponent(s.contact.ContactID)}`); }} aria-label={`Tạo bữa ăn với ${s.contact.Name}`} className="w-8 h-8 flex items-center justify-center text-[9px] font-semibold rounded-[6px] bg-[#E6002D] text-white"><Utensils size={14}/></button>
                   </div>
                 </div>
               ))}
@@ -323,8 +323,8 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-[#B8860B]">{s.daysSinceLastEvent} ngày chưa gặp</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]">☕</button>
-                    <button onClick={e => { e.stopPropagation(); }} className="px-2 py-1 text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]">🍽️</button>
+                    <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meeting&participant=${encodeURIComponent(s.contact.ContactID)}`); }} aria-label={`Tạo cuộc gặp với ${s.contact.Name}`} className="w-8 h-8 flex items-center justify-center text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]"><Coffee size={14}/></button>
+                    <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meal&participant=${encodeURIComponent(s.contact.ContactID)}`); }} aria-label={`Tạo bữa ăn với ${s.contact.Name}`} className="w-8 h-8 flex items-center justify-center text-[9px] font-semibold rounded-[6px] bg-[#FFCC00] text-[#111]"><Utensils size={14}/></button>
                   </div>
                 </div>
               ))}
@@ -356,7 +356,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#111] truncate">{e.Title}</p>
-                    <p className="text-[10px] text-[#8E8E93]">{e.EventType}{e.Place ? ` · ${e.Place}` : ''}</p>
+                    <p className="text-[10px] text-[#8E8E93] truncate">{getEventTypeLabel(e.EventType)}{e.Place ? ` · ${e.Place}` : ''}</p>
                   </div>
                 </div>
               ))}
@@ -475,8 +475,8 @@ export default function DashboardPage() {
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
                     <p className="text-[9px] text-[#E6002D] font-medium">⚠️ {s.daysSinceLastEvent} ngày chưa gặp</p>
                     <div className="flex gap-1 mt-1">
-                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">☕ Cafe</button>
-                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white">🍽️ Ăn</button>
+                      <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meeting&participant=${encodeURIComponent(s.contact.ContactID)}`); }} className="px-1.5 py-1 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white inline-flex items-center gap-1"><Coffee size={11}/> Cafe</button>
+                      <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meal&participant=${encodeURIComponent(s.contact.ContactID)}`); }} className="px-1.5 py-1 text-[8px] font-semibold rounded-[4px] bg-[#E6002D] text-white inline-flex items-center gap-1"><Utensils size={11}/> Ăn</button>
                     </div>
                   </div>
                 </div>
@@ -489,8 +489,8 @@ export default function DashboardPage() {
                     <p className="text-[12px] font-medium text-[#111] truncate">{s.contact.Name}</p>
                     <p className="text-[9px] text-[#B8860B] font-medium">⚠️ {s.daysSinceLastEvent} ngày chưa gặp</p>
                     <div className="flex gap-1 mt-1">
-                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">☕ Cafe</button>
-                      <button onClick={e => { e.stopPropagation(); }} className="px-1.5 py-0.5 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111]">🍽️ Ăn</button>
+                      <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meeting&participant=${encodeURIComponent(s.contact.ContactID)}`); }} className="px-1.5 py-1 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111] inline-flex items-center gap-1"><Coffee size={11}/> Cafe</button>
+                      <button onClick={e => { e.stopPropagation(); router.push(`/events/add?type=Meal&participant=${encodeURIComponent(s.contact.ContactID)}`); }} className="px-1.5 py-1 text-[8px] font-semibold rounded-[4px] bg-[#FFCC00] text-[#111] inline-flex items-center gap-1"><Utensils size={11}/> Ăn</button>
                     </div>
                   </div>
                 </div>
@@ -592,7 +592,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium text-[#111] truncate">{e.Title}</p>
-                      <p className="text-[10px] text-[#8E8E93]">{e.EventType}{e.Place ? ` · ${e.Place}` : ''}</p>
+                      <p className="text-[10px] text-[#8E8E93] truncate">{getEventTypeLabel(e.EventType)}{e.Place ? ` · ${e.Place}` : ''}</p>
                     </div>
                   </div>
                 ))}

@@ -72,7 +72,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const hasSelection = dashboardPanelContact || selectedContactId || selectedEventId || selectedMemoryId || selectedOrgId || selectedDocumentId || selectedGoalId;
 
   return (
-    <div className="desktop-layout">
+    <div className={`desktop-layout ${hasSelection ? 'has-selection' : ''}`}>
       {/* ─── SIDEBAR ─── */}
       <aside className="desktop-sidebar">
         <div className="flex flex-col h-full">
@@ -128,7 +128,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <div className="flex items-center justify-between mt-2 px-2">
-              <span className="text-[9px] text-[#B0B0B8] font-medium">PROT LIFE v1.0.3</span>
+              <span className="text-[9px] text-[#B0B0B8] font-medium">PROT LIFE v1.1.0</span>
               <span className="text-[9px] text-[#B0B0B8] font-medium">All rights reserved</span>
             </div>
           </div>

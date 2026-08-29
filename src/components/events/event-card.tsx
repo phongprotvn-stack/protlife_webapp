@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { cn, formatDate, getMoodEmoji, getImportanceColor } from '@/lib/utils';
+import { cn, formatDate, getEventTypeLabel, getImportanceColor, getImportanceLabel, getMoodEmoji } from '@/lib/utils';
 import type { EventItem } from '@/types/database';
 import { Calendar, MapPin, Users, DollarSign, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
@@ -32,12 +32,12 @@ export function EventCard({ event, variant = 'default', onSelect }: EventCardPro
     <>
       <div
         onClick={handleClick}
-        className="card-ios flex items-start gap-4 cursor-pointer active:scale-[0.98] transition-all duration-200 p-3"
+        className="card-ios flex items-start gap-3 cursor-pointer active:scale-[0.98] transition-all duration-200 p-3"
       >
         {/* Date Badge */}
-        <div className="w-[52px] h-[60px] rounded-[14px] bg-[#E6002D]/5 flex flex-col items-center justify-center flex-shrink-0">
-          <span className="text-[20px] font-bold text-[#E6002D] leading-none">{day}</span>
-          <span className="text-[10px] font-medium text-[#E6002D]/70 mt-1">{month}</span>
+        <div className="w-[48px] h-[54px] rounded-[12px] bg-[#E6002D]/5 flex flex-col items-center justify-center flex-shrink-0">
+          <span className="text-[18px] font-bold text-[#E6002D] leading-none">{day}</span>
+          <span className="text-[9px] font-medium text-[#E6002D]/70 mt-1">{month}</span>
         </div>
 
         {/* Content */}
@@ -52,22 +52,22 @@ export function EventCard({ event, variant = 'default', onSelect }: EventCardPro
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
             <span className="text-[11px] px-[8px] py-[2px] rounded-full bg-[rgba(0,0,0,0.04)] text-[#6B7280] font-medium">
-              {event.EventType}
+              {getEventTypeLabel(event.EventType)}
             </span>
             {event.Importance && (
               <span
                 className="text-[11px] font-medium"
                 style={{ color: getImportanceColor(event.Importance) }}
               >
-                {event.Importance}
+                {getImportanceLabel(event.Importance)}
               </span>
             )}
           </div>
           <div className="flex items-center gap-3 mt-1.5 text-[12px] text-[#8E8E93]">
             {event.Place && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 min-w-0">
                 <MapPin size={12} />
-                {event.Place}
+                <span className="truncate">{event.Place}</span>
               </span>
             )}
             {event.Cost > 0 && (

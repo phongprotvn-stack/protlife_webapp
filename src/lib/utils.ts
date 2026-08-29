@@ -102,6 +102,34 @@ export function getImportanceColor(importance: string): string {
   return map[importance] || '#8E8E93';
 }
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  Meeting: 'Gặp gỡ', Birthday: 'Sinh nhật', Travel: 'Du lịch', Work: 'Công việc',
+  Sport: 'Thể thao', Hospital: 'Bệnh viện', Meal: 'Bữa ăn', Call: 'Cuộc gọi',
+  PhoneCall: 'Cuộc gọi', Shopping: 'Mua sắm', Study: 'Học tập', Party: 'Buổi tiệc',
+  Date: 'Hẹn hò', Entertainment: 'Giải trí', Other: 'Khác',
+};
+
+const IMPORTANCE_LABELS: Record<string, string> = {
+  Lowest: 'Thấp nhất', Low: 'Thấp', Medium: 'Trung bình', High: 'Cao', Highest: 'Rất cao',
+};
+
+const LIFE_STAGE_LABELS: Record<string, string> = {
+  Infancy: 'Ấu thơ', Childhood: 'Tuổi thơ', 'Secondary School': 'THCS',
+  'High School': 'THPT', University: 'Đại học', 'Early Career': 'Đầu sự nghiệp',
+  'Mid Career': 'Giữa sự nghiệp', 'Mature Career': 'Sự nghiệp chín muồi', Retirement: 'Nghỉ hưu',
+};
+
+const MOOD_LABELS: Record<string, string> = {
+  Happy: 'Vui vẻ', Normal: 'Bình thường', Sad: 'Buồn', Excited: 'Hào hứng',
+  Tired: 'Mệt mỏi', Angry: 'Tức giận', Thoughtful: 'Trầm ngâm', Loved: 'Yêu thương',
+};
+
+export const getEventTypeLabel = (value: string) => EVENT_TYPE_LABELS[value] || value || 'Khác';
+export const getImportanceLabel = (value: string) => IMPORTANCE_LABELS[value] || value || '—';
+export const getLifeStageLabel = (value: string) => LIFE_STAGE_LABELS[value] || value || 'Chưa xác định';
+export const getMoodLabel = (value: string) => MOOD_LABELS[value] || value || 'Không';
+export const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value || 0)));
+
 export function getInitials(name: string): string {
   if (!name) return '?';
   return name

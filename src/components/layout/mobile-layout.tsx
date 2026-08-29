@@ -59,7 +59,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="min-h-full min-w-0 w-full overflow-x-clip"
+          className="h-full min-h-0 min-w-0 w-full overflow-x-clip"
         >
           {children}
         </motion.div>
@@ -74,7 +74,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={() => setShowMore(false)}
-            className="fixed inset-0 z-[99] bg-black/15"
+            className="fixed inset-0 z-[99] bg-black/25"
           />
         )}
       </AnimatePresence>
@@ -87,7 +87,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
             animate={{ translateY: '0%' }}
             exit={{ translateY: '100%' }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="glass-card fixed bottom-0 left-0 right-0 z-[101] rounded-t-[28px] max-w-[480px] mx-auto p-4 pb-[100px]"
+            className="glass-card fixed bottom-0 left-0 right-0 z-[101] rounded-t-[28px] max-w-[480px] mx-auto p-4 pb-[100px] bg-[rgba(255,255,255,0.96)]"
           >
             {/* Handle */}
             <div className="w-[36px] h-[4px] bg-[rgba(0,0,0,0.15)] rounded-full mx-auto mb-4" />
@@ -97,7 +97,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
               <span className="text-[15px] font-bold text-[#111]">Danh mục</span>
               <button
                 onClick={() => setShowMore(false)}
-                className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"
+                aria-label="Đóng danh mục"
+                className="w-[36px] h-[36px] flex items-center justify-center rounded-lg hover:bg-[rgba(0,0,0,0.04)] text-[#8E8E93]"
               >
                 <X size={16} />
               </button>

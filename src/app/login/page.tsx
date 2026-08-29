@@ -443,7 +443,7 @@ export default function LoginPage() {
 
             {/* Version */}
             <div className="text-center mt-[20px] text-[10px] font-medium tracking-[.3px]" style={{ color: 'rgba(142,142,147,.4)' }}>
-              © 2026 PROT LIFE v1.0.3 — All right reserved
+              © 2026 PROT LIFE v1.1.0 — All rights reserved
             </div>
 
             {/* Footer mobile */}

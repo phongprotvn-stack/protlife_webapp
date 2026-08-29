@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X, Sparkles, UsersRound, Heart, ChevronDown } from 'lucide-react';
+import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X, Sparkles, UsersRound, Heart, ChevronDown, LayoutList, Handshake, Cake, Plane, BriefcaseBusiness, Dumbbell, Hospital, Utensils, Phone, ShoppingCart, GraduationCap, PartyPopper, Gamepad2, Pin } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
 import { ListPagination } from '@/components/shared/list-pagination';
 import { eventService } from '@/lib/services/event-service';
@@ -12,27 +12,20 @@ import { supabase } from '@/lib/supabase/client';
 import { useAppStore } from '@/stores/app-store';
 import { useRouter } from 'next/navigation';
 import type { EventItem } from '@/types/database';
-import { formatDate, getMoodEmoji, getImportanceColor, formatVND } from '@/lib/utils';
+import { formatDate, getEventTypeLabel, getImportanceColor, getImportanceLabel, getMoodEmoji, formatVND } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
 
 const PAGE_SIZE = 10;
 
 const EVENT_TYPES = [
-  { id: '', label: 'Tất cả', icon: '📋' },
-  { id: 'Meeting', label: 'Gặp gỡ', icon: '🤝' },
-  { id: 'Birthday', label: 'Sinh nhật', icon: '🎂' },
-  { id: 'Travel', label: 'Du lịch', icon: '✈️' },
-  { id: 'Work', label: 'Công việc', icon: '💼' },
-  { id: 'Sport', label: 'Thể thao', icon: '⚽' },
-  { id: 'Hospital', label: 'Bệnh viện', icon: '🏥' },
-  { id: 'Meal', label: 'Bữa ăn', icon: '🍽️' },
-  { id: 'PhoneCall', label: 'Cuộc gọi', icon: '📞' },
-  { id: 'Shopping', label: 'Mua sắm', icon: '🛒' },
-  { id: 'Study', label: 'Học tập', icon: '📚' },
-  { id: 'Party', label: 'Buổi tiệc', icon: '🎉' },
-  { id: 'Date', label: 'Hẹn hò', icon: '💕' },
-  { id: 'Entertainment', label: 'Giải trí', icon: '🎮' },
-  { id: 'Other', label: 'Khác', icon: '📌' },
+  { id: '', label: 'Tất cả', icon: LayoutList }, { id: 'Meeting', label: 'Gặp gỡ', icon: Handshake },
+  { id: 'Birthday', label: 'Sinh nhật', icon: Cake }, { id: 'Travel', label: 'Du lịch', icon: Plane },
+  { id: 'Work', label: 'Công việc', icon: BriefcaseBusiness }, { id: 'Sport', label: 'Thể thao', icon: Dumbbell },
+  { id: 'Hospital', label: 'Bệnh viện', icon: Hospital }, { id: 'Meal', label: 'Bữa ăn', icon: Utensils },
+  { id: 'Call', label: 'Cuộc gọi', icon: Phone }, { id: 'Shopping', label: 'Mua sắm', icon: ShoppingCart },
+  { id: 'Study', label: 'Học tập', icon: GraduationCap }, { id: 'Party', label: 'Buổi tiệc', icon: PartyPopper },
+  { id: 'Date', label: 'Hẹn hò', icon: Heart }, { id: 'Entertainment', label: 'Giải trí', icon: Gamepad2 },
+  { id: 'Other', label: 'Khác', icon: Pin },
 ];
 
 type SortField = 'Title' | 'EventType' | 'StartDate' | 'Place' | 'Cost' | 'Participants';
@@ -354,7 +347,7 @@ export default function EventsPage() {
               className={`flex items-center gap-1 px-[10px] py-[5px] rounded-full text-[11px] font-medium whitespace-nowrap ${
                 activeFilter === t.id ? 'bg-[#E6002D] text-white' : 'bg-[rgba(0,0,0,0.04)] text-[#6B7280]'
               }`}>
-              <span>{t.icon}</span>{t.label}
+              <t.icon size={13} strokeWidth={2} />{t.label}
             </button>
           ))}
         </div>
@@ -402,9 +395,9 @@ export default function EventsPage() {
             <div className="flex-1 flex items-center gap-1.5 overflow-x-auto pb-1 min-w-0">
               {EVENT_TYPES.map((t) => (
                 <button key={t.id} onClick={() => { setActiveFilter(t.id); setCurrentPage(1); }}
-                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all whitespace-nowrap shrink-0 ${
+                  className={`px-[10px] py-[6px] rounded-[6px] text-[11px] font-medium border transition-all whitespace-nowrap shrink-0 inline-flex items-center gap-1 ${
                     activeFilter === t.id ? 'bg-[#E6002D] text-white border-[#E6002D]' : 'bg-white text-[#5F6368] border-[rgba(0,0,0,0.06)] hover:border-[rgba(0,0,0,0.12)]'
-                  }`}>{t.icon} {t.label}</button>
+                  }`}><t.icon size={13} strokeWidth={2} />{t.label}</button>
               ))}
             </div>
             <button onClick={() => router.push('/events/add')}
@@ -484,11 +477,11 @@ export default function EventsPage() {
                             </div>
                             <div className="min-w-0">
                               <span className="text-[13px] font-medium text-[#111] truncate block">{event.Title}</span>
-                              {event.Mood && <span className="text-[11px] text-[#8E8E93]">{getMoodEmoji(event.Mood)} {event.Importance && <span style={{ color: getImportanceColor(event.Importance) }}>● {event.Importance}</span>}</span>}
+                              {event.Mood && <span className="text-[11px] text-[#8E8E93]">{getMoodEmoji(event.Mood)} {event.Importance && <span style={{ color: getImportanceColor(event.Importance) }}>● {getImportanceLabel(event.Importance)}</span>}</span>}
                             </div>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3"><span className="text-[12px] text-[#5F6368]">{event.EventType}</span></td>
+                        <td className="py-2.5 px-3"><span className="text-[12px] text-[#5F6368]">{getEventTypeLabel(event.EventType)}</span></td>
                         <td className="py-2.5 px-3 text-center"><span className="text-[12px] text-[#5F6368]">{formatDate(event.StartDate, 'ddmmyyyy')}</span></td>
                         <td className="py-2.5 px-3"><div className="flex items-center gap-1"><MapPin size={11} className="text-[#FF9500] flex-shrink-0" /><span className="text-[12px] text-[#5F6368] truncate">{event.Place || '—'}</span></div></td>
                         <td className="py-2.5 px-3 text-center">
