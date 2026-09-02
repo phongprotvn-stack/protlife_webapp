@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { Search, Plus, Users, ArrowLeft, X, Loader2, Trash2, CheckCheck, UserPlus, Phone, Building2, Table2, PartyPopper, Heart, Wallet, ArrowUp, ArrowDown, ChevronsUpDown, Filter } from 'lucide-react'
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { Search, Plus, Users, ArrowLeft, X, Trash2, CheckCheck, UserPlus, Phone, Building2, Table2, PartyPopper, Wallet, ArrowUp, ArrowDown, ChevronsUpDown, Filter } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +13,6 @@ import { formatVND, parseVND } from '@/lib/utils';
 const INVITATION_FLOW = ['Not Sent', 'Sent', 'Unreachable'] as const;
 // Trạng thái tham dự (Bước 4) — sau đám cưới
 const ATTENDANCES = ['Pending', 'Attended', 'Not Attended'] as const;
-const GROUPS = ['Nhà Trai', 'Nhà Gái', 'Bạn bè', 'Đồng nghiệp', 'Họ hàng', 'Khác'] as const;
 
 type StepId = 'add' | 'tables' | 'invite' | 'gifts';
 
@@ -24,12 +23,20 @@ const STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: 'gifts', label: 'Đã đến & Tiền mừng', icon: <PartyPopper size={14} /> },
 ];
 
+function SortIcon({ col, sortKey, sortDir }: { col: string; sortKey: string; sortDir: 1 | -1 }) {
+  if (sortKey !== col) return <ChevronsUpDown size={12} className="inline ml-1 text-[#B8BCC4]" />;
+  return sortDir === 1
+    ? <ArrowUp size={12} className="inline ml-1 text-[#E6002D]" />
+    : <ArrowDown size={12} className="inline ml-1 text-[#E6002D]" />;
+}
+
 export default function WeddingGuestsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [eventId, setEventId] = useState<string | null>(() => searchParams?.get('event') || null);
-  const [resolving, setResolving] = useState(true);
+  const initialEventId = searchParams?.get('event') || null;
+  const [eventId, setEventId] = useState<string | null>(initialEventId);
+  const [resolving, setResolving] = useState(() => !initialEventId);
   const [noWedding, setNoWedding] = useState(false);
   const [step, setStep] = useState<StepId>('add');
   const [saving, setSaving] = useState(false);
@@ -38,7 +45,7 @@ export default function WeddingGuestsPage() {
 
   // ─── Tự resolve event đám cưới (giống wedding dashboard, không dùng EventPicker) ───
   useEffect(() => {
-    if (eventId) { setResolving(false); return; }
+    if (eventId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -108,7 +115,14 @@ export default function WeddingGuestsPage() {
   const [assignTarget, setAssignTarget] = useState<string | null>(null); // TableName đang gán
 
   // ─── Bước 4: Tiền mừng ───
-    const [giftInputs, setGiftInputs] = useState<Record<string, string>>({});
+  const [giftInputs, setGiftInputs] = useState<Record<string, string>>({});
+  const [cashierSearch, setCashierSearch] = useState('');
+  const [cashierGuestId, setCashierGuestId] = useState<string | null>(null);
+  const [cashierAmount, setCashierAmount] = useState('');
+  const [cashierMethod, setCashierMethod] = useState<'Cash' | 'Transfer'>('Cash');
+  const [cashierSaving, setCashierSaving] = useState(false);
+  const cashierAmountRef = useRef<HTMLInputElement>(null);
+  const cashierSearchRef = useRef<HTMLInputElement>(null);
 
     // ─── Tab Lời mời: lọc + sắp xếp ───
     const [invFilter, setInvFilter] = useState('all'); // 'all' | trạng thái mời
@@ -126,16 +140,16 @@ export default function WeddingGuestsPage() {
     }, [contacts]);
 
     /** Lấy SĐT khách: ưu tiên phone đã lưu (tự nhập), fallback từ contact */
-    const phoneOf = (g: WeddingGuest) => g.PhoneNumber || (g.ContactID ? contactMap[g.ContactID]?.phone : '') || '';
+    const phoneOf = useCallback((g: WeddingGuest) => g.PhoneNumber || (g.ContactID ? contactMap[g.ContactID]?.phone : '') || '', [contactMap]);
     /** Lấy Tổ chức khách: ưu tiên org đã lưu, fallback Organization1 từ contact */
-    const orgOf = (g: WeddingGuest) => g.Organization || (g.ContactID ? contactMap[g.ContactID]?.org : '') || '';
+    const orgOf = useCallback((g: WeddingGuest) => g.Organization || (g.ContactID ? contactMap[g.ContactID]?.org : '') || '', [contactMap]);
 
     // Danh sách tổ chức duy nhất (cho bộ lọc)
     const orgOptions = useMemo(() => {
       const set = new Set<string>();
       guests.forEach(g => { const o = orgOf(g); if (o) set.add(o); });
       return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
-    }, [guests, contactMap]);
+    }, [guests, orgOf]);
 
     // Danh sách khách đã lọc + sắp xếp cho Tab Lời mời (sort ổn định — không tự đẩy người đã mời xuống cuối, không xáo khi refetch)
     const filteredSortableGuests = useMemo(() => {
@@ -157,11 +171,11 @@ export default function WeddingGuestsPage() {
         return (a.GuestID || '').localeCompare(b.GuestID || '');
       });
       return list;
-    }, [guests, invFilter, orgFilter, sortKey, sortDir, contactMap]);
+    }, [guests, invFilter, orgFilter, sortKey, sortDir, orgOf, phoneOf]);
 
     // Danh sách cho Tab Tiền mừng: bỏ khách "Không liên lạc được", sort ổn định theo cột
     const giftGuests = useMemo(() => {
-      let list = guests.filter(g => (g.InvitationStatus || 'Not Sent') !== 'Unreachable');
+      const list = guests.filter(g => (g.InvitationStatus || 'Not Sent') !== 'Unreachable');
       const dir = sortDir;
       const key = sortKey;
       list.sort((a, b) => {
@@ -176,21 +190,18 @@ export default function WeddingGuestsPage() {
         return (a.GuestID || '').localeCompare(b.GuestID || '');
       });
       return list;
-    }, [guests, sortKey, sortDir, contactMap]);
+    }, [guests, sortKey, sortDir, orgOf, phoneOf]);
 
     function toggleSort(col: string) {
       if (sortKey === col) setSortDir(d => (d === 1 ? -1 : 1));
       else { setSortKey(col); setSortDir(1); }
     }
-    function SortIcon({ col }: { col: string }) {
-      if (sortKey !== col) return <ChevronsUpDown size={12} className="inline ml-1 text-[#B8BCC4]" />;
-      return sortDir === 1
-        ? <ArrowUp size={12} className="inline ml-1 text-[#E6002D]" />
-        : <ArrowDown size={12} className="inline ml-1 text-[#E6002D]" />;
-    }
-
   // ─── Thống kê ───
   const totalGift = useMemo(() => guests.reduce((s, g) => s + (g.GiftAmount || 0), 0), [guests]);
+  const totalCashGift = useMemo(() => guests.reduce((sum, guest) =>
+    sum + (guest.GiftMethod !== 'Transfer' ? (guest.GiftAmount || 0) : 0), 0), [guests]);
+  const totalTransferGift = useMemo(() => guests.reduce((sum, guest) =>
+    sum + (guest.GiftMethod === 'Transfer' ? (guest.GiftAmount || 0) : 0), 0), [guests]);
   const invitedCount = guests.filter(g => g.InvitationStatus === 'Sent' || g.InvitationStatus === 'Accepted' || g.InvitationStatus === 'Declined').length;
   const unreachableCount = guests.filter(g => g.InvitationStatus === 'Unreachable').length;
   const attendedCount = guests.filter(g => g.AttendanceStatus === 'Attended').length;
@@ -199,6 +210,14 @@ export default function WeddingGuestsPage() {
     guests.forEach(g => { if (g.TableNumber) map[g.TableNumber] = (map[g.TableNumber] || 0) + 1; });
     return map;
   }, [guests]);
+  const cashierCandidates = useMemo(() => {
+    const query = cashierSearch.trim().toLocaleLowerCase('vi');
+    if (!query) return [];
+    return giftGuests.filter(guest =>
+      guest.Name.toLocaleLowerCase('vi').includes(query) || phoneOf(guest).includes(query),
+    ).slice(0, 6);
+  }, [cashierSearch, giftGuests, phoneOf]);
+  const cashierGuest = useMemo(() => guests.find(guest => guest.GuestID === cashierGuestId) || null, [cashierGuestId, guests]);
 
   async function handleAddFromContacts() {
     if (!eventId || selectedContacts.length === 0) return;
@@ -216,8 +235,8 @@ export default function WeddingGuestsPage() {
       })));
       await queryClient.invalidateQueries({ queryKey: ['wedding-guests', eventId] });
       setSelectedContacts([]); setContactSearch('');
-    } catch (e: any) {
-      setFormError(e?.message || 'Không thể thêm khách từ danh bạ');
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Không thể thêm khách từ danh bạ');
     } finally { setSaving(false); }
   }
 
@@ -239,8 +258,8 @@ export default function WeddingGuestsPage() {
       })));
       await queryClient.invalidateQueries({ queryKey: ['wedding-guests', eventId] });
       setQuickRows([{ Name: '', Organization: '', PhoneNumber: '' }]);
-    } catch (e: any) {
-      setFormError(e?.message || 'Không thể thêm khách');
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Không thể thêm khách');
     } finally { setSaving(false); }
   }
 
@@ -251,16 +270,29 @@ export default function WeddingGuestsPage() {
       await weddingService.addTable({ EventID: eventId, TableName: tableName.trim(), Capacity: tableCapacity });
       await queryClient.invalidateQueries({ queryKey: ['wedding-tables', eventId] });
       setTableName('');
-    } catch (e: any) {
-      setFormError(e?.message || 'Không thể tạo bàn');
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Không thể tạo bàn');
     } finally { setSaving(false); }
   }
 
-  async function updateGuest(id: string, updates: Record<string, unknown>) {
+  async function updateGuest(id: string, updates: Partial<WeddingGuest>) {
     try {
       await weddingService.updateGuest(id, updates);
       await queryClient.invalidateQueries({ queryKey: ['wedding-guests', eventId] });
     } catch { /* ignore */ }
+  }
+
+  async function assignGuestToTable(guestId: string, tableName: string) {
+    const table = tables.find(item => item.TableName === tableName);
+    const guest = guests.find(item => item.GuestID === guestId);
+    const occupied = guests.filter(item => item.TableNumber === tableName && item.GuestID !== guestId).length;
+    if (!table || !guest) return;
+    if (occupied >= table.Capacity) {
+      setFormError(`${tableName} đã đủ ${table.Capacity} chỗ.`);
+      return;
+    }
+    setFormError('');
+    await updateGuest(guestId, { TableNumber: tableName });
   }
 
   /** Format tiền mừng live khi gõ: chỉ giữ số, chèn dấu chấm ngàn VN */
@@ -277,6 +309,26 @@ export default function WeddingGuestsPage() {
       // (Trước đây early-return khi rỗng khiến GiftAmount cũ vẫn nằm lại DB và hiện lại sau F5)
       await updateGuest(guestId, value ? { GiftAmount: value } : { GiftAmount: null });
     }
+
+  async function handleQuickCashierSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!cashierGuestId || parseVND(cashierAmount) <= 0) return;
+    setCashierSaving(true);
+    try {
+      await weddingService.updateGuest(cashierGuestId, {
+        GiftAmount: parseVND(cashierAmount),
+        GiftMethod: cashierMethod,
+        AttendanceStatus: 'Attended',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['wedding-guests', eventId] });
+      setCashierSearch('');
+      setCashierGuestId(null);
+      setCashierAmount('');
+      window.setTimeout(() => cashierSearchRef.current?.focus(), 0);
+    } finally {
+      setCashierSaving(false);
+    }
+  }
 
   async function handleDelete(id: string) {
     try {
@@ -297,8 +349,6 @@ export default function WeddingGuestsPage() {
 
   const invLabel: Record<string, string> = { 'Not Sent': 'Chưa mời', Sent: 'Đã mời', Unreachable: 'Không liên lạc được' };
   const attLabel: Record<string, string> = { Pending: 'Chờ', Attended: 'Đã đến', 'Not Attended': 'Không đến' };
-  const tableByName = useMemo(() => new Map(tables.map(t => [t.TableName, t])), [tables]);
-
   return (
     <div className="page-content min-h-[80vh]">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5">
@@ -530,21 +580,37 @@ export default function WeddingGuestsPage() {
                           {assignTarget === t.TableName ? 'Xong' : '+ Gán khách'}
                         </button>
                       </div>
-                      <div className="space-y-1.5 min-h-[30px]">
-                        {tableGuests.length === 0 ? (
-                          <p className="text-[11.5px] text-[#9CA3AF] italic">Chưa có khách</p>
-                        ) : tableGuests.map(g => (
-                          <div key={g.GuestID} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[8px] bg-[rgba(0,0,0,0.03)]">
-                            <span className="text-[12.5px] text-[#111] truncate">{g.Name}</span>
-                            <button
-                              onClick={() => updateGuest(g.GuestID!, { TableNumber: null })}
-                              className="text-[#9CA3AF] hover:text-[#FF3B30] transition-colors shrink-0"
-                              title="Bỏ khỏi bàn"
-                            >
-                              <X size={13} />
-                            </button>
-                          </div>
-                        ))}
+                      {/* Sơ đồ ghế: mỗi ghế có avatar/tên khách hoặc nút + để xếp nhanh */}
+                      <div className={`grid gap-2 ${capacity === 6 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
+                        {Array.from({ length: capacity }, (_, seatIndex) => {
+                          const guest = tableGuests[seatIndex];
+                          if (!guest) {
+                            return (
+                              <button
+                                key={`empty-${seatIndex}`}
+                                onClick={() => { if (!full) setAssignTarget(t.TableName); }}
+                                disabled={full}
+                                className="min-h-[54px] rounded-[10px] border border-dashed border-[rgba(0,122,255,0.28)] bg-[#007AFF]/[0.025] text-[#007AFF] flex flex-col items-center justify-center gap-1 hover:bg-[#007AFF]/[0.08] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                title={`Thêm khách vào ghế ${seatIndex + 1}`}
+                              >
+                                <Plus size={16} />
+                                <span className="text-[9px] font-semibold">Ghế trống</span>
+                              </button>
+                            );
+                          }
+                          const initials = guest.Name.split(/\s+/).filter(Boolean).slice(-2).map(name => name[0]).join('').toUpperCase();
+                          return (
+                            <div key={guest.GuestID} className="relative min-h-[54px] rounded-[10px] border border-[rgba(0,0,0,0.05)] bg-white px-2 py-2 flex items-center gap-2 shadow-sm">
+                              <div className="w-7 h-7 rounded-full shrink-0 bg-[#E6002D]/10 text-[#E6002D] flex items-center justify-center text-[9px] font-bold">{initials || '?'}</div>
+                              <span className="min-w-0 flex-1 text-[10px] font-semibold text-[#374151] leading-snug line-clamp-2">{guest.Name}</span>
+                              <button
+                                onClick={() => updateGuest(guest.GuestID!, { TableNumber: null })}
+                                className="absolute -right-1 -top-1 w-4 h-4 rounded-full bg-white border border-black/[0.08] text-[#9CA3AF] hover:text-[#FF3B30] hover:border-[#FF3B30]/30 flex items-center justify-center transition-colors"
+                                title="Bỏ khỏi bàn"
+                              ><X size={10} /></button>
+                            </div>
+                          );
+                        })}
                       </div>
                       {/* Chọn khách gán vào bàn */}
                       {assignTarget === t.TableName && (
@@ -552,7 +618,7 @@ export default function WeddingGuestsPage() {
                           <select
                             value=""
                             onChange={e => {
-                              if (e.target.value) updateGuest(e.target.value, { TableNumber: t.TableName });
+                              if (e.target.value) assignGuestToTable(e.target.value, t.TableName);
                             }}
                             className="w-full h-[36px] px-2.5 rounded-[8px] border border-[rgba(0,0,0,0.08)] text-[12px] text-[#111] bg-white outline-none focus:border-[#E6002D] transition-all"
                           >
@@ -623,11 +689,11 @@ export default function WeddingGuestsPage() {
                                   <table className="w-full border-collapse">
                                     <thead>
                                       <tr className="bg-[rgba(0,0,0,0.02)] border-b border-[rgba(0,0,0,0.03)]">
-                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Name')}>Tên khách <SortIcon col="Name" /></th>
-                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Org')}>Tổ chức <SortIcon col="Org" /></th>
-                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" /></th>
-                                        <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Status')}>Trạng thái mời <SortIcon col="Status" /></th>
-                                        <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Table')}>Bàn <SortIcon col="Table" /></th>
+                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Name')}>Tên khách <SortIcon col="Name" sortKey={sortKey} sortDir={sortDir} /></th>
+                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Org')}>Tổ chức <SortIcon col="Org" sortKey={sortKey} sortDir={sortDir} /></th>
+                                        <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" sortKey={sortKey} sortDir={sortDir} /></th>
+                                        <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Status')}>Trạng thái mời <SortIcon col="Status" sortKey={sortKey} sortDir={sortDir} /></th>
+                                        <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Table')}>Bàn <SortIcon col="Table" sortKey={sortKey} sortDir={sortDir} /></th>
                                         <th className="py-2.5 px-4 text-center w-[40px]"></th>
                                       </tr>
                                     </thead>
@@ -660,7 +726,7 @@ export default function WeddingGuestsPage() {
                                           <td className="py-3 px-4 text-center">
                                             <select
                                               value={guest.TableNumber || ''}
-                                              onChange={e => updateGuest(guest.GuestID!, { TableNumber: e.target.value || null })}
+                                              onChange={e => e.target.value ? assignGuestToTable(guest.GuestID!, e.target.value) : updateGuest(guest.GuestID!, { TableNumber: null })}
                                               className="text-[11.5px] font-medium rounded-[6px] border border-[rgba(0,0,0,0.08)] outline-none cursor-pointer px-1.5 py-1 bg-white text-[#5F6368]"
                                             >
                                               <option value="">—</option>
@@ -707,7 +773,7 @@ export default function WeddingGuestsPage() {
                                         </select>
                                         <select
                                           value={guest.TableNumber || ''}
-                                          onChange={e => updateGuest(guest.GuestID!, { TableNumber: e.target.value || null })}
+                                          onChange={e => e.target.value ? assignGuestToTable(guest.GuestID!, e.target.value) : updateGuest(guest.GuestID!, { TableNumber: null })}
                                           className="text-[11.5px] font-medium rounded-[6px] border border-[rgba(0,0,0,0.08)] outline-none cursor-pointer px-1.5 py-1 bg-white text-[#5F6368]"
                                         >
                                           <option value="">Bàn: —</option>
@@ -725,18 +791,66 @@ export default function WeddingGuestsPage() {
           {/* ══════════════ BƯỚC 4: ĐÃ ĐẾN & TIỀN MỪNG ══════════════ */}
           {step === 'gifts' && (
             <div>
+              <form onSubmit={handleQuickCashierSubmit} className="glass-card p-4 sm:p-5 mb-5 border border-[#E6002D]/15 bg-[linear-gradient(135deg,rgba(255,240,242,0.9),rgba(255,255,255,0.82))]">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+                  <div>
+                    <div className="flex items-center gap-2"><Wallet size={17} className="text-[#E6002D]" /><h3 className="text-[15px] font-bold text-[#111]">Quầy thu tiền mừng nhanh</h3></div>
+                    <p className="text-[11px] text-[#8E8E93] mt-1">Gõ tên → chọn khách → nhập tiền → nhấn Enter để lưu ngay.</p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-[#E6002D] bg-[#E6002D]/8 px-2.5 py-1 rounded-full">Phím Enter để lưu</span>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(180px,0.7fr)_auto] lg:items-start">
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-[18px] -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
+                    <input
+                      ref={cashierSearchRef}
+                      value={cashierSearch}
+                      onChange={e => { setCashierSearch(e.target.value); setCashierGuestId(null); }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && cashierCandidates[0]) {
+                          e.preventDefault();
+                          setCashierGuestId(cashierCandidates[0].GuestID!);
+                          setCashierAmount(cashierCandidates[0].GiftAmount ? formatVND(cashierCandidates[0].GiftAmount) : '');
+                          window.setTimeout(() => cashierAmountRef.current?.focus(), 0);
+                        }
+                      }}
+                      placeholder="Tìm tên hoặc số điện thoại khách..."
+                      className="w-full h-[38px] pl-9 pr-3 rounded-[10px] border border-black/[0.09] bg-white text-[13px] outline-none focus:border-[#E6002D]"
+                    />
+                    {cashierCandidates.length > 0 && !cashierGuestId && (
+                      <div className="absolute z-20 top-[43px] inset-x-0 rounded-[11px] border border-black/[0.07] bg-white shadow-xl overflow-hidden">
+                        {cashierCandidates.map(guest => (
+                          <button key={guest.GuestID} type="button" onClick={() => { setCashierGuestId(guest.GuestID!); setCashierAmount(guest.GiftAmount ? formatVND(guest.GiftAmount) : ''); window.setTimeout(() => cashierAmountRef.current?.focus(), 0); }} className="w-full px-3 py-2.5 flex items-center gap-2 text-left hover:bg-[#FFF5F6] transition-colors">
+                            <span className="w-7 h-7 rounded-full bg-[#E6002D]/10 text-[#E6002D] flex items-center justify-center text-[10px] font-bold">{guest.Name.charAt(0).toUpperCase()}</span>
+                            <span className="min-w-0"><span className="block text-[12px] font-semibold text-[#111] truncate">{guest.Name}</span><span className="block text-[10px] text-[#8E8E93]">{phoneOf(guest) || guest.TableNumber || 'Khách mời'}</span></span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {cashierGuest && <div className="mt-2 flex items-center gap-2 text-[11px] text-[#5F6368]"><span className="w-5 h-5 rounded-full bg-[#34C759]/10 text-[#34C759] inline-flex items-center justify-center"><CheckCheck size={12} /></span><span>Đang thu: <strong className="text-[#111]">{cashierGuest.Name}</strong></span><button type="button" onClick={() => { setCashierGuestId(null); setCashierAmount(''); }} className="text-[#E6002D]">Đổi</button></div>}
+                  </div>
+                  <div>
+                    <div className="relative"><input ref={cashierAmountRef} value={cashierAmount} onChange={e => { const digits = e.target.value.replace(/\D/g, ''); setCashierAmount(digits ? formatVND(Number(digits)) : ''); }} inputMode="numeric" placeholder="Số tiền mừng" className="w-full h-[38px] px-3 pr-7 rounded-[10px] border border-black/[0.09] bg-white text-[13px] font-semibold text-right outline-none focus:border-[#E6002D]" /><span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#8E8E93]">đ</span></div>
+                    <div className="flex flex-wrap gap-1 mt-2">{[500000, 1000000, 2000000, 5000000].map(amount => <button key={amount} type="button" onClick={() => { setCashierAmount(formatVND(amount)); cashierAmountRef.current?.focus(); }} className="h-[24px] px-2 rounded-[6px] bg-white border border-black/[0.07] text-[9.5px] font-semibold text-[#5F6368] hover:border-[#E6002D]/30 hover:text-[#E6002D]">{amount >= 1000000 ? `${amount / 1000000}M` : '500k'}</button>)}</div>
+                  </div>
+                  <div className="flex gap-2 lg:flex-col xl:flex-row">
+                    <div className="flex h-[38px] rounded-[10px] border border-black/[0.09] bg-white p-0.5"><button type="button" onClick={() => setCashierMethod('Cash')} className={`px-2.5 rounded-[7px] text-[10px] font-semibold transition-colors ${cashierMethod === 'Cash' ? 'bg-[#34C759]/12 text-[#228B45]' : 'text-[#8E8E93]'}`}>Tiền mặt</button><button type="button" onClick={() => setCashierMethod('Transfer')} className={`px-2.5 rounded-[7px] text-[10px] font-semibold transition-colors ${cashierMethod === 'Transfer' ? 'bg-[#007AFF]/10 text-[#007AFF]' : 'text-[#8E8E93]'}`}>Chuyển khoản</button></div>
+                    <button type="submit" disabled={!cashierGuestId || parseVND(cashierAmount) <= 0 || cashierSaving} className="h-[38px] px-3.5 rounded-[10px] bg-[#E6002D] text-white text-[11px] font-bold inline-flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"><CheckCheck size={14} />{cashierSaving ? 'Đang lưu' : 'Thu tiền'}</button>
+                  </div>
+                </div>
+              </form>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                 <div className="glass-card p-4">
-                  <p className="text-[11px] font-semibold text-[#8E8E93] mb-1">Tổng khách</p>
-                  <p className="text-[22px] font-bold text-[#111]">{guests.length}</p>
+                  <p className="text-[11px] font-semibold text-[#8E8E93] mb-1">Tiền mặt</p>
+                  <p className="text-[20px] font-bold text-[#34C759]">{formatVND(totalCashGift)} đ</p>
                 </div>
                 <div className="glass-card p-4">
-                  <p className="text-[11px] font-semibold text-[#8E8E93] mb-1">Đã đến</p>
+                  <p className="text-[11px] font-semibold text-[#8E8E93] mb-1">Chuyển khoản</p>
+                  <p className="text-[20px] font-bold text-[#007AFF]">{formatVND(totalTransferGift)} đ</p>
+                </div>
+                <div className="glass-card p-4">
+                  <p className="text-[11px] font-semibold text-[#8E8E93] mb-1">Khách đã đến</p>
                   <p className="text-[22px] font-bold text-[#34C759]">{attendedCount}</p>
-                </div>
-                <div className="glass-card p-4">
-                  <p className="text-[11px] font-semibold text-[#8E8E93] mb-1">Không đến</p>
-                  <p className="text-[22px] font-bold text-[#FF3B30]">{guests.length - attendedCount}</p>
                 </div>
                 <div className="glass-card p-4">
                   <p className="text-[11px] font-semibold text-[#8E8E93] mb-1 flex items-center gap-1"><Wallet size={11} /> Tổng tiền mừng</p>
@@ -752,12 +866,12 @@ export default function WeddingGuestsPage() {
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-[rgba(0,0,0,0.02)] border-b border-[rgba(0,0,0,0.03)]">
-                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Name')}>Tên khách <SortIcon col="Name" /></th>
-                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Org')}>Tổ chức <SortIcon col="Org" /></th>
-                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" /></th>
-                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Status')}>Đã đến? <SortIcon col="Status" /></th>
+                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Name')}>Tên khách <SortIcon col="Name" sortKey={sortKey} sortDir={sortDir} /></th>
+                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Org')}>Tổ chức <SortIcon col="Org" sortKey={sortKey} sortDir={sortDir} /></th>
+                          <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Phone')}>SĐT <SortIcon col="Phone" sortKey={sortKey} sortDir={sortDir} /></th>
+                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Status')}>Đã đến? <SortIcon col="Status" sortKey={sortKey} sortDir={sortDir} /></th>
                           <th className="py-2.5 px-4 text-left text-[11px] font-semibold text-[#8E8E93] uppercase">Tiền mừng (VND)</th>
-                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Table')}>Bàn <SortIcon col="Table" /></th>
+                          <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-[#8E8E93] uppercase cursor-pointer select-none" onClick={() => toggleSort('Table')}>Bàn <SortIcon col="Table" sortKey={sortKey} sortDir={sortDir} /></th>
                         </tr>
                       </thead>
                       <tbody>

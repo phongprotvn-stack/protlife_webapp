@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X, Sparkles, UsersRound, Heart, ChevronDown, LayoutList, Handshake, Cake, Plane, BriefcaseBusiness, Dumbbell, Hospital, Utensils, Phone, ShoppingCart, GraduationCap, PartyPopper, Gamepad2, Pin } from 'lucide-react';
+import { Plus, Search, Calendar, RefreshCw, ChevronLeft, ChevronRight, MapPin, ArrowUpDown, Users, SlidersHorizontal, X, UsersRound, Heart, ChevronDown, LayoutList, Handshake, Cake, Plane, BriefcaseBusiness, Dumbbell, Hospital, Utensils, Phone, ShoppingCart, GraduationCap, PartyPopper, Gamepad2, Pin } from 'lucide-react';
 import { EventCard } from '@/components/events/event-card';
 import { ListPagination } from '@/components/shared/list-pagination';
 import { eventService } from '@/lib/services/event-service';
@@ -30,12 +29,30 @@ const EVENT_TYPES = [
 
 type SortField = 'Title' | 'EventType' | 'StartDate' | 'Place' | 'Cost' | 'Participants';
 type SortDir = 'asc' | 'desc';
+type ParticipantWithContact = {
+  EventID: string;
+  ContactID: string | null;
+  contacts: { Name: string } | null;
+};
+
+function subscribeDesktop(listener: () => void) {
+  window.addEventListener('resize', listener);
+  return () => window.removeEventListener('resize', listener);
+}
+
+function getDesktopSnapshot() {
+  return window.innerWidth >= 768;
+}
+
+function getDesktopServerSnapshot() {
+  return false;
+}
 
 export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('');
     const router = useRouter();
-    const [isDesktop, setIsDesktop] = useState(false);
+    const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktopSnapshot, getDesktopServerSnapshot);
     const [currentPage, setCurrentPage] = useState(1);
     const [sortField, setSortField] = useState<SortField>('StartDate');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -51,8 +68,6 @@ export default function EventsPage() {
 
   const selectEvent = useAppStore((s) => s.selectEvent);
   const refreshKey = useAppStore((s) => s.refreshKey);
-
-  useEffect(() => { setIsDesktop(window.innerWidth >= 768); }, []);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['events', refreshKey],
@@ -79,7 +94,7 @@ export default function EventsPage() {
         const names: Record<string, string[]> = {};
         const contactIds: Record<string, string[]> = {};
         if (participants) {
-          participants.forEach((p: any) => {
+          (participants as unknown as ParticipantWithContact[]).forEach((p) => {
             counts[p.EventID] = (counts[p.EventID] || 0) + 1;
             if (!names[p.EventID]) names[p.EventID] = [];
             if (!contactIds[p.EventID]) contactIds[p.EventID] = [];
@@ -128,7 +143,7 @@ export default function EventsPage() {
   }, [contacts, participantSearch, selectedParticipantId]);
 
   const processed = useMemo(() => {
-    let f = events.filter((e) => {
+    const f = events.filter((e) => {
       // Type filter
       if (activeFilter && e.EventType !== activeFilter) return false;
       // Title search
@@ -287,31 +302,19 @@ export default function EventsPage() {
             <button onClick={() => refetch()} className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(0,0,0,0.04)] flex items-center justify-center">
               <RefreshCw size={15} className="text-[#8E8E93]" />
             </button>
-            <button onClick={() => router.push('/events/add')}
-              className="w-[38px] h-[38px] rounded-[10px] bg-[#E6002D] text-white flex items-center justify-center shadow-md active:scale-90">
-              <Plus size={18} strokeWidth={2.5} />
-            </button>
-            <div className="relative">
-              <button onClick={() => setShowBigMenu(v => !v)}
-                className="h-[38px] px-3 rounded-[10px] text-white flex items-center gap-1 text-[12px] font-semibold shadow-md active:scale-90 bg-gradient-to-r from-[#7B2FF7] to-[#E6002D]">
-                <Sparkles size={14} /> Sự kiện lớn
+            <div className="relative flex overflow-visible rounded-[10px] shadow-md">
+              <button onClick={() => router.push('/events/add')}
+                className="h-[38px] px-3 rounded-l-[10px] bg-[#E6002D] text-white flex items-center justify-center gap-1.5 text-[12px] font-semibold active:scale-95">
+                <Plus size={17} strokeWidth={2.5} /> Thêm
+              </button>
+              <button onClick={() => setShowBigMenu(v => !v)} aria-label="Mở cột mốc cuộc đời"
+                className="w-[34px] h-[38px] rounded-r-[10px] border-l border-white/25 bg-[#C90028] text-white flex items-center justify-center active:scale-95">
+                <ChevronDown size={15} className={`transition-transform ${showBigMenu ? 'rotate-180' : ''}`} />
               </button>
               {showBigMenu && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setShowBigMenu(false)} />
-                  <div className="absolute right-0 top-[44px] z-40 w-[260px] bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] shadow-xl p-2">
-                    <button
-                      onClick={() => { setShowBigMenu(false); router.push('/events/group/new'); }}
-                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
-                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(0,122,255,0.1)] flex items-center justify-center shrink-0">
-                        <UsersRound size={17} className="text-[#007AFF]" />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-bold text-[#111]">Sự kiện nhóm</p>
-                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Quỹ chung, chia tiền Splitwise cho chuyến đi / nhóm bạn</p>
-                      </div>
-                    </button>
-                    <div className="h-px bg-[rgba(0,0,0,0.06)] my-1" />
+                  <div className="absolute right-0 top-[44px] z-40 w-[280px] bg-white/95 backdrop-blur-xl rounded-[14px] border border-[rgba(0,0,0,0.06)] shadow-xl p-2">
                     <button
                       onClick={() => { setShowBigMenu(false); router.push('/events/wedding'); }}
                       className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
@@ -319,8 +322,20 @@ export default function EventsPage() {
                         <Heart size={17} className="text-[#E6002D]" />
                       </div>
                       <div>
-                        <p className="text-[13px] font-bold text-[#111]">Đám cưới</p>
-                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Ngân sách, khách mời, checklist tổ chức đám cưới</p>
+                        <p className="text-[13px] font-bold text-[#111]">💍 Đám cưới</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Wedding Planner: ngân sách, khách mời và checklist trọn gói</p>
+                      </div>
+                    </button>
+                    <div className="h-px bg-[rgba(0,0,0,0.06)] my-1" />
+                    <button
+                      onClick={() => { setShowBigMenu(false); router.push('/events/group/new'); }}
+                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
+                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(0,122,255,0.1)] flex items-center justify-center shrink-0">
+                        <UsersRound size={17} className="text-[#007AFF]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-bold text-[#111]">👥 Sự kiện nhóm</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Quỹ chung, chia tiền Splitwise cho chuyến đi / nhóm bạn</p>
                       </div>
                     </button>
                   </div>
@@ -400,32 +415,20 @@ export default function EventsPage() {
                   }`}><t.icon size={13} strokeWidth={2} />{t.label}</button>
               ))}
             </div>
-            <button onClick={() => router.push('/events/add')}
-              className="h-[38px] px-4 rounded-[8px] bg-[#E6002D] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all shadow-sm shrink-0">
-              <Plus size={16} strokeWidth={2.5} /> Thêm sự kiện
-            </button>
-            {/* Thêm sự kiện lớn — dropdown menu */}
-            <div className="relative shrink-0">
-              <button onClick={() => setShowBigMenu(v => !v)}
-                className="h-[38px] px-4 rounded-[8px] text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-md shrink-0 bg-gradient-to-r from-[#7B2FF7] to-[#E6002D] hover:opacity-90">
-                <Sparkles size={15} /> Thêm sự kiện lớn <ChevronDown size={13} className={`transition-transform ${showBigMenu ? 'rotate-180' : ''}`} />
+            {/* Action Hub: nhấn chính để tạo nhanh, mũi tên mở các cột mốc lớn. */}
+            <div className="relative shrink-0 flex rounded-[8px] shadow-sm">
+              <button onClick={() => router.push('/events/add')}
+                className="h-[38px] px-4 rounded-l-[8px] bg-[#E6002D] text-white text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[#D40028] transition-all">
+                <Plus size={16} strokeWidth={2.5} /> Thêm sự kiện
+              </button>
+              <button onClick={() => setShowBigMenu(v => !v)} aria-label="Mở cột mốc cuộc đời"
+                className="w-[34px] h-[38px] rounded-r-[8px] border-l border-white/25 bg-[#C90028] text-white flex items-center justify-center hover:bg-[#B80025] transition-all">
+                <ChevronDown size={14} className={`transition-transform ${showBigMenu ? 'rotate-180' : ''}`} />
               </button>
               {showBigMenu && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setShowBigMenu(false)} />
-                  <div className="absolute right-0 top-[44px] z-40 w-[260px] bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] shadow-xl p-2">
-                    <button
-                      onClick={() => { setShowBigMenu(false); router.push('/events/group/new'); }}
-                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
-                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(0,122,255,0.1)] flex items-center justify-center shrink-0">
-                        <UsersRound size={17} className="text-[#007AFF]" />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-bold text-[#111]">Sự kiện nhóm</p>
-                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Quỹ chung, chia tiền Splitwise cho chuyến đi / nhóm bạn</p>
-                      </div>
-                    </button>
-                    <div className="h-px bg-[rgba(0,0,0,0.06)] my-1" />
+                  <div className="absolute right-0 top-[44px] z-40 w-[280px] bg-white/95 backdrop-blur-xl rounded-[14px] border border-[rgba(0,0,0,0.06)] shadow-xl p-2">
                     <button
                       onClick={() => { setShowBigMenu(false); router.push('/events/wedding'); }}
                       className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
@@ -433,8 +436,20 @@ export default function EventsPage() {
                         <Heart size={17} className="text-[#E6002D]" />
                       </div>
                       <div>
-                        <p className="text-[13px] font-bold text-[#111]">Đám cưới</p>
-                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Ngân sách, khách mời, checklist tổ chức đám cưới</p>
+                        <p className="text-[13px] font-bold text-[#111]">💍 Đám cưới</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Wedding Planner: ngân sách, khách mời và checklist trọn gói</p>
+                      </div>
+                    </button>
+                    <div className="h-px bg-[rgba(0,0,0,0.06)] my-1" />
+                    <button
+                      onClick={() => { setShowBigMenu(false); router.push('/events/group/new'); }}
+                      className="w-full flex items-start gap-3 p-3 rounded-[10px] hover:bg-[rgba(0,0,0,0.03)] transition-all text-left">
+                      <div className="w-9 h-9 rounded-[10px] bg-[rgba(0,122,255,0.1)] flex items-center justify-center shrink-0">
+                        <UsersRound size={17} className="text-[#007AFF]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-bold text-[#111]">👥 Sự kiện nhóm</p>
+                        <p className="text-[11px] text-[#8E8E93] mt-0.5 leading-snug">Quỹ chung, chia tiền Splitwise cho chuyến đi / nhóm bạn</p>
                       </div>
                     </button>
                   </div>
@@ -451,12 +466,12 @@ export default function EventsPage() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[rgba(0,0,0,0.02)]">
-                  <TH label="Tiêu đề" field="Title" current={sortField} dir={sortDir} onSort={handleSort} />
-                  <TH label="Loại" field="EventType" current={sortField} dir={sortDir} onSort={handleSort} width="90px" />
-                  <TH label="Ngày" field="StartDate" current={sortField} dir={sortDir} onSort={handleSort} width="110px" center />
-                  <TH label="Địa điểm" field="Place" current={sortField} dir={sortDir} onSort={handleSort} width="120px" />
-                  <TH label="Người tham gia" field="Participants" current={sortField} dir={sortDir} onSort={handleSort} width="80px" center />
-                  <TH label="Chi phí" field="Cost" current={sortField} dir={sortDir} onSort={handleSort} width="100px" center />
+                  <TH label="Tiêu đề" field="Title" current={sortField} onSort={handleSort} />
+                  <TH label="Loại" field="EventType" current={sortField} onSort={handleSort} width="90px" />
+                  <TH label="Ngày" field="StartDate" current={sortField} onSort={handleSort} width="110px" center />
+                  <TH label="Địa điểm" field="Place" current={sortField} onSort={handleSort} width="120px" />
+                  <TH label="Người tham gia" field="Participants" current={sortField} onSort={handleSort} width="80px" center />
+                  <TH label="Chi phí" field="Cost" current={sortField} onSort={handleSort} width="100px" center />
                 </tr>
               </thead>
               <tbody>
@@ -507,7 +522,7 @@ export default function EventsPage() {
   );
 }
 
-function TH({ label, field, current, dir, onSort, width, center }: { label: string; field: SortField; current: SortField; dir: SortDir; onSort: (f: SortField) => void; width?: string; center?: boolean }) {
+function TH({ label, field, current, onSort, width, center }: { label: string; field: SortField; current: SortField; onSort: (f: SortField) => void; width?: string; center?: boolean }) {
   const active = current === field;
   return (
     <th onClick={() => onSort(field)}
