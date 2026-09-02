@@ -267,28 +267,26 @@ function OrgCombobox({ value, list, search, open, onOpen, onClose, onSearch, onS
     <div className="relative" onBlur={()=>setTimeout(()=>onClose(),150)}>
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
-          <input value={value} onChange={(e)=>onSelect(e.target.value)} onFocus={onOpen}
+          <input
+            value={open ? search : value}
+            onChange={(e)=>{ if (!open) onOpen(); onSearch(e.target.value); }}
+            onFocus={()=>{ onOpen(); onSearch(''); }}
             className="input-glass text-[16px] w-full pr-8" placeholder={placeholder} />
-          <button type="button" onClick={()=>{if(open)onClose();else onOpen();}}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93]"><ChevronDown size={14}/></button>
+          <button type="button" aria-label={`${open ? 'Đóng' : 'Mở'} danh sách tổ chức`} onMouseDown={(e)=>e.preventDefault()} onClick={()=>{if(open)onClose();else onOpen();}}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8E8E93] p-1"><ChevronDown size={14}/></button>
         </div>
       </div>
       {open && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-[10px] shadow-lg border border-[rgba(0,0,0,0.06)] z-50 max-h-[240px] flex flex-col overflow-hidden">
-          <div className="p-2 border-b border-[rgba(0,0,0,0.04)]">
-            <input value={search} onChange={(e)=>onSearch(e.target.value)}
-              className="w-full text-[12px] px-2.5 py-1.5 rounded-[6px] bg-[rgba(0,0,0,0.04)] placeholder:text-[#B0B0B8] outline-none"
-              placeholder="Tìm kiếm..."/>
-          </div>
           <div className="flex-1 overflow-y-auto">
-            {filtered.map((item) => (
+            {filtered.length > 0 ? filtered.map((item) => (
               <div key={item} className="flex items-center justify-between px-3 py-2 hover:bg-[rgba(0,0,0,0.03)]">
                 <button type="button" onClick={() => { onSelect(item); onClose(); }}
                   className="flex-1 text-left text-[12px] text-[#111]">{item}</button>
                 <button type="button" onClick={() => onDelete(item)}
                   className="p-1 rounded hover:bg-[rgba(230,0,45,0.06)] text-[#E6002D]/50 hover:text-[#E6002D]"><X size={12}/></button>
               </div>
-            ))}
+            )) : <p className="px-3 py-3 text-center text-[12px] text-[#8E8E93]">Không tìm thấy tổ chức</p>}
           </div>
           <div className="p-2 border-t border-[rgba(0,0,0,0.04)]">
             <button type="button" onClick={()=>{onAdd();}} disabled={!search.trim()||list.includes(search.trim())}
