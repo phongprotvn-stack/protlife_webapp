@@ -15,6 +15,7 @@ import { getUserDevices, deleteOtherDevices, getCurrentDeviceId, formatDeviceNam
 import type { UserDevice } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
 import { DateInput } from '@/components/ui/date-input';
+import { APP_VERSION } from '@/lib/app-version';
 
 // Các modal xuất/nhập dữ liệu kéo theo thư viện nặng (xlsx, docx, jspdf, html2canvas,
 // papaparse ~1.5MB). Dynamic import để chúng chỉ tải khi mở modal — giảm bundle
@@ -374,6 +375,15 @@ export default function SettingsPage() {
             </Card>
 
             <div>
+              <Card title="Phiên bản ứng dụng">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-bold">PROT LIFE</div>
+                    <div className="text-[11.5px] text-[#6B7280] mt-0.5">Phiên bản hiện tại trên thiết bị</div>
+                  </div>
+                  <span className="px-3 py-1.5 rounded-full text-[12px] font-extrabold text-[var(--color-primary)] bg-[rgba(230,0,45,.08)]">v{APP_VERSION}</span>
+                </div>
+              </Card>
               <Card title="Bảo mật">
                 <Btn onClick={() => setShowChangePassword(true)}>Đổi mật khẩu</Btn>
                 <Btn onClick={() => { setShowDevices(true); loadDevices(); }}>📱 Quản lý thiết bị</Btn>

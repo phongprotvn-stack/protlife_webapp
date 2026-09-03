@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ShieldCheck, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { loadSettingsFromServer } from '@/stores/settings-store';
+import { APP_VERSION } from '@/lib/app-version';
 import { recordDeviceLogin } from '@/lib/services/device-service';
 import { supabase } from '@/lib/supabase/client';
 
@@ -443,7 +444,7 @@ export default function LoginPage() {
 
             {/* Version */}
             <div className="text-center mt-[20px] text-[10px] font-medium tracking-[.3px]" style={{ color: 'rgba(142,142,147,.4)' }}>
-              © 2026 PROT LIFE v1.1.0 — All rights reserved
+              © 2026 PROT LIFE v{APP_VERSION} — All rights reserved
             </div>
 
             {/* Footer mobile */}

@@ -18,6 +18,7 @@ import {
   FileText, Target, BarChart3, Cpu, Settings, Plus, LogOut,
   Sparkles, BookHeart
 } from 'lucide-react';
+import { APP_VERSION } from '@/lib/app-version';
 
 const NAV_ITEMS = [
   { label: 'Trang chủ',   icon: LayoutDashboard,  href: '/dashboard' },
@@ -128,7 +129,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <div className="flex items-center justify-between mt-2 px-2">
-              <span className="text-[9px] text-[#B0B0B8] font-medium">PROT LIFE v1.1.0</span>
+              <span className="text-[9px] text-[#B0B0B8] font-medium">PROT LIFE v{APP_VERSION}</span>
               <span className="text-[9px] text-[#B0B0B8] font-medium">All rights reserved</span>
             </div>
           </div>
